@@ -1,0 +1,41 @@
+# dependencies / build
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+
+# exports (generated videos/gifs)
+public/exports/*
+!public/exports/.gitkeep
+
+# machine-local
+.claude/
+.claude/settings.local.json
+.DS_Store
+*.log
+
+# demo source originals (compressed copies live in public/demo)
+demo-images/
+out/
+
+# reference imagery pulled from the reference tool for local visual comparison
+# only. Third-party licensed stock — never commit, never deploy.
+public/demo-arqe/
+
+# local env (holds the demo-set override; never commit)
+.env*.local
+
+# contact sheets from scripts/shoot.cjs — generated, and rendered with whatever
+# demo set is active (may be third-party reference imagery)
+.shots/
+
+# Private working notes, test captures and imported media are not source code.
+verification/
+EVOLUCAO.md
+.env
+.env.*
+!.env.example
+*.motion.zip
+
+# Machine-generated duplicate icon files; retain locally, never publish.
+app/icon [0-9]*.svg
+public/apple-touch-icon* [0-9]*.png

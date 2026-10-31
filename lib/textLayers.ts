@@ -1,0 +1,222 @@
+import { idbGet, idbPut } from './assetDb';
+import { drawTextShadow, type TextShadowSettings } from './textShadow';
+import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
+
+export interface TextLayer {
+  id: string; text: string; font: string; weight: number; size: number;
+  color: string; x: number; y: number; rotation: number; opacity: number;
+  align: CanvasTextAlign; lineHeight: number; visible: boolean;
+  start: number; end: number;
+  locked?: boolean; stroke?: string;
+  strokeWidth?: number; fillOpacity?: number; letterSpacing?: number;
+  strokeOpacity?: number;
+  arc?: number; shadowColor?: string; shadowBlur?: number;
+  shadowX?: number; shadowY?: number; shadowOpacity?: number;
+  shadowSpread?: number; shadowType?: 'box'|'realistic'; shadowPosition?: 'outside'|'inside';
+  z?: number;
+  media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch' };
+  animation?: 'none' | 'fade' | 'rise' | 'typewriter';
+  animationDuration?: number; backdrop?: boolean;
+}
+
+export function textMotion(layer: TextLayer, seconds: number) {
+  const length = Math.max(0.01, layer.end - layer.start);
+  const duration = Math.min(length / 2, Math.max(0.05, layer.animationDuration ?? 0.35));
+  const progress = Math.max(0, Math.min(1, (seconds - layer.start) / duration));
+  const fadeOut = Math.max(0, Math.min(1, (layer.end - seconds) / duration));
+  const animated = layer.animation && layer.animation !== 'none';
+  return {
+    opacity: animated ? progress * fadeOut : 1,
+    y: layer.animation === 'rise' ? 30 * (1 - progress) ** 3 : 0,
+    text: layer.animation === 'typewriter' ? [...layer.text].slice(0, Math.ceil([...layer.text].length * progress)).join('') : layer.text,
+  };
+}
+
+export function captionFontSize(size: number, longestLine: number, canvasWidth: number) {
+  return size * Math.min(1, canvasWidth * 0.86 / Math.max(1, longestLine));
+}
+
+const images = new Map<string, HTMLImageElement>();
+let fontRevision=0;
+export function textFontRevision(){return fontRevision;}
+export function releaseOverlayOriginals(){images.forEach(image=>{image.src='';});images.clear();}
+export function overlayImage(url: string) {
+  let image = images.get(url);
+  if (!image) { image = new Image(); image.src = url; images.set(url, image); }
+  return image;
+}
+export async function registerCustomFont(file: File, weight: number) {
+  if (file.size > 20 * 1024 * 1024) throw new Error('A fonte ultrapassa 20 MB.');
+  const family = `Local ${file.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N} -]/gu, '').slice(0, 70)} ${crypto.randomUUID().slice(0, 6)}`;
+  const face = new FontFace(family, await file.arrayBuffer(), { weight: String(weight) });
+  await face.load();
+  await idbPut(`font:${family}:${weight}`, file);
+  document.fonts.add(face);
+  fontRevision++;
+  fontPromises.set(`${family}:${weight}`, Promise.resolve());
+  return family;
+}
+const fontPromises = new Map<string, Promise<void>>();
+export function ensureFont(family: string, weight: number): Promise<void> {
+  if (['Arial', 'Georgia', 'monospace', 'system-ui'].includes(family)) return Promise.resolve();
+  const key = `${family}:${weight}`;
+  const pending = fontPromises.get(key);
+  if (pending) return pending;
+  const promise = (async () => {
+    const cacheKey = `font:${key}`;
+    let blob = await idbGet(cacheKey);
+    if (!blob) {
+      // No project text or personal data is sent to Google; only family/weight.
+      const response = await fetch(`https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}&display=swap`, { signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw new Error('Fonte indisponível no Google Fonts.');
+      const css = await response.text();
+      const urls = [...css.matchAll(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g)];
+      const url = urls.at(-1)?.[1]; // Latin subset includes Portuguese characters.
+      if (!url) throw new Error('Arquivo da fonte não encontrado.');
+      const fontResponse = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!fontResponse.ok) throw new Error('Falha ao baixar a fonte.');
+      blob = await fontResponse.blob();
+      await idbPut(cacheKey, blob);
+    }
+    const face = new FontFace(family, await blob.arrayBuffer(), { weight: String(weight) });
+    await face.load();
+    document.fonts.add(face);
+    fontRevision++;
+  })().catch((error) => { fontPromises.delete(key); throw error; });
+  fontPromises.set(key, promise);
+  return promise;
+}
+
+export async function prepareTextFonts(layers: TextLayer[], originals=false) {
+  await Promise.all(layers.filter((layer) => layer.visible).map(async (layer) => {
+    if (layer.media) { if (!layer.media.url) throw new Error(`Imagem indisponível: ${layer.text}. Reabra o projeto ou importe novamente.`); if(originals)await overlayImage(layer.media.url).decode();else if(!await loadPreviewImage(layer.media.url))throw new Error(`Imagem indisponível: ${layer.text}`);return; }
+    await ensureFont(layer.font, layer.weight);
+  }));
+}
+
+// One rasterization path for Pixi, Three, the on-screen preview and capture.
+// Coordinates are scene pixels and scale with the requested export resolution.
+export class TextCompositor {
+  private canvas: HTMLCanvasElement | null = null;
+  render(source: HTMLCanvasElement, layers: TextLayer[], width: number, height: number, seconds: number, originals=false, mediaPreview:RenderImage|null=null, transparentSource=false) {
+    if (!layers.length) {
+      source.style.removeProperty('display');
+      this.canvas?.remove();
+      return source;
+    }
+    const output = this.canvas ??= document.createElement('canvas');
+    if (output.width !== source.width || output.height !== source.height) {
+      output.width = source.width; output.height = source.height;
+    }
+    output.className = 'stage-canvas text-composite';
+    output.style.setProperty('--canvas-aspect', String(width / height));
+    if (source.parentNode && output.parentNode !== source.parentNode) source.after(output);
+    source.style.display = 'none';
+    const ctx = output.getContext('2d')!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, output.width, output.height);
+    if(!transparentSource)ctx.drawImage(source, 0, 0);
+    ctx.scale(output.width / width, output.height / height);
+    for (const layer of layers) {
+      if (!layer.visible || seconds < layer.start || seconds >= layer.end) continue;
+      ctx.save();
+      const motion = textMotion(layer, seconds);
+      ctx.translate(layer.x, layer.y + motion.y);
+      ctx.rotate(layer.rotation * Math.PI / 180);
+      ctx.globalAlpha = layer.opacity * motion.opacity;
+      if (layer.media) {
+        if (layer.media.url) {
+          const image = originals?overlayImage(layer.media.url):mediaPreview??peekPreviewImage(layer.media.url);
+          const { width: w, height: h, fit } = layer.media;
+          if (image && image.width && (!('complete' in image)||image.complete)) {
+            const scale = fit === 'cover' ? Math.max(w / image.width, h / image.height) : Math.min(w / image.width, h / image.height);
+            ctx.beginPath(); ctx.rect(-w / 2, -h / 2, w, h); ctx.clip();
+            const iw = fit === 'stretch' ? w : image.width * scale, ih = fit === 'stretch' ? h : image.height * scale;
+            ctx.drawImage(image, -iw / 2, -ih / 2, iw, ih);
+          }
+        }
+        ctx.restore(); continue;
+      }
+      ctx.fillStyle = layer.color;
+      ctx.textAlign = layer.align;
+      ctx.textBaseline = 'middle';
+      ctx.font = `${layer.weight} ${layer.size}px "${layer.font}", sans-serif`;
+      let drawSize = layer.size;
+      if (layer.backdrop) {
+        const longest = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width));
+        drawSize = captionFontSize(layer.size, longest, width);
+        ctx.font = `${layer.weight} ${drawSize}px "${layer.font}", sans-serif`;
+      }
+      const lines = motion.text.split('\n');
+      if (layer.backdrop && motion.text) {
+        const textWidth = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width));
+        const boxHeight = layer.text.split('\n').length * drawSize * layer.lineHeight + 30;
+        const left = layer.align === 'left' ? -18 : layer.align === 'right' ? -textWidth - 18 : -textWidth / 2 - 18;
+        ctx.fillStyle = '#101114cc'; ctx.beginPath(); ctx.roundRect(left, -boxHeight / 2, textWidth + 36, boxHeight, 12); ctx.fill();
+        ctx.fillStyle = layer.color;
+      }
+      ctx.shadowColor = 'transparent';
+      const glyphs=(g:CanvasRenderingContext2D,paint:(text:string,x:number,y:number)=>void)=>{
+        lines.forEach((line,index)=>{
+          const y=(index-(lines.length-1)/2)*drawSize*layer.lineHeight,chars=[...line],spacing=layer.letterSpacing??0;
+          if(!spacing){paint(line,0,y);return;}
+          const widths=chars.map(char=>g.measureText(char).width),total=widths.reduce((a,b)=>a+b,0)+Math.max(0,chars.length-1)*spacing;
+          let cursor=0;g.save();g.textAlign='center';const origin=layer.align==='left'?total/2:layer.align==='right'?-total/2:0;
+          chars.forEach((char,i)=>{paint(char,origin+cursor+widths[i]/2-total/2,y);cursor+=widths[i]+spacing;});g.restore();
+        });
+      };
+      const shadow:TextShadowSettings|undefined=layer.shadowColor?{color:layer.shadowColor,opacity:layer.shadowOpacity??.5,x:layer.shadowX??0,y:layer.shadowY??0,blur:layer.shadowBlur??12,spread:layer.shadowSpread??0,type:layer.shadowType??'box',position:layer.shadowPosition??'outside'}:undefined;
+      const textWidth=Math.max(0,...lines.map(line=>ctx.measureText(line).width+Math.max(0,[...line].length-1)*(layer.letterSpacing??0)));
+      const inkPad=drawSize*.5+(layer.strokeWidth??0);
+      const shadowBounds={x:(layer.align==='left'?0:layer.align==='right'?-textWidth:-textWidth/2)-inkPad,y:-(lines.length-1)/2*drawSize*layer.lineHeight-drawSize,width:textWidth+2*inkPad,height:(lines.length-1)*drawSize*layer.lineHeight+2*drawSize};
+      const drawShadow=()=>{if(!shadow)return;drawTextShadow(ctx,output.width,output.height,output.width/width,shadow,(g,spread)=>{
+        g.font=ctx.font;g.textAlign=layer.align;g.textBaseline='middle';g.fillStyle='#fff';g.strokeStyle='#fff';g.lineJoin='round';
+        const baseWidth=layer.stroke?(layer.strokeWidth??3):0;
+        glyphs(g,(text,x,y)=>{g.fillText(text,x,y);if(baseWidth+2*Math.max(0,spread)>0){g.lineWidth=baseWidth+2*Math.max(0,spread);g.strokeText(text,x,y);}});
+        if(spread<0){g.globalCompositeOperation='destination-out';g.lineWidth=-2*spread;glyphs(g,(text,x,y)=>g.strokeText(text,x,y));g.globalCompositeOperation='source-over';}
+      },shadowBounds);};
+      if(shadow?.position==='outside')drawShadow();
+      const paint = (text: string, x: number, y: number) => {
+        if (layer.stroke && (layer.strokeWidth ?? 3) > 0) { const alpha=ctx.globalAlpha;ctx.globalAlpha*=layer.strokeOpacity??1;ctx.strokeStyle = layer.stroke; ctx.lineWidth = layer.strokeWidth ?? 3; ctx.lineJoin = 'round'; ctx.strokeText(text, x, y);ctx.globalAlpha=alpha; }
+        const alpha = ctx.globalAlpha; ctx.globalAlpha *= layer.fillOpacity ?? 1;
+        ctx.fillText(text, x, y); ctx.globalAlpha = alpha;
+      };
+      glyphs(ctx,(text,x,y)=>paint(text,x,y));
+      if(shadow?.position==='inside')drawShadow();
+      ctx.restore();
+    }
+    return output;
+  }
+  destroy() { this.canvas?.remove(); this.canvas = null; }
+}
+
+// A cached, transparent layer surface shared by both GPU backends. Static
+// overlays are rasterized only on edit/resize, not at every playback frame.
+export class OverlayRaster {
+  private source = document.createElement('canvas');
+  private compositor = new TextCompositor();
+  private signature = '';
+  private mediaUrl='';
+  private mediaPreview:RenderImage|null=null;
+  private mediaPending=false;
+  canvas: HTMLCanvasElement = this.source;
+  update(layer: TextLayer, width: number, height: number, scale: number, seconds: number, originals=false) {
+    const url=layer.media?.url??'';
+    if(url!==this.mediaUrl){this.mediaUrl=url;this.mediaPreview=null;this.mediaPending=false;}
+    if(url&&!originals&&!this.mediaPreview){this.mediaPreview=peekPreviewImage(url);if(!this.mediaPreview&&!this.mediaPending){this.mediaPending=true;void loadPreviewImage(url).then(image=>{if(this.mediaUrl===url){this.mediaPreview=image;this.mediaPending=false;}});}}
+    const image=url?(originals?overlayImage(url):this.mediaPreview):null;
+    const ready = layer.media ? !!image&&image.width>0&&(!('complete' in image)||image.complete) : document.fonts.check(`${layer.weight} ${layer.size}px "${layer.font}"`);
+    const active=layer.visible&&seconds>=layer.start&&seconds<layer.end;
+    const motion=active?textMotion(layer,seconds):null;
+    // Cache the actual appearance, not the clock. A settled entrance animation
+    // must reuse the raster until its exit starts or its properties change.
+    const signature = JSON.stringify([layer, width, height, scale, ready, active, motion, originals, fontRevision]);
+    if (signature === this.signature) return false;
+    this.signature = signature;
+    const rw=Math.max(1,Math.round(width*scale)),rh=Math.max(1,Math.round(height*scale));
+    if(this.source.width!==rw)this.source.width=rw;if(this.source.height!==rh)this.source.height=rh;
+    this.canvas = this.compositor.render(this.source, [layer], width, height, seconds, originals, this.mediaPreview,true);
+    return true;
+  }
+  destroy() { this.mediaUrl='';this.mediaPreview=null;this.compositor.destroy(); this.source.width = this.source.height = 1; }
+}

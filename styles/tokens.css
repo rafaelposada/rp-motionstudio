@@ -1,0 +1,138 @@
+/* ============================================================
+   MOTION STUDIO — DESIGN TOKENS
+   Light UI from the Figma reference (file 7NtsGHDBicdNLMt48Y6BOX,
+   node 0:2702): flat white panels separated by 1px #e5e7eb borders
+   on a #e5e7eb canvas area, Tailwind-gray palette, Inter, and
+   fully square corners. Dark theme kept under [data-theme="dark"].
+   ============================================================ */
+:root {
+  /* ---- Surfaces ---- */
+  --stage:      #eef1f5;   /* canvas area behind the preview */
+  /* Grid on the stage backdrop. Without it the canvas edge vanishes
+     whenever the scene background matches --stage — which the defaults do
+     exactly, in dark mode (#0d0d0d on #0d0d0d). */
+  --stage-dot:  rgba(0,0,0,0.085);
+  /* 1px ring around the canvas, so the frame edge is stated outright rather
+     than inferred from where the dot grid stops. */
+  --stage-edge: rgba(0,0,0,0.16);
+  /* Soft lift under the canvas, so it reads as sitting above the dotted
+     backdrop rather than being cut into it. */
+  --stage-shadow: rgba(0,0,0,0.12);
+  --card:       #ffffff;   /* panels */
+  --card-inset: #f3f5f8;   /* input tracks / wells / segmented bg */
+  --card-thumb: #e8ebf0;   /* hover chips, kbd chip */
+  --card-soft:  #f8f9fb;   /* template cards, easing editor bg */
+  --frame:      #e5e7eb;   /* canvas frame / thumb backdrop */
+  --line:       #e5e7eb;   /* hairline dividers, panel borders */
+  --line-soft:  rgba(0,0,0,0.12); /* vertical separators (timeline) */
+  --handle:     #b9bfcb;   /* slider handle bar + fill border */
+
+  /* ---- Text ---- */
+  --fg:        #111827;    /* active / selected */
+  --fg-body:   #111827;    /* primary readouts (time current, slider value) */
+  --fg-label:  #374151;    /* control labels (13px) */
+  --fg-value:  #111827;    /* slider values (12px) */
+  --fg-muted:  #6b7280;    /* eyebrows, secondary text */
+  --fg-faint:  #9ca3af;    /* inactive segments, placeholders, ruler */
+
+  /* ---- Segmented / pills active thumb ---- */
+  --seg-active-bg: #111827;
+  --seg-active-fg: #ffffff;
+
+  /* ---- Inverse (Export button, play button, logo) ---- */
+  --inverse-bg:   #111827;
+  --inverse-fg:   #ffffff;
+  --chip-bg:      #374151; /* playhead chip + line */
+  --chip-fg:      #ffffff;
+
+  /* ---- Beta marker (unfinished feature) — sits on the active dark tab ---- */
+  --beta-bg:      #ffffff;
+  --beta-fg:      #111827;
+
+  /* ---- Motion track lanes (timeline layer stack) ---- */
+  --tl-lane-h:    30px;    /* one lane row */
+  --tl-gutter-w:  86px;    /* visibility + stacking + duplicate + remove */
+  --tl-bar-idle:  #e5e7eb; /* a track bar at rest */
+  --tl-bar-idle-fg: #374151;
+  --tl-bar-on:    #111827; /* the selected track bar */
+  --tl-bar-on-fg: #ffffff;
+
+  /* ---- View gizmo axes (Blender convention: X red, Y green, Z blue).
+         Not theme-varying: the 3D stage background is user-set, not themed. ---- */
+  --gz-x:         #e05252;
+  --gz-y:         #7db72f;
+  --gz-z:         #4a86d9;
+  --gz-neg-fill:  rgba(16, 19, 26, 0.55);  /* hollow balls, readable on any wall */
+  --gz-label:     #0f1319;                 /* letters on the filled balls */
+
+  /* ---- Radii ---- */
+  --r-card:  14px;
+  --r-ctrl:  9px;
+  --r-seg:   7px;
+  --r-chip:  8px;
+  --r-nav:   11px;
+
+  /* ---- Type scale (Inter) ---- */
+  --fs-label: 13px;  /* control labels, lh 19.5 */
+  --fs-ui:    12px;  /* segments, values, buttons, time, lh 18 */
+  --fs-meta:  11px;  /* asset names, template card labels, lh 16.5 */
+  --fs-eyebrow: 10px;/* section eyebrows, Medium, tracking 1.5px */
+  --fs-micro: 9px;   /* ruler labels */
+  --lh-label: 19.5px;
+  --lh-ui:    18px;
+
+  /* ---- Spacing ---- */
+  --gutter:    10px;
+  --pad-card: 14px;   /* templates header padding */
+  --pad-sect: 20px;   /* section h-padding (right panels, timeline) */
+  --gap-row:  12px;   /* between control rows */
+  --gap-tight: 10px;  /* label → control */
+
+  /* ---- Layout ---- */
+  --rail-w:  72px;
+  --tpl-w:  260px;
+  --panel-w: 310px;
+  --bottom-h: 56px;   /* timeline bar height */
+
+  /* ---- Control metrics ---- */
+  --ctl-h:   34px;    /* track height */
+  --seg-pad: 3px;     /* segmented inset padding */
+
+  /* ---- Motion ---- */
+  --t-fast: 120ms;
+}
+
+:root[data-theme="dark"] {
+  --stage:      #0c0d0f;
+  --stage-dot:  rgba(255,255,255,0.085);
+  --stage-edge: rgba(255,255,255,0.18);
+  /* Heavier than light mode: a black shadow on a near-black stage (#0d0d0d)
+     has very little room to darken before it stops reading at all. */
+  --stage-shadow: rgba(0,0,0,0.55);
+  --card:       #17181b;
+  --card-inset: #222428;
+  --card-thumb: #2b2e33;
+  --card-soft:  #1d1f23;
+  --frame:      #0d0d0d;
+  --line:       #303030;
+  --line-soft:  rgba(255,255,255,0.14);
+  --handle:     #595959;
+  --fg:        #ffffff;
+  --fg-body:   #e8e8e8;
+  --fg-label:  #cccccc;
+  --fg-value:  #aaaaaa;
+  --fg-muted:  #a3a3a3;
+  --fg-faint:  #858585;
+  --seg-active-bg: #2d2d2d;
+  --seg-active-fg: #ffffff;
+  --inverse-bg: #ffffff;
+  --inverse-fg: #111111;
+  --chip-bg:    #cccccc;
+  --chip-fg:    #171717;
+  --beta-bg:    #ffffff;
+  --beta-fg:    #111111;
+  --tl-bar-idle:    #2d2d2d;
+  --tl-bar-idle-fg: #cccccc;
+  --tl-bar-on:      #ffffff;
+  --tl-bar-on-fg:   #111111;
+}
