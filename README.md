@@ -4,6 +4,10 @@ Editor local de composição e animação com biblioteca de modelos, camadas de 
 imagens absolutas, áudio e exportação para pastas do computador. Interface em
 português e inglês. Desenvolvimento da versão RP e direção do produto: Rafael Posada.
 
+Rafael Posada é brand designer com mais de 13 anos de experiência em branding,
+com atuação em estratégia de marca, identidade visual e presença digital para
+advogados e escritórios de advocacia. Conheça seu trabalho em [rafaelposada.com](https://rafaelposada.com/).
+
 ## Apoio, contato e feedback
 
 Quer ajudar a melhorar o RP MotionStudio e criar novas soluções? Você pode
@@ -16,6 +20,13 @@ sugestões, reportar bugs ou conversar sobre o aplicativo.
 
 O menu **Configurações → Apoio e contato** reúne os mesmos canais.
 Nenhuma cobrança é processada pelo aplicativo.
+
+## Phantom Supply
+
+A aba **Configurações → Phantom Supply** apresenta a plataforma de mockups premium
+e recursos criativos, com link para [phantom.supply](https://phantom.supply/).
+Use o cupom **RafaelPosada10** para **10% de desconto** no site da plataforma.
+O cupom também pode ser copiado diretamente pelo aplicativo.
 
 ## Executar localmente
 

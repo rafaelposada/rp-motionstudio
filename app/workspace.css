@@ -1,4 +1,20 @@
 /* Workspace controls share spacing and remain usable at the inspector minimum. */
+.support-profile {display:flex;align-items:center;gap:14px;margin-bottom:20px;}
+.support-profile-mark {display:grid;place-items:center;flex:0 0 52px;height:52px;border:1px solid var(--line);border-radius:14px;background:var(--card-inset);font-size:20px;font-weight:650;letter-spacing:-1px;color:var(--fg);}
+.support-profile h3 {margin:0;}
+.support-profile p {margin:5px 0 0;color:var(--fg-muted);font-size:12px;}
+.support-divider {margin:24px 0;}
+.phantom-title {font-size:28px!important;letter-spacing:-.7px;margin-top:12px!important;}
+.phantom-categories {display:flex;flex-wrap:wrap;gap:7px;list-style:none;margin:20px 0;padding:0;}
+.phantom-categories li {padding:5px 10px;border:1px solid var(--line);border-radius:20px;font-size:11px;color:var(--fg-muted);}
+.phantom-coupon {margin:24px 0;padding:22px;border:1px solid color-mix(in srgb,var(--accent-text) 35%,var(--line));border-radius:12px;background:var(--accent-soft);}
+.phantom-discount {display:block;margin:8px 0;font-size:26px;line-height:1.2;letter-spacing:-.5px;color:var(--fg);}
+.phantom-coupon > p {margin:10px 0 16px;color:var(--fg-muted);}
+.phantom-code-row {display:flex;align-items:center;flex-wrap:wrap;gap:10px;justify-content:space-between;}
+.phantom-code {user-select:text;-webkit-user-select:text;font-size:20px;letter-spacing:.02em;font-weight:600;overflow-wrap:anywhere;color:var(--fg);}
+.phantom-code-row .btn {border:1px solid var(--line);padding:8px 12px;border-radius:7px;background:var(--card);white-space:nowrap;}
+.phantom-copy-status {display:block;min-height:18px;margin-top:8px;font-size:11px;color:var(--fg-muted);}
+.phantom-visit {display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:9px 16px;text-decoration:none;border-radius:8px;margin-bottom:10px;}
 .info-tooltip {position:fixed;z-index:10000;width:min(280px,calc(100vw - 24px));padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);box-shadow:0 8px 28px #0003;font:400 12px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:0;text-transform:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
 .layer-animation-controls, .gradient-editor { display:flex;flex-direction:column;gap:16px;min-width:0; }
 .gradient-presets {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}

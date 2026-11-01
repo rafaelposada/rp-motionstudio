@@ -11,6 +11,7 @@ import { ACCENT_PRESETS, DEFAULT_ACCENT } from '@/lib/accentColor';
 import DestinationFolder from './DestinationFolder';
 import { flushScene, getSaveState } from '@/lib/scenePersist';
 import SupportPanel from './SupportPanel';
+import PhantomSupplyPanel from './PhantomSupplyPanel';
 
 function AutosaveSettings({ pt }: { pt: boolean }) {
   const enabled = useUIStore(s => s.autosaveEnabled), delay = useUIStore(s => s.autosaveDelay);
@@ -65,6 +66,7 @@ export default function SettingsDialog() {
   const preferencesError = useUIStore((s) => s.preferencesError);
   const dialog = useRef<HTMLDialogElement>(null);
   const [tab, setTab] = useState(useUIStore.getState().settingsSection);
+  useEffect(() => { dialog.current?.querySelector('.settings-body')?.scrollTo({top:0}); }, [tab]);
   const [quality, setQuality] = useState<PreviewQuality>('high');
   const [message, setMessage] = useState('');
   const [storage, setStorage] = useState('');
@@ -84,7 +86,7 @@ export default function SettingsDialog() {
     storageReport().then((report) => { if (active) setStorage(`${(report.total / 1048576).toFixed(1)} MB · ${report.count} ${pt ? 'arquivos de mídia locais' : 'local media files'}`); }).catch(() => { if (active) setStorage(pt ? 'Armazenamento indisponível.' : 'Storage unavailable.'); });
     return () => { active = false; };
   }, [tab, pt]);
-  const tabs = pt ? [['interface', 'Interface'], ['panels', 'Painéis'], ['preview', 'Prévia'], ['saving', 'Salvamento'], ['files', 'Arquivos'], ['shortcuts', 'Atalhos'], ['support', 'Apoio e contato']] : [['interface', 'Interface'], ['panels', 'Panels'], ['preview', 'Preview'], ['saving', 'Saving'], ['files', 'Files'], ['shortcuts', 'Shortcuts'], ['support', 'Support & contact']];
+  const tabs = pt ? [['interface', 'Interface'], ['panels', 'Painéis'], ['preview', 'Prévia'], ['saving', 'Salvamento'], ['files', 'Arquivos'], ['shortcuts', 'Atalhos'], ['support', 'Apoio e contato'], ['phantom', 'Phantom Supply']] : [['interface', 'Interface'], ['panels', 'Panels'], ['preview', 'Preview'], ['saving', 'Saving'], ['files', 'Files'], ['shortcuts', 'Shortcuts'], ['support', 'Support & contact'], ['phantom', 'Phantom Supply']];
   return <dialog className="settings-dialog" ref={dialog} aria-labelledby="settings-title" onCancel={(event) => { event.preventDefault(); close(); }} onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
     <div className="settings-surface"><header className="settings-header"><div><span className="eyebrow">RP MotionStudio</span><h2 id="settings-title">{pt ? 'Configurações' : 'Settings'}</h2></div><button className="settings-close" aria-label={pt ? 'Fechar configurações' : 'Close settings'} onClick={close} autoFocus>×</button></header>
       <nav className="settings-tabs" role="tablist" aria-label={pt ? 'Seções de configurações' : 'Settings sections'} onKeyDown={(event) => {
@@ -132,6 +134,7 @@ export default function SettingsDialog() {
  [pt ? 'Suspender encaixe durante arraste' : 'Disable snapping while dragging', 'Alt / Option'],
  [pt ? 'Cancelar transformação / fechar menu' : 'Cancel transform / close dialog', 'Esc']].map(([name, shortcut]) => <div key={name}><dt>{name}</dt><dd><kbd>{shortcut}</kbd></dd></div>)}</dl><p className="settings-description">{pt ? 'Os atalhos da composição ficam suspensos enquanto você digita ou usa este menu.' : 'Composition shortcuts are suspended while typing or using this menu.'}</p></>}
         {tab === 'support' && <SupportPanel pt={pt}/>}
+        {tab === 'phantom' && <PhantomSupplyPanel pt={pt}/>}
       </div>
       <footer className="settings-footer"><span role="status">{preferencesError ? (pt ? 'Não foi possível salvar as preferências neste dispositivo.' : 'Could not save preferences on this device.') : message || (pt ? 'Alterações salvas automaticamente neste Mac.' : 'Changes saved automatically on this Mac.')}</span><small>RP MotionStudio · {diagnostics?.version ?? '…'}</small></footer>
     </div>
