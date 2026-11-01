@@ -8,6 +8,8 @@ const { useHistoryStore } = require('../store/useHistoryStore');
 const { compositionOrder } = require('../lib/composition');
 const { duplicateCompositionLayers, reorderCompositionLayer, selectModelForEditing, deleteCompositionLayers } = require('../lib/compositionActions');
 const { groupFrame, transformGroupMember } = require('../lib/groupTransform');
+const { FIT_VIEW, zoomPreview, panPreview } = require('../lib/previewNavigation');
+const { isCanvasEditing, setCanvasEditing } = require('../lib/canvasEditing');
 const { placeholderFill } = require('../lib/placeholderPalette');
 const { confirmLayer } = require('../lib/confirmLayer');
 const { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection } = require('../lib/timelineSelection');
@@ -23,6 +25,33 @@ global.document = Object.assign(doc, { visibilityState: 'visible', activeElement
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`);
 
 async function main() {
+  let editEvents = 0; const observeEdit = () => editEvents++;
+  window.addEventListener('motion-canvas-edit', observeEdit);
+  setCanvasEditing('synthetic-text'); assert.equal(isCanvasEditing('synthetic-text'), true);
+  assert.equal(isCanvasEditing('another-text'), false);
+  setCanvasEditing(null); assert.equal(isCanvasEditing('synthetic-text'), false);
+  assert.equal(editEvents, 2); window.removeEventListener('motion-canvas-edit', observeEdit);
+  const navigationSource = fs.readFileSync(path.join(root,'components/PreviewNavigation.tsx'),'utf8');
+  assert.ok(!navigationSource.includes('preview-hand') && !navigationSource.includes("e.code === 'Space'"), 'No hand tool or Space interception');
+  assert.ok(navigationSource.includes("e.key.toLowerCase() === 'z'") && navigationSource.includes('input,textarea,select,[contenteditable=true],dialog'), 'Magnifier preserves editable fields');
+  const textPanel = fs.readFileSync(path.join(root,'components/TextPanel.tsx'),'utf8');
+  assert.ok(textPanel.indexOf("numberControl('lineHeight'") < textPanel.indexOf('checked={!!layer.stroke}'), 'Typography spacing precedes appearance');
+  assert.equal((textPanel.match(/numberControl\('lineHeight'/g)||[]).length,1);
+  const selectionSource=fs.readFileSync(path.join(root,'components/CanvasTextSelection.tsx'),'utf8');
+  assert.ok(selectionSource.includes('transform-rotate-zone') && !selectionSource.includes('transform-rotation-stem'), 'Rotation areas live outside corners');
+  assert.ok(selectionSource.includes('onDoubleClick') && selectionSource.includes('CanvasInlineTextEditor'));
+  const css=fs.readFileSync(path.join(root,'app/workspace.css'),'utf8');
+  assert.match(css,/\.stage-fs \{ z-index: 8;/,'Preview button stays above selection');
+  for (const factor of [.1, .5, 1.2, 2, 8]) {
+    const from = { zoom: .8, x: 21, y: -12 }, anchor = { x: 77, y: -100 }, to = zoomPreview(from, factor, anchor);
+    near((anchor.x-from.x)/from.zoom, (anchor.x-to.x)/to.zoom); near((anchor.y-from.y)/from.zoom, (anchor.y-to.y)/to.zoom);
+  }
+  assert.equal(zoomPreview(FIT_VIEW, 100).zoom, 8); assert.equal(zoomPreview(FIT_VIEW, .0001).zoom, .1);
+  assert.deepEqual(zoomPreview(FIT_VIEW, 1), FIT_VIEW);
+  assert.deepEqual(panPreview({zoom:2,x:30,y:40},-100,250),{zoom:2,x:-70,y:290});
+  assert.deepEqual(panPreview(FIT_VIEW,NaN,Infinity),FIT_VIEW);
+  const gestureBase={zoom:1.4,x:30,y:-80}, focal={x:180,y:-120};
+  for(const scale of [.5,1,1.3,2,4]){const next=zoomPreview(gestureBase,gestureBase.zoom*scale,focal);near((focal.x-next.x)/next.zoom,(focal.x-gestureBase.x)/gestureBase.zoom);}
   const ui = useUIStore.getState(), scene = useSceneStore.getState();
   data.set('motion-ui-preferences', JSON.stringify({ theme: 'dark', locale: 'pt' })); ui.hydratePreferences();
   assert.equal(useUIStore.getState().appearance, 'dark', 'Legacy theme remains explicit');

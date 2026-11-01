@@ -8,6 +8,7 @@ import { resolveEasing } from '@/lib/easing';
 import { assetIndexForSlot, clamp, lerp } from '@/lib/motion';
 import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
+import { isCanvasEditing } from './canvasEditing';
 import { compositionOrder } from '@/lib/composition';
 import { cardAspectFor, coverCrop, cropKey } from '@/lib/crop';
 import { advanceVideoForExport, createCardVideo, isVideoSource, prepareVideoForSequentialExport } from '@/lib/videoTexture';
@@ -1151,6 +1152,7 @@ export class SceneRenderer3D implements IRenderer {
         texture = rt.target.texture; opacity = rt.opacity; blend = rt.blend;
       } else {
         const layer = s.textLayers.find((l) => l.id === item.id)!;
+        if (!this.exportingImages && isCanvasEditing(layer.id)) return;
         if (!layer.visible || frame / s.fps < layer.start || frame / s.fps >= layer.end) return;
         let rt = this.overlays.get(item.id);
         if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages); const texture = new THREE.CanvasTexture(raster.canvas); texture.colorSpace = THREE.SRGBColorSpace; rt = { raster, texture }; this.overlays.set(item.id, rt); }

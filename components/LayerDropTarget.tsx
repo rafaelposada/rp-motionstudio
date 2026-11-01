@@ -1,10 +1,9 @@
 'use client';
-import { useState, type ReactNode, type DragEvent, type PointerEvent } from 'react';
+import { type ReactNode, type DragEvent, type PointerEvent } from 'react';
 import { useUIStore } from '@/store/useUIStore';
 import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { reorderCompositionLayer, moveCompositionLayer, selectedCompositionIds } from '@/lib/compositionActions';
 
-const TYPE = 'application/x-rp-motion-layer';
 let cancelReorder: (() => void) | null = null;
 let suppressClick: { id: string; until: number } | null = null;
 
@@ -13,12 +12,13 @@ let suppressClick: { id: string; until: number } | null = null;
 function beginReorder(e: PointerEvent, id: string) {
   e.stopPropagation(); if (e.button !== 0) return;
   cancelReorder?.();
+  document.querySelectorAll('.layer-drop-over').forEach(node => node.classList.remove('layer-drop-over'));
   const start = { x: e.clientX, y: e.clientY }, pointerId = e.pointerId, revision = sceneRestoreRevision();
   const ids = selectedCompositionIds(id), element = e.currentTarget as HTMLElement;
   let moved = false, over: HTMLElement | null = null;
   const cleanup = () => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', cancel); window.removeEventListener('blur', cancel);
-    over?.classList.remove('layer-drop-over'); element.classList.remove('layer-is-sorting');
+    document.querySelectorAll('.layer-drop-over').forEach(node => node.classList.remove('layer-drop-over')); element.classList.remove('layer-is-sorting');
     if (element.hasPointerCapture?.(pointerId)) element.releasePointerCapture(pointerId);
     cancelReorder = null;
   };
@@ -51,11 +51,5 @@ export function LayerDragHandle({ id, name }: { id: string; name: string }) {
     onKeyDown={e => { if (e.altKey && ['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); moveCompositionLayer(id, e.key === 'ArrowUp' ? 1 : -1); } }}>⠿</button>;
 }
 export default function LayerDropTarget({ id, children }: { id: string; name?: string; children: ReactNode }) {
-  const [over, setOver] = useState(false);
-  return <div className={`layer-drop-target ${over ? 'layer-drop-over' : ''}`} data-layer-id={id}
-    onDragOver={e => { if (e.dataTransfer.types.includes(TYPE)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(true); } }}
-    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false); }}
-    onDrop={e => { if (!e.dataTransfer.types.includes(TYPE)) return; e.preventDefault(); setOver(false); try { const { id: source, ids } = JSON.parse(e.dataTransfer.getData(TYPE)); if (typeof source === 'string') reorderCompositionLayer(source, id, Array.isArray(ids) ? ids.filter(i => typeof i === 'string') : [source]); } catch { /* Ignore unrelated drag payloads. */ } }}>
-    {children}
-  </div>;
+  return <div className="layer-drop-target" data-layer-id={id}>{children}</div>;
 }

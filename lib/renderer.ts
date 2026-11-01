@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
+import { isCanvasEditing } from './canvasEditing';
 import { compositionOrder } from '@/lib/composition';
 import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
 import { PixelateFilter } from 'pixi-filters';
@@ -697,7 +698,7 @@ export class SceneRenderer {
         rt.texture.frame.width = canvas.width; rt.texture.frame.height = canvas.height; rt.texture.update(); rt.texture.source.update();
       }
       rt.sprite.width = s.width; rt.sprite.height = s.height; rt.sprite.position.set(-s.width / 2, -s.height / 2); rt.sprite.zIndex = item.z;
-      rt.sprite.visible = layer.visible && frame / s.fps >= layer.start && frame / s.fps < layer.end;
+      rt.sprite.visible = layer.visible && (this.exportingImages || !isCanvasEditing(layer.id)) && frame / s.fps >= layer.start && frame / s.fps < layer.end;
     }
     this.app.renderer.render(this.app.stage);
     this.outputCanvas = this.app.canvas as HTMLCanvasElement;

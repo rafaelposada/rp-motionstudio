@@ -26,11 +26,17 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
 - Identidade RP em SVG e favicon que acompanha o tema do editor.
 - Campos numéricos editáveis com expressões matemáticas e ajuda contextual.
 - Réguas, guias inteligentes, encaixe, seleção e arraste de elementos na composição.
+- Navegação livre do preview: dois dedos/roda para deslocar, pinça ou Alt + roda
+  para ampliar no cursor. ⌘/Ctrl+0 centraliza
+  e ajusta ao painel; a navegação não altera a composição nem a exportação.
 - Cinco abas por ícones: Movimento, Tela, Mídia, Texto e Camadas. A aba Mídia reúne
   as imagens dos modelos, imagens absolutas e áudio.
 - Seleção múltipla de camadas com Shift, transformação em grupo, duplicação e
   exclusão com uma etapa de desfazer. Arraste o nome ou a alça para ordenar.
 - Camadas de texto e imagens absolutas, ordem de profundidade, contorno, sombra e opacidade.
+- Duplo clique edita o texto na composição; Esc cancela, ⌘/Ctrl+Enter conclui.
+- Rotação pela área externa dos quatro cantos, com leitura do ângulo e encaixe de 15° com Shift.
+- Botão de ampliar preview dentro da janela; Esc restaura os painéis.
 - Catálogo Google Fonts com prévias e importação de fontes locais. O primeiro
   carregamento de uma fonte Google requer internet; fontes já usadas são armazenadas localmente.
 - Controles de enquadramento de mídia e transparência/iluminação opcionais.

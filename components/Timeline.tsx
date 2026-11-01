@@ -96,8 +96,9 @@ export default function Timeline({
   // Spacebar toggles play/pause anywhere except while typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
+      if (e.code === 'Space' && t?.closest('button')) return;
       if (t?.closest('dialog[open]') || t?.getAttribute('role') === 'separator') return;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       const s = useSceneStore.getState();

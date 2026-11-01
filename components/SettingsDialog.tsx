@@ -111,6 +111,13 @@ export default function SettingsDialog() {
         {tab === 'saving' && <AutosaveSettings pt={pt}/>}
         {tab === 'files' && <><h3>{pt ? 'Arquivos neste Mac' : 'Files on this Mac'}</h3><p className="settings-description">{storage || (pt ? 'Verificando armazenamento…' : 'Checking storage…')}</p><DestinationFolder kind="exports"/><DestinationFolder kind="drafts"/><DestinationFolder kind="templates"/><p className="settings-description">{pt ? 'Rascunhos e templates portáteis incluem as mídias. Os projetos em edição usam os dados locais do aplicativo; veja a aba Salvamento.' : 'Portable drafts and templates include media. Working projects use local application data; see Saving.'}</p><p className="settings-description">{pt ? 'Exportação local' : 'Local export'}: {diagnostics?.ffmpeg ?? '…'}</p></>}
         {tab === 'shortcuts' && <><h3>{pt ? 'Atalhos do editor' : 'Editor shortcuts'}</h3><dl className="settings-shortcuts">{[[pt ? 'Configurações' : 'Settings', '⌘ / Ctrl + ,'], [pt ? 'Reproduzir / pausar' : 'Play / pause', pt ? 'Espaço / K' : 'Space / K'], [pt ? 'Quadro anterior / seguinte' : 'Previous / next frame', '← / → · J / L'], [pt ? 'Saltar um segundo' : 'Jump one second', 'Shift + ← / →'], [pt ? 'Desfazer' : 'Undo', '⌘ / Ctrl + Z'], [pt ? 'Refazer' : 'Redo', '⌘ / Ctrl + Shift + Z'], [pt ? 'Salvar composição local' : 'Save working composition', '⌘ / Ctrl + S'],
+ [pt ? 'Ampliar / reduzir somente a prévia' : 'Zoom preview only', '⌘ / Ctrl + / −'],
+ [pt ? 'Ajustar prévia ao painel' : 'Fit preview to panel', '⌘ / Ctrl + 0'],
+ [pt ? 'Deslocar a visualização' : 'Pan preview', pt ? 'Dois dedos · botão do meio' : 'Two fingers · middle mouse'],
+ [pt ? 'Ativar / sair da lupa' : 'Toggle magnifier', 'Z · Esc'],
+ [pt ? 'Lupa: ampliar / reduzir' : 'Magnifier: zoom in / out', pt ? 'Clique / Alt + clique' : 'Click / Alt + click'],
+ [pt ? 'Editar texto na composição' : 'Edit text on canvas', pt ? 'Duplo clique · Esc cancela · ⌘/Ctrl + Enter conclui' : 'Double-click · Esc cancels · ⌘/Ctrl + Enter commits'],
+ [pt ? 'Zoom na posição do cursor' : 'Zoom at cursor', pt ? 'Alt + roda · pinça' : 'Alt + wheel · pinch'],
  [pt ? 'Duplicar seleção' : 'Duplicate selection', '⌘ / Ctrl + D'],
  [pt ? 'Duplicar ao arrastar' : 'Duplicate while dragging', 'Alt / Option + arraste'],
  [pt ? 'Selecionar várias camadas' : 'Select multiple layers', 'Shift + clique'],

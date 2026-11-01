@@ -11,7 +11,7 @@ const folders = { exports: path.join(os.homedir(), 'Movies', 'Motion Studio Expo
 export async function GET() {
   let ffmpeg = '';
   try { ffmpeg = (await exec('ffmpeg', ['-version'], { timeout: 5000 })).stdout.split('\n')[0]; } catch { /* report unavailable */ }
-  return NextResponse.json({ version: '1.2.0-local', ffmpeg: ffmpeg || 'Indisponível', freeMemoryMB: Math.round(os.freemem() / 1048576), localOnly: true });
+  return NextResponse.json({ version: '1.2.3-local', ffmpeg: ffmpeg || 'Indisponível', freeMemoryMB: Math.round(os.freemem() / 1048576), localOnly: true });
 }
 export async function POST(request: NextRequest) {
   if (!isLocalFileRequest(request)) return NextResponse.json({ error: 'Acesso local necessário.' }, { status: 403 });

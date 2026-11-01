@@ -12,6 +12,7 @@ import { prepareTextFonts } from '@/lib/textLayers';
 import { useAudioPreview } from '@/lib/useAudioPreview';
 import CanvasTextSelection from './CanvasTextSelection';
 import ModelVisibilityNotice from './ModelVisibilityNotice';
+import PreviewNavigation from './PreviewNavigation';
 
 export default function PreviewStage() {
   useAudioPreview();
@@ -35,10 +36,12 @@ export default function PreviewStage() {
     const observer = new ResizeObserver(redraw);
     observer.observe(stage);
     window.addEventListener('focus', redraw);
+    window.addEventListener('motion-canvas-edit', redraw);
     document.addEventListener('visibilitychange', redraw);
     return () => {
       observer.disconnect();
       window.removeEventListener('focus', redraw);
+      window.removeEventListener('motion-canvas-edit', redraw);
       document.removeEventListener('visibilitychange', redraw);
     };
   }, []);
@@ -192,6 +195,6 @@ export default function PreviewStage() {
   }, [width, height]);
 
   return (
-    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /></div>
+    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /><PreviewNavigation stage={stageRef}/></div>
   );
 }

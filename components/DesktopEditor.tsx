@@ -26,7 +26,13 @@ const PreviewStage = dynamic(() => import('@/components/PreviewStage'), { ssr: f
 const SettingsDialog = dynamic(() => import('@/components/SettingsDialog'), { ssr: false });
 
 export default function DesktopEditor() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const pt = locale === 'pt';
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  useEffect(() => {
+    const close = (e: KeyboardEvent) => { if(e.key==='Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]')) setPreviewExpanded(false); };
+    window.addEventListener('keydown',close); return ()=>window.removeEventListener('keydown',close);
+  }, []);
   const nav = useUIStore((s) => s.nav);
   const leftCollapsed = useUIStore((s) => s.leftCollapsed);
   const rightCollapsed = useUIStore((s) => s.rightCollapsed);
@@ -56,18 +62,19 @@ export default function DesktopEditor() {
   useEffect(() => { if (selectedTextId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : useSceneStore.getState().textLayers.find(l => l.id === selectedTextId)?.media ? 'media' : 'text'); }, [selectedTextId]);
 
   return (
-    <div className={`app resizable-app ${showGrid ? '' : 'stage-grid-off'} ${tplCollapsed ? 'app-tpl-collapsed' : ''} ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`} style={layoutStyle}>
+    <div className={`app resizable-app ${previewExpanded ? 'preview-expanded-app' : ''} ${showGrid ? '' : 'stage-grid-off'} ${tplCollapsed ? 'app-tpl-collapsed' : ''} ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`} style={layoutStyle}>
       <PanelDock panel="rail"><IconRail /></PanelDock>
 
       <PanelDock panel="library" collapsed={leftCollapsed} strip={tplCollapsed}>{tplCollapsed ? <CollapsedStrip /> : isProjects ? <ProjectsPanel onProjectOpen={() => useUIStore.getState().setNav('library')} /> : <TemplatesCard />}</PanelDock>
 
-      <main className="stage-col">
+      <main className={`stage-col ${previewExpanded ? 'preview-expanded' : ''}`}>
         <PreviewStage />
         <button
           className="stage-fs"
-          title={t('fullscreen')}
-          aria-label={t('fullscreen')}
-          onClick={() => document.querySelector<HTMLElement>('.stage-col')?.requestFullscreen?.()}
+          title={previewExpanded ? (pt?'Restaurar painéis · Esc':'Restore panels · Esc') : (pt?'Ampliar preview':'Expand preview')}
+          aria-label={previewExpanded ? (pt?'Restaurar painéis':'Restore panels') : (pt?'Ampliar preview':'Expand preview')}
+          aria-pressed={previewExpanded}
+          onClick={() => setPreviewExpanded(value=>!value)}
         >
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
