@@ -74,8 +74,13 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
 - Duplicação por ⌘/Ctrl+D e Option/Alt+arraste; ordenação conjunta de modelos,
   textos e imagens no painel de camadas e na linha do tempo.
 - Aviso e recuperação de modelos fora da área visível, com desfazer.
-- 192 modelos visíveis (30 adições: Spinner/Hinge/Fan, Arc, Wheel, Revolve e Sweep),
+- 239 modelos visíveis, incluindo Stickers/Poster, Flip e novas variações de
+  Orbit, Box, Helix e Deck integradas do catálogo de origem,
   favoritos locais e contagem de versões por família.
+- Entradas e saídas independentes de texto e imagens absolutas: desvanecer,
+  subir/descer, deslizar, aproximar/afastar, salto suave e giro; texto também
+  aceita máquina de escrever. O fundo do texto tem BG Blur ajustável, aplicado
+  apenas à composição atrás dele, com cor, opacidade e contorno independentes.
 - Trajetória do modelo com pontos editáveis, duração e repetição; desloca o
   conjunto sem substituir sua animação original.
 - 12 efeitos de GPU nos motores 2D e 3D, com controles e explicações. Aplicação

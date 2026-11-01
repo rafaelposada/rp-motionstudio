@@ -33,9 +33,9 @@ function bounds(layer: TextLayer, canvasWidth: number): LocalBounds {
   measuredBounds.set(layer, { revision, canvasWidth, box }); return box;
 }
 function layerFrame(layer: TextLayer, width: number, seconds: number): TransformFrame {
-  const b = bounds(layer, width), sx = bounded(layer.scaleX ?? 1, .05, 20), sy = bounded(layer.scaleY ?? 1, .05, 20);
-  const c = rotatePoint({ x: (b.left + b.width / 2) * sx, y: 0 }, layer.rotation);
-  return { cx: layer.x + c.x, cy: layer.y + textMotion(layer, seconds).y + c.y, width: b.width * sx, height: b.height * sy, rotation: layer.rotation };
+  const b = bounds(layer, width), motion=textMotion(layer,seconds), sx = bounded(layer.scaleX ?? 1, .05, 20)*motion.scale, sy = bounded(layer.scaleY ?? 1, .05, 20)*motion.scale;
+  const c = rotatePoint({ x: (b.left + b.width / 2) * sx, y: 0 }, layer.rotation+motion.rotation);
+  return { cx: layer.x + motion.x + c.x, cy: layer.y + motion.y + c.y, width: b.width * sx, height: b.height * sy, rotation: layer.rotation+motion.rotation };
 }
 function modelFrame(id: string): TransformFrame | null {
   const renderer = getRendererInstance(), oriented = renderer?.selectionFrame?.(id);
@@ -159,14 +159,14 @@ export default function CanvasTextSelection() {
   };
   const patchFrame = (d: Gesture, next: TransformFrame) => {
     if (d.members) { setGroupTransform(next); for (const member of d.members) patchFrame(member, transformGroupMember(member.frame, d.frame, next)); return; }
-    const s = useSceneStore.getState(), motionY = d.overlay ? textMotion(d.overlay, s.frame / s.fps).y : 0;
+    const s = useSceneStore.getState(), motion = d.overlay ? textMotion(d.overlay, s.frame / s.fps) : {x:0,y:0,rotation:0,scale:1}, motionY=motion.y;
     const path = d.track ? modelPathOffset(d.track, s.frame, s.fps, width, height) : { x: 0, y: 0 };
-    const origin = d.overlay ? { x: d.overlay.x, y: d.overlay.y + motionY } : { x: width / 2 + d.track!.transform.x + path.x, y: height / 2 + d.track!.transform.y + path.y };
+    const origin = d.overlay ? { x: d.overlay.x+motion.x, y: d.overlay.y + motionY } : { x: width / 2 + d.track!.transform.x + path.x, y: height / 2 + d.track!.transform.y + path.y };
     const p = mapFramePoint(origin, d.frame, next);
     if (d.overlay) {
       const l = d.overlay, sx = bounded(l.scaleX ?? 1, .05, 20), sy = bounded(l.scaleY ?? 1, .05, 20);
-      const patch: Partial<TextLayer> = { x: p.x, y: p.y - motionY, rotation: next.rotation };
-      if (l.media) patch.media = { ...l.media, width: next.width / sx, height: next.height / sy };
+      const patch: Partial<TextLayer> = { x: p.x-motion.x, y: p.y - motionY, rotation: next.rotation-motion.rotation };
+      if (l.media) patch.media = { ...l.media, width: next.width / sx / motion.scale, height: next.height / sy / motion.scale };
       else { patch.scaleX = sx * next.width / d.frame.width; patch.scaleY = sy * next.height / d.frame.height; }
       s.patchTextLayer(d.id, patch);
     } else {

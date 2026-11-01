@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import { makeBentPlaneGeometry, makeCurlPlaneGeometry, makeStickerRollGeometry, makeCornerPeelGeometry } from '@/three3d/cardMesh';
+import { previewMatrix } from './templatePreviewGeometry';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { getTemplate } from '@/templates';
+import { getTemplate, layerCountFor } from '@/templates';
 import { getEffect } from '@/effects';
 import { threeMaterialsFor, applyThreeUniforms, dropThreeMaterials } from '@/effects/adapters/three';
 import { useSceneStore } from '@/store/useSceneStore';
@@ -43,38 +45,6 @@ export interface Slot3D {
   fitScale?: number;
 }
 
-// A normalized curved image surface inspired by PMNDRS' public bent-plane
-// example. UVs are untouched, so the same crop is used on a flat or bent card.
-// `sag` is the centre displacement as a fraction of the card width.
-function makeBentPlaneGeometry(sag: number): THREE.PlaneGeometry {
-  const bend = clamp(sag, -0.45, 0.45);
-  const geometry = new THREE.PlaneGeometry(1, 1, 20, 8);
-  if (Math.abs(bend) < 0.0001) return geometry;
-  const halfWidth = 0.5;
-  const a = new THREE.Vector2(-halfWidth, 0);
-  const b = new THREE.Vector2(0, bend);
-  const c = new THREE.Vector2(halfWidth, 0);
-  const ab = new THREE.Vector2().subVectors(a, b);
-  const bc = new THREE.Vector2().subVectors(b, c);
-  const ac = new THREE.Vector2().subVectors(a, c);
-  const radius = (ab.length() * bc.length() * ac.length()) / (2 * Math.abs(ab.cross(ac)));
-  const centre = new THREE.Vector2(0, bend - Math.sign(bend) * radius);
-  const baseAngle = new THREE.Vector2().subVectors(a, centre).angle() - Math.PI / 2;
-  const arc = baseAngle * 2;
-  const uv = geometry.attributes.uv;
-  const position = geometry.attributes.position;
-  const point = new THREE.Vector2();
-  for (let i = 0; i < uv.count; i++) {
-    const ratio = 1 - uv.getX(i);
-    const y = position.getY(i);
-    point.copy(c).rotateAround(centre, arc * ratio);
-    position.setXYZ(i, point.x, y, -point.y);
-  }
-  position.needsUpdate = true;
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
 interface TrackRT3D {
   scene: THREE.Scene;
   group: THREE.Group;
@@ -111,9 +81,9 @@ function makeCornerAlphaMap(fracR: number, aspect: number): THREE.CanvasTexture 
 }
 
 // Numbered placeholder card as a CanvasTexture (mirrors the Pixi placeholder).
-function makePlaceholderTexture(index: number): THREE.CanvasTexture {
+function makePlaceholderTexture(index: number, aspect: number): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 480; c.height = 600;
+  c.width = Math.max(2,Math.round(600*Math.min(1,aspect))); c.height = Math.max(2,Math.round(600*Math.min(1,1/aspect)));
   const g = c.getContext('2d')!;
   g.fillStyle = placeholderHex(placeholderFill(index));
   g.fillRect(0, 0, c.width, c.height);
@@ -133,7 +103,7 @@ function makePlaceholderTexture(index: number): THREE.CanvasTexture {
 export class SceneRenderer3D implements IRenderer {
   private exportingImages = false;
   private previewImageTextures = new Map<string, THREE.Texture | undefined>();
-  private overlays = new Map<string, { raster: OverlayRaster; texture: THREE.CanvasTexture }>();
+  private overlays = new Map<string, { raster: OverlayRaster; texture: THREE.CanvasTexture; mask?: THREE.CanvasTexture }>();
   private textCompositor = new TextCompositor();
   private outputCanvas: HTMLCanvasElement | null = null;
   onDirty?: () => void;   // preview loop hooks this to redraw once after async loads
@@ -146,7 +116,7 @@ export class SceneRenderer3D implements IRenderer {
   private croppedCache = new Map<string, THREE.Texture>(); // cover-crop clones (repeat/offset) of cached bases
   private videoEls = new Map<string, HTMLVideoElement>();   // live <video> per url, for playback + cleanup
   private exportVideoFrames = new Map<string, { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; texture: THREE.CanvasTexture }>();
-  private placeholders = new Map<number, THREE.CanvasTexture>();
+  private placeholders = new Map<string, THREE.CanvasTexture>();
   private cornerMaps = new Map<string, THREE.CanvasTexture>();
   private gradientTex: THREE.CanvasTexture | null = null;
   private gradientSig = '';
@@ -162,6 +132,8 @@ export class SceneRenderer3D implements IRenderer {
   private safeLine: THREE.LineLoop | null = null;
   private composeA!: THREE.WebGLRenderTarget;
   private composeB!: THREE.WebGLRenderTarget;
+  private backdropTargets: [THREE.WebGLRenderTarget,THREE.WebGLRenderTarget]|null=null;
+  private backdropMaterial: THREE.ShaderMaterial|null=null;
   private composeScene = new THREE.Scene();
   private readonly fxOwner = `${crypto.randomUUID()}/`;
   private composeCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
@@ -170,7 +142,7 @@ export class SceneRenderer3D implements IRenderer {
   private outputQuad!: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private cardPlaneGeometry = new THREE.PlaneGeometry(1, 1);
   private cardBodyGeometry = new RoundedBoxGeometry(1, 1, 1, 3, 0.055);
-  private bentCardGeometries = new Map<string, THREE.PlaneGeometry>();
+  private bentCardGeometries = new Map<string, THREE.BufferGeometry>();
   private resolution = 1;
   private r3f: import('@/lib/r3fSceneBridge').R3FSceneBridge | null = null;
   private width = 810;
@@ -204,6 +176,11 @@ export class SceneRenderer3D implements IRenderer {
 
   resize(width: number, height: number, resolution = previewResolution()) {
     if (!this.ready) return;
+    // WebGL texture storage is immutable after its first upload. Resizing a
+    // CanvasTexture's canvas alone uploads into the old allocation, shifting
+    // text and its blur mask during high-resolution export. Recreate both.
+    this.overlays.forEach(rt=>{rt.texture.dispose();rt.mask?.dispose();rt.raster.destroy();});
+    this.overlays.clear();
     this.width = width;
     this.height = height;
     this.resolution = resolution;
@@ -218,6 +195,7 @@ export class SceneRenderer3D implements IRenderer {
     const rh = Math.max(1, Math.round(height * resolution));
     this.composeA?.setSize(rw, rh);
     this.composeB?.setSize(rw, rh);
+    this.backdropTargets?.forEach(target=>target.setSize(Math.max(1,Math.round(rw/4)),Math.max(1,Math.round(rh/4))));
     this.trackRTs.forEach((rt) => rt.target.setSize(rw, rh));
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -287,6 +265,10 @@ export class SceneRenderer3D implements IRenderer {
         layerMap: { value: null },
         opacity: { value: 1 },
         blendMode: { value: 0 },
+        backdropMap: {value:null},
+        blurredMap: {value:null},
+        backdropBlur: {value:0},
+        sceneSize: {value:new THREE.Vector2(1,1)},
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`,
       fragmentShader: `
@@ -294,9 +276,19 @@ export class SceneRenderer3D implements IRenderer {
         uniform sampler2D layerMap;
         uniform float opacity;
         uniform int blendMode;
+        uniform sampler2D backdropMap;
+        uniform sampler2D blurredMap;
+        uniform float backdropBlur;
+        uniform vec2 sceneSize;
         varying vec2 vUv;
         void main(){
           vec4 base = texture2D(baseMap, vUv);
+          // Read the accumulator BEFORE this layer. Blur only the rounded
+          // background mask, leaving glyphs and everything outside it sharp.
+          float mask = backdropBlur > 0.0 ? texture2D(backdropMap,vUv).a : 0.0;
+          if(mask>0.0001){
+            base.rgb=mix(base.rgb,texture2D(blurredMap,vUv).rgb,clamp(mask,0.0,1.0));
+          }
           vec4 layer = texture2D(layerMap, vUv);
           float a = clamp(layer.a * opacity, 0.0, 1.0);
           vec3 straight = layer.a > 0.00001 ? layer.rgb / layer.a : vec3(0.0);
@@ -339,6 +331,33 @@ export class SceneRenderer3D implements IRenderer {
 
   // Cover-fit via UV window (repeat/offset) on a clone sharing the decoded
   // image — mirrors the Pixi renderer's frame-cropped texture views.
+  private backdropTexture(source: THREE.Texture, radius: number) {
+    // Separable Gaussian at quarter resolution: dense samples without the
+    // ghosted copies of a sparse 2D kernel. Targets/material are reused.
+    if(!this.backdropTargets){
+      this.backdropTargets=[this.makeTarget(false),this.makeTarget(false)];
+      this.backdropTargets.forEach(target=>target.setSize(Math.max(1,Math.round(this.width*this.resolution/4)),Math.max(1,Math.round(this.height*this.resolution/4))));
+    }
+    this.backdropMaterial??=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,
+      uniforms:{map:{value:null},direction:{value:new THREE.Vector2()},radius:{value:0}},
+      vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
+      fragmentShader:`uniform sampler2D map;uniform vec2 direction;uniform float radius;varying vec2 vUv;
+      void main(){vec3 sum=texture2D(map,vUv).rgb;float total=1.0;
+        for(int i=1;i<=8;i++){float n=float(i)/8.0;float weight=exp(-n*n*2.0);vec2 d=direction*radius*n;
+          sum+=(texture2D(map,clamp(vUv+d,vec2(0.0),vec2(1.0))).rgb+texture2D(map,clamp(vUv-d,vec2(0.0),vec2(1.0))).rgb)*weight;total+=2.0*weight;}
+        gl_FragColor=vec4(sum/total,1.0);}`});
+    const previous=this.composeQuad.material,material=this.backdropMaterial;
+    try{
+      this.composeQuad.material=material;material.uniforms.radius.value=radius;
+      for(let i=0;i<2;i++){
+        material.uniforms.map.value=i===0?source:this.backdropTargets[0].texture;
+        material.uniforms.direction.value.set(i===0?1/this.width:0,i===1?1/this.height:0);
+        this.renderer.setRenderTarget(this.backdropTargets[i]);this.renderer.clear(true,false,false);this.renderer.render(this.composeScene,this.composeCam);
+      }
+    }finally{this.composeQuad.material=previous;}
+    return this.backdropTargets[1].texture;
+  }
+
   private croppedView(url: string, base: THREE.Texture, aspect: number, crop?: { x: number; y: number }): { tex: THREE.Texture; fw: number; fh: number } {
     const img = base.image as HTMLImageElement;
     const { fx, fy, fw, fh } = coverCrop(img.width, img.height, aspect, crop);
@@ -430,6 +449,10 @@ export class SceneRenderer3D implements IRenderer {
       this.syncTrackSlots(track, rt, s);
     });
     const used = renderableAssetUrls(s);
+    if(this.placeholders.size>96){
+      const live=new Set([...this.trackRTs.values()].flatMap(rt=>rt.slots.map(slot=>slot.front.material.map)));
+      for(const [key,texture] of this.placeholders){if(this.placeholders.size<=96)break;if(!live.has(texture)){texture.dispose();this.placeholders.delete(key);}}
+    }
     for (const [key, texture] of this.croppedCache) {
       if (!used.has(key.split('|')[0])) { texture.dispose(); this.croppedCache.delete(key); }
     }
@@ -449,7 +472,7 @@ export class SceneRenderer3D implements IRenderer {
   }
 
   private syncTrackSlots(track: MotionTrack, rt: TrackRT3D, s: SceneState) {
-    const count = Math.max(1, Math.round(track.values.count ?? 6));
+    const count = layerCountFor(track.templateId, track.values, s);
     const template = getTemplate(track.templateId);
     const meta = template.meta;
     const r3fManaged = meta.id.startsWith('box-');
@@ -564,8 +587,8 @@ export class SceneRenderer3D implements IRenderer {
         // Never keep the previous slot's image visible while a new async
         // image/video is loading. A numbered placeholder is deterministic and
         // is replaced immediately when a cached source is available.
-        let ph = this.placeholders.get(i);
-        if (!ph) { ph = makePlaceholderTexture(i); this.placeholders.set(i, ph); }
+        let ph = this.placeholders.get(`${i}|${aspect.toFixed(4)}`);
+        if (!ph) { ph = makePlaceholderTexture(i,aspect); this.placeholders.set(`${i}|${aspect.toFixed(4)}`, ph); }
         slot.front.material.map = ph;
         slot.front.material.emissiveMap = ph;
         slot.front.material.needsUpdate = true;
@@ -577,8 +600,8 @@ export class SceneRenderer3D implements IRenderer {
         slot.cornerR = -1;
       }
       if (!asset || !asset.visible || asset.origin === 'demo') {
-        let ph = this.placeholders.get(i);
-        if (!ph) { ph = makePlaceholderTexture(i); this.placeholders.set(i, ph); }
+        let ph = this.placeholders.get(`${i}|${aspect.toFixed(4)}`);
+        if (!ph) { ph = makePlaceholderTexture(i,aspect); this.placeholders.set(`${i}|${aspect.toFixed(4)}`, ph); }
         slot.front.material.map = ph;
         slot.front.material.emissiveMap = ph;
         slot.front.material.needsUpdate = true;
@@ -906,14 +929,24 @@ export class SceneRenderer3D implements IRenderer {
     const thickness = Math.max(0, t.thickness ?? 0);
     const bend = clamp(t.bend ?? 0, -0.45, 0.45);
     const bent = Math.abs(bend) > 0.0001;
-    const physical = thickness > 0.05 && !bent;
+    const curl = clamp(t.curl ?? 0, -Math.PI * 2.4, Math.PI * 2.4);
+    const curled = Math.abs(curl) > 0.001;
+    const cornerPeel = clamp(t.cornerPeel ?? 0, 0, 1);
+    const peeling = cornerPeel > 0.0001;
+    const stickerRolling = Number.isFinite(t.stickerPeelFront)
+      && Number.isFinite(t.stickerCurlRadius)
+      && (t.stickerCurlRadius ?? 0) > 0;
+    const peelSoftness = clamp(t.peelSoftness ?? 0, 0, 1);
+    const physical = thickness > 0.05 && !bent && !curled && !peeling && !stickerRolling;
     // A flat, double-sided card needs one raster pass. Three's default two-pass
     // transparency path doubles draw calls without improving a single plane.
-    const singlePass = !physical && !bent;
+    const singlePass = !physical && !bent && !curled && !peeling && !stickerRolling;
     if(slot.front.material.forceSinglePass!==singlePass) { slot.front.material.forceSinglePass=singlePass;slot.front.material.needsUpdate=true; }
     const exposure = clamp(t.materialExposure ?? 1, 0.25, 2.5);
     const shadow = (t.shadowStrength ?? 0) > 0.02;
 
+    slot.root.matrixAutoUpdate = true;
+    slot.front.renderOrder=slot.back.renderOrder=slot.body.renderOrder=0;
     slot.root.position.set(t.x, -t.y, t.z);
     if (t.quaternion) {
       slot.root.quaternion.set(t.quaternion.x, t.quaternion.y, t.quaternion.z, t.quaternion.w).normalize();
@@ -923,9 +956,52 @@ export class SceneRenderer3D implements IRenderer {
     slot.root.scale.set(
       slot.texW * norm * t.scale,
       slot.texH * norm * t.scale,
-      physical ? thickness : 1,
+      (bent || curled || peeling || stickerRolling) ? slot.texW * norm * t.scale : physical ? thickness : 1,
     );
-    if (bent) {
+    if (stickerRolling) {
+      const quantizedFront = Math.round((t.stickerPeelFront ?? 0) * 180) / 180;
+      const quantizedRadius = Math.round((t.stickerCurlRadius ?? 0.15) * 180) / 180;
+      const quantizedDirection = Math.round((t.peelDirection ?? 50) * 2) / 2;
+      const key = `sticker-roll:${quantizedFront.toFixed(4)}:${quantizedRadius.toFixed(4)}:${quantizedDirection.toFixed(1)}`;
+      let geometry = this.bentCardGeometries.get(key);
+      if (!geometry) {
+        geometry = makeStickerRollGeometry(quantizedFront, quantizedRadius, quantizedDirection);
+        this.bentCardGeometries.set(key, geometry);
+      }
+      slot.front.geometry = geometry;
+      slot.back.geometry = geometry;
+    } else if (peeling) {
+      const progressSteps = 180;
+      const quantizedProgress = Math.round(cornerPeel * progressSteps) / progressSteps;
+      const quantizedAngle = Math.round((t.peelAngle ?? Math.PI * 0.78) * 64) / 64;
+      const quantizedCurl = Math.round(curl * 64) / 64;
+      const quantizedDirection = Math.round((t.peelDirection ?? 50) * 2) / 2;
+      const quantizedSoftness = Math.round(peelSoftness * 32) / 32;
+      const key = `peel:${quantizedProgress.toFixed(3)}:${quantizedAngle.toFixed(3)}:${quantizedCurl.toFixed(3)}:${quantizedDirection.toFixed(1)}:${quantizedSoftness.toFixed(3)}`;
+      let geometry = this.bentCardGeometries.get(key);
+      if (!geometry) {
+        geometry = makeCornerPeelGeometry(
+          quantizedProgress,
+          quantizedAngle,
+          quantizedCurl,
+          quantizedDirection,
+          quantizedSoftness,
+        );
+        this.bentCardGeometries.set(key, geometry);
+      }
+      slot.front.geometry = geometry;
+      slot.back.geometry = geometry;
+    } else if (curled) {
+      const quantized = Math.round(curl * 60) / 60;
+      const key = `curl:${quantized.toFixed(3)}`;
+      let geometry = this.bentCardGeometries.get(key);
+      if (!geometry) {
+        geometry = makeCurlPlaneGeometry(quantized);
+        this.bentCardGeometries.set(key, geometry);
+      }
+      slot.front.geometry = geometry;
+      slot.back.geometry = geometry;
+    } else if (bent) {
       const key = bend.toFixed(3);
       let geometry = this.bentCardGeometries.get(key);
       if (!geometry) {
@@ -933,12 +1009,18 @@ export class SceneRenderer3D implements IRenderer {
         this.bentCardGeometries.set(key, geometry);
       }
       slot.front.geometry = geometry;
+      slot.back.geometry = geometry;
     } else {
       slot.front.geometry = this.cardPlaneGeometry;
+      slot.back.geometry = this.cardPlaneGeometry;
     }
     slot.front.position.z = physical ? 0.501 : 0;
     slot.front.material.opacity = alpha;
     slot.front.material.depthWrite = alpha > 0.995;
+    const customBackface=!!t.backfaceColor;
+    slot.front.material.side=customBackface?THREE.FrontSide:THREE.DoubleSide;
+    slot.front.material.polygonOffset=!!t.depthBias;
+    slot.front.material.polygonOffsetFactor=0;slot.front.material.polygonOffsetUnits=-(t.depthBias??0);
     setImageLighting(slot.front.material, imageLighting);
     if (imageLighting) {
       slot.front.material.color.setRGB(exposure, exposure, exposure);
@@ -966,7 +1048,11 @@ export class SceneRenderer3D implements IRenderer {
     // you cannot see the edge of a translucent card anyway.
     const solid = physical && alpha > 0.995;
     slot.body.visible = solid;
-    slot.back.visible = solid;
+    slot.back.visible = solid || (customBackface && alpha > .001);
+    slot.back.position.z=physical?-.501:(bent||curled||peeling||stickerRolling)?-.0005:-.02;
+    slot.back.material.side=THREE.BackSide;slot.back.rotation.y=0;
+    slot.back.material.color.set(t.backfaceColor??'#17171b');
+    slot.back.material.depthWrite=alpha>.995;
     slot.body.material.opacity = alpha;
     slot.back.material.opacity = alpha;
     slot.body.castShadow = slot.body.receiveShadow = shadow;
@@ -1017,15 +1103,36 @@ export class SceneRenderer3D implements IRenderer {
       } else {
         const t = template.transform(time.localFrame, i, count, track.values, ctx);
         slot.front.geometry = this.cardPlaneGeometry;
-        slot.root.position.set(t.x, -t.y, t.depth);
-        slot.root.rotation.set(0, 0, -t.rotation);
-        slot.root.scale.set(slot.texW * norm * t.scale * (t.scaleX ?? 1), slot.texH * norm * t.scale * (t.scaleY ?? 1), 1);
+        if(t.taper){
+          const ratio=clamp(t.taper.ratio,0,1),key=`taper:${t.taper.edge}:${ratio.toFixed(3)}`;
+          let geometry=this.bentCardGeometries.get(key);
+          if(!geometry){
+            geometry=new THREE.PlaneGeometry(1,1,16,16);
+            const p=geometry.attributes.position;
+            for(let j=0;j<p.count;j++){
+              const x=p.getX(j),y=p.getY(j),edge=t.taper.edge;
+              const progress=edge==='top'?y+.5:edge==='bottom'?.5-y:edge==='left'?.5-x:x+.5;
+              const scale=1-(1-ratio)*progress;
+              if(edge==='top'||edge==='bottom')p.setX(j,x*scale);else p.setY(j,y*scale);
+            }
+            geometry.computeVertexNormals();this.bentCardGeometries.set(key,geometry);
+          }
+          slot.front.geometry=geometry;
+        }
+        // The 2D contract uses two projected axes, including skew. Keep its
+        // painter order even inside a mixed 3D composition or a BG Blur pass.
+        const [a,b,c,d]=previewMatrix(t.rotation,t.skewX,t.skewY);
+        const w=slot.texW*norm*t.scale*(t.scaleX??1),h=slot.texH*norm*t.scale*(t.scaleY??1);
+        slot.root.matrixAutoUpdate=false;
+        slot.root.matrix.set(a*w,-c*h,0,t.x,-b*w,d*h,0,-t.y,0,0,1,0,0,0,0,1);
+        slot.front.renderOrder=t.depth*1000+i/1000;
+        slot.front.material.side=THREE.DoubleSide;slot.front.material.polygonOffset=false;
         slot.front.position.z = 0;
         slot.front.material.opacity = cardOpacity(t.alpha,track.values._autoTransparency===true,t.solidAlpha);
         slot.front.material.depthWrite = false;
         slot.front.material.forceSinglePass = true;
         slot.front.material.color.setRGB(0, 0, 0);
-        slot.front.material.emissiveIntensity = 1;
+        slot.front.material.emissiveIntensity = 1-clamp(t.dim??0,0,1);
         setImageLighting(slot.front.material, false);
         slot.front.castShadow = false;
         slot.front.receiveShadow = false;
@@ -1134,8 +1241,10 @@ export class SceneRenderer3D implements IRenderer {
     let read = this.composeA;
     let write = this.composeB;
     const composeMaterial = this.composeQuad.material;
-    for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.texture.dispose(); rt.raster.destroy(); this.overlays.delete(id); }
+    for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.texture.dispose(); rt.mask?.dispose(); rt.raster.destroy(); this.overlays.delete(id); }
     compositionOrder(s.tracks, s.textLayers).forEach((item) => {
+      composeMaterial.uniforms.backdropBlur.value=0;
+      composeMaterial.uniforms.sceneSize.value.set(s.width,s.height);
       let texture: THREE.Texture, opacity = 1, blend = 'normal';
       if (item.kind === 'motion') {
         const rt = this.trackRTs.get(item.id); if (!rt?.active) return;
@@ -1151,11 +1260,20 @@ export class SceneRenderer3D implements IRenderer {
         // The compositor consumes premultiplied layer RGB. Canvas textures
         // otherwise upload straight RGB, cancelling text opacity and fades.
         rt.texture.premultiplyAlpha = true;
-        if (rt.raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages)) rt.texture.needsUpdate = true;
+        const changed=rt.raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages);
+        if (changed) rt.texture.needsUpdate = true;
+        if(rt.raster.maskCanvas){
+          if(!rt.mask){rt.mask=new THREE.CanvasTexture(rt.raster.maskCanvas);rt.mask.generateMipmaps=false;rt.mask.minFilter=THREE.LinearFilter;}
+          if(changed)rt.mask.needsUpdate=true;
+          composeMaterial.uniforms.backdropMap.value=rt.mask;
+          composeMaterial.uniforms.backdropBlur.value=clamp(layer.backdropBlur??0,0,40);
+          composeMaterial.uniforms.blurredMap.value=this.backdropTexture(read.texture,composeMaterial.uniforms.backdropBlur.value);
+        }else if(rt.mask){rt.mask.dispose();rt.mask=undefined;}
         texture = rt.texture;
       }
       composeMaterial.uniforms.baseMap.value = read.texture;
       composeMaterial.uniforms.layerMap.value = texture;
+      if(composeMaterial.uniforms.backdropBlur.value===0){composeMaterial.uniforms.backdropMap.value=texture;composeMaterial.uniforms.blurredMap.value=texture;}
       composeMaterial.uniforms.opacity.value = opacity;
       composeMaterial.uniforms.blendMode.value = blend === 'add' ? 1 : blend === 'screen' ? 2 : blend === 'multiply' ? 3 : 0;
       this.renderer.setRenderTarget(write);
@@ -1165,6 +1283,10 @@ export class SceneRenderer3D implements IRenderer {
     });
 
     const liveEffects = new Set<string>();
+    if(this.bentCardGeometries.size>128){
+      const used=new Set([...this.trackRTs.values()].flatMap(rt=>rt.slots.flatMap(slot=>[slot.front.geometry,slot.back.geometry])));
+      for(const [key,geometry] of this.bentCardGeometries){if(this.bentCardGeometries.size<=128)break;if(!used.has(geometry)){geometry.dispose();this.bentCardGeometries.delete(key);}}
+    }
     try {
       for (const effect of s.effects) {
         if (!effect.enabled) continue;
@@ -1230,7 +1352,7 @@ export class SceneRenderer3D implements IRenderer {
   destroy() {
     dropThreeMaterials(new Set(), this.fxOwner);
     this.textCompositor.destroy();
-    this.overlays.forEach((rt) => { rt.texture.dispose(); rt.raster.destroy(); }); this.overlays.clear();
+    this.overlays.forEach((rt) => { rt.texture.dispose();rt.mask?.dispose(); rt.raster.destroy(); }); this.overlays.clear();
     this.ready = false;
     this.texturePromises.clear();
     this.r3f?.destroy();
@@ -1253,6 +1375,7 @@ export class SceneRenderer3D implements IRenderer {
     this.backgroundGeneration++;
     this.composeA?.dispose();
     this.composeB?.dispose();
+    this.backdropTargets?.forEach(target=>target.dispose());this.backdropTargets=null;this.backdropMaterial?.dispose();this.backdropMaterial=null;
     this.composeQuad?.geometry.dispose();
     this.composeQuad?.material.dispose();
     this.outputQuad?.geometry.dispose();

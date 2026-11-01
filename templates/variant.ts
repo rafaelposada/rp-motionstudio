@@ -19,6 +19,7 @@ export function variant(
     ),
     transform: base.transform,
     slotAspect: base.slotAspect,
+    layerCount: base.layerCount,
     // `transform3d` has to come along too. `meta` is spread wholesale, so a
     // variant of a webgl template inherits engine: 'webgl' — but without the 3D
     // pose the renderer silently falls back to projecting the 2D transform, and

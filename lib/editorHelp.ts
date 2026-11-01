@@ -1,4 +1,5 @@
 export const EDITOR_HELP:Record<string,{pt:string;en:string}>=Object.fromEntries([
+  ['backdropBlur','Desfoca somente o que está atrás do fundo do texto. Aumentar suaviza os detalhes; zero desliga. A cor e sua opacidade continuam independentes.','Blurs only the scene behind the text background. Increase to soften detail; zero disables. Fill color and opacity remain independent.'],
   ['backdropRadius','Arredondamento dos cantos do fundo do texto. Zero deixa reto; aumentar torna os cantos mais arredondados.','Text background corner rounding. Zero keeps square corners; increase for rounder corners.'],
   ['backdropStrokeWidth','Espessura do contorno do fundo em pixels. Aumentar engrossa a borda; zero oculta o contorno.','Text background stroke width in pixels. Increase for a heavier border; zero hides the stroke.'],
   ['opacity','Visibilidade da camada inteira, com contorno e sombra. 0% oculta; 100% mantém a aparência completa.','Visibility of the whole layer, including stroke and shadow. 0% hides it; 100% preserves its full appearance.'],

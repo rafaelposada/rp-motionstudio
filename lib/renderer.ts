@@ -5,7 +5,7 @@ import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
 import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
 import { PixelateFilter } from 'pixi-filters';
-import { getTemplate } from '@/templates';
+import { getTemplate, layerCountFor } from '@/templates';
 import { getEffect } from '@/effects';
 import { pixiFiltersFor, applyPixiUniforms, dropPixiFilters } from '@/effects/adapters/pixi';
 import { useSceneStore, type SceneState } from '@/store/useSceneStore';
@@ -248,7 +248,7 @@ export class SceneRenderer {
   // into repeatAssets (high-count fields). Slots past the list cycle the
   // available images; numbered placeholders appear only with zero assets.
   private syncTrackSlots(track: MotionTrack, rt: TrackRT, s: SceneState) {
-    const count = Math.max(1, Math.round(track.values.count ?? 6));
+    const count = layerCountFor(track.templateId, track.values, s);
     const template = getTemplate(track.templateId);
     const meta = template.meta;
     const repeat = meta.repeatAssets === true;

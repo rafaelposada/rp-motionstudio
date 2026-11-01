@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Template } from '@/lib/types';
-import { defaultsFor, easingFor } from '@/templates';
+import { defaultsFor, easingFor, layerCountFor } from '@/templates';
 import { resolveEasing } from '@/lib/easing';
 import { cardOpacity } from '@/lib/cardOpacity';
 import { previewMatrix } from '@/lib/templatePreviewGeometry';
@@ -132,7 +132,7 @@ export default function TemplateThumb({
     // used to lay out a different grid than the stage — measured at up to
     // 2645px of divergence on Grid, on an 810px-wide canvas. The draw budget is
     // enforced further down instead, by showing fewer of the correct cards.
-    const count = Math.max(1, Math.round(v.count ?? 6));
+    const count = layerCountFor(template.meta.id, v, CTX_BASE);
     const norm = SPRITE_BASE / TEX_LONG;
     const ease = resolveEasing(easingFor(template.meta.id));
     const ctx = {
@@ -170,7 +170,7 @@ export default function TemplateThumb({
       Math.abs(p.x) - p.w / 2 > halfW || Math.abs(p.y) - p.h / 2 > halfH;
     return out
       .map((p, i) => ({ p, i, off: offCanvas(p) ? 1 : 0, d: Math.hypot(p.x, p.y) }))
-      .sort((a, b) => a.off - b.off || a.d - b.d)
+      .sort((a, b) => Number(a.p.alpha<=.01)-Number(b.p.alpha<=.01) || a.off - b.off || a.d - b.d)
       .slice(0, DRAW_BUDGET)
       .sort((a, b) => a.i - b.i)
       .map((e) => e.p);

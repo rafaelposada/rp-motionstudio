@@ -38,12 +38,17 @@ import { isometricVariants } from './isometric';
 import { coverflowVariants } from './coverflow';
 import { deckVariants } from './deck';
 import { flipVariants } from './flipgrid';
+import { flipVariants as foldVariants } from './flip';
 import { boxVariants } from './box';
 import { surfaceVariants } from './surface';
 import { premium3dTemplates } from './premium3d';
 import { showcaseVariants } from './showcase';
 import { helix3dVariants } from './helix3d';
 import { interactiveCardsVariants } from './interactiveCards';
+import { ringRefVariants, carousel3dRefVariants } from './ring3dRef';
+import { coilVariants } from './spiralRef';
+import { deckRefVariants } from './deckRef';
+import { stickerVariants } from './stickers';
 
 
 // The reference's complete "3D & Perspective" shelf, in the same order.
@@ -68,10 +73,13 @@ export const templateList: Template[] = [
   ...perspective3dTemplates,
   ...interactiveCardsVariants,
   ...spinnerVariants,
+  ...carousel3dRefVariants,
+  ...stickerVariants,
   ...carouselVariants,
   ...carouselRefVariants,
   ...orbitVariants,
   ...orbit3dVariants,
+  ...ringRefVariants.filter(t => t.meta.group !== 'Box'),
   ...showcaseVariants.slice(1),
   ...spinVariants,
   ...revolveVariants,
@@ -88,6 +96,7 @@ export const templateList: Template[] = [
   ...flickerRefVariants,
   ...globeVariants.slice(2),
   ...spiralVariants,
+  ...coilVariants,
   ...spiralImagesVariants,
   ...helix3dVariants.slice(1),
   ...tourVariants,
@@ -107,8 +116,11 @@ export const templateList: Template[] = [
   ...isometricVariants,
   ...coverflowVariants,
   ...deckVariants,
-  ...flipVariants,
+  ...deckRefVariants,
+  ...flipVariants.map(t=>({...t,meta:{...t.meta,catalogHidden:true}})),
+  ...foldVariants,
   ...boxVariants,
+  ...ringRefVariants.filter(t => t.meta.group === 'Box'),
 ];
 
 export const templates: Record<string, Template> = Object.fromEntries(
@@ -117,7 +129,7 @@ export const templates: Record<string, Template> = Object.fromEntries(
 
 // Templates can remain addressable for persisted scenes while being withheld
 // from every picker until their visual quality is ready for the catalogue.
-const HIDDEN_CATALOG_GROUPS = new Set(['3D & Perspective', 'Flip']);
+const HIDDEN_CATALOG_GROUPS = new Set(['3D & Perspective']);
 export const catalogTemplateList = templateList.filter(
   (t) => !t.meta.catalogHidden && !HIDDEN_CATALOG_GROUPS.has(t.meta.group)
 );
@@ -141,6 +153,11 @@ export const templateGroups: { group: string; items: Template[] }[] = (() => {
 
 export function getTemplate(id: string): Template {
   return templates[id] ?? carousel;
+}
+
+export function layerCountFor(id: string, values: Record<string, any>, ctx: {width:number;height:number;cardAspect?:number}) {
+  const count=getTemplate(id).layerCount?.(values,ctx)??values.count??6;
+  return Math.max(1,Math.min(500,Math.round(Number(count)||1)));
 }
 
 // Build the initial value bag from a template's declared defaults.

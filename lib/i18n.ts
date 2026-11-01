@@ -64,6 +64,7 @@ export function translate(locale: Locale, key: MessageKey, vars?: Record<string,
 }
 
 const labelsPt: Record<string, string> = {
+  'Yaw':'Giro lateral','Roll':'Rotação','Shift X':'Deslocamento X','Shift Y':'Deslocamento Y','Mirror':'Espelhar','Cycle Turn':'Giro por ciclo','Peel From':'Descolar a partir de','Curl':'Enrolamento','Back Side':'Verso','Back Color':'Cor do verso','Peel':'Descolamento','Stroke':'Contorno','Surface':'Superfície','Height':'Altura','Face Camera':'Orientar à câmera','View':'Vista',
   Corner: 'Canto', 'Image Scale': 'Escala da imagem', 'Step Time': 'Tempo por etapa', Ellipticity: 'Elipticidade', 'Card Align': 'Alinhamento dos cartões',
   Contrast: 'Contraste', Movement: 'Movimento', Pause: 'Pausa', Seconds: 'Segundos', Alignment: 'Alinhamento', Shape: 'Forma', Rounding: 'Arredondamento', Ripple: 'Ondulação', Glow: 'Brilho difuso', Ring: 'Anel',
   'Offset %': 'Deslocamento %', 'Fade (frames)': 'Desvanecimento (quadros)',

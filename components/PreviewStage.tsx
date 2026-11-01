@@ -69,7 +69,7 @@ export default function PreviewStage() {
   // layer would swap in the single-motion 3D renderer and the other layers would
   // vanish.
   const engine = useSceneStore((s) =>
-    s.tracks.some((track) => track.visible && (s.compositeMode === 'stack' || track.id === s.activeTrackId) && getTemplate(track.templateId).meta.engine === 'webgl')
+    s.textLayers.some(layer=>layer.visible&&layer.backdrop&&!layer.media&&(layer.backdropBlur??0)>0) || s.tracks.some((track) => track.visible && (s.compositeMode === 'stack' || track.id === s.activeTrackId) && getTemplate(track.templateId).meta.engine === 'webgl')
       ? 'webgl'
       : 'pixi',
   );

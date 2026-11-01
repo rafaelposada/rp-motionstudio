@@ -9,7 +9,7 @@ import { variant } from './variant';
 const BASE = 340;
 
 export const carousel: Template = {
-  meta: { id: 'carousel', name: 'Runway', group: 'Runway', engine: 'webgl', defaultEasing: { id: 'glide' } },
+  meta: { id: 'carousel', name: 'Runway', group: 'Runway', defaultEasing: { id: 'glide' } },
 
   controls: [
     // Four-way direction (as in the reference tool): left/right run the strip
@@ -111,30 +111,6 @@ export const carousel: Template = {
       depth: p.depthNorm + featured,                             // featured card always wins the draw order
     };
     // cornerRadius is applied where the sprite mask is built, not here.          ← Corner Radius
-  },
-  transform3d: (frame, index, count, v, ctx) => {
-    const flat = carousel.transform(frame, index, count, v, ctx);
-    const horiz = v.direction === 'left' || v.direction === 'right';
-    const dir = (v.direction === 'left' || v.direction === 'up') ? 1 : -1;
-    const phase = ctx.easedPhase((frame / ctx.totalFrames) * loopCycles(v.speed, ctx.duration, count) * dir);
-    const path = cardPath({ kind: 'line', index, count, phase, gap: 1, wrap: true });
-    const fan = Math.tanh(path.x * 0.72);
-    const signed = v.tiltStyle === 'fan' ? fan
-      : v.tiltStyle === 'alternate' ? (index % 2 ? -1 : 1)
-      : v.tiltStyle === 'uniform' ? 1 : 0;
-    const angle = signed * v.tiltAmount * Math.PI / 180;
-    const depth = -(1 - path.depthNorm) * (v.perspective / 100) * v.cardSize * 0.65;
-    return {
-      x: flat.x,
-      y: flat.y,
-      z: depth,
-      rotationX: horiz ? 0 : -angle,
-      rotationY: horiz ? angle : 0,
-      rotationZ: 0,
-      scale: flat.scale,
-      alpha: flat.alpha,
-      solidAlpha: flat.solidAlpha,
-    };
   },
 };
 

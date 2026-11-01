@@ -37,6 +37,7 @@ export interface LayerTransform {
   dim?: number;
   skewX?: number;    // optional, for fake-3D tilt
   skewY?: number;
+  taper?: {edge:'top'|'bottom'|'left'|'right';ratio:number};
   scaleX?: number;   // optional non-uniform squash (default 1) — flips/page turns
   scaleY?: number;   // optional non-uniform squash (default 1) — split-flap
   depth: number;     // sort order; higher = drawn on top / nearer
@@ -53,6 +54,9 @@ export interface LayerTransform3D {
   rotationY?: number;
   rotationZ?: number;
   quaternion?: { x: number; y: number; z: number; w: number };
+  depthBias?: number;
+  curl?: number; cornerPeel?: number; peelAngle?: number; peelDirection?: number; peelSoftness?: number;
+  stickerPeelFront?: number; stickerCurlRadius?: number; backfaceColor?: string;
   thickness?: number;        // px before the card's uniform pose scale
   shadowStrength?: number;   // 0..1, per-card cast/receive contribution
   materialExposure?: number; // linear multiplier, 1 = neutral
@@ -119,6 +123,7 @@ export interface Template {
     cardAspect?: number | 'canvas';           // cover-crop shape: w/h ratio (default 4/5) or the canvas aspect (full-bleed)
   };
   controls: ControlDef[];                     // its FULL own set
+  layerCount?: (values: Record<string, any>, ctx: Pick<TransformCtx, 'width'|'height'|'cardAspect'>) => number;
   transform: (
     frame: number,                            // absolute frame index
     index: number,                            // this layer's slot 0..count-1

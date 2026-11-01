@@ -37,7 +37,7 @@ Module._resolveFilename = function (request, parent, isMain, options) {
   return originalResolve.call(this, request, parent, isMain, options);
 };
 
-const { templateList, defaultsFor, easingFor } = require('../templates');
+const { templateList, defaultsFor, easingFor, layerCountFor } = require('../templates');
 const { resolveEasing } = require('../lib/easing');
 
 let assertions = 0;
@@ -87,7 +87,7 @@ function thumbnailPoses(template, frame) {
     : template.meta.cardAspect ?? 4 / 5;
   const texW = TEX_LONG * Math.min(1, texAspect);
   const texH = TEX_LONG * Math.min(1, 1 / texAspect);
-  const count = Math.max(1, Math.round(values.count ?? 6));
+  const count = layerCountFor(template.meta.id,values,{width:CTX_W,height:CTX_H});
   const norm = SPRITE_BASE / TEX_LONG;
   const ease = resolveEasing(easingFor(template.meta.id));
   const ctx = {
@@ -111,7 +111,7 @@ function thumbnailPoses(template, frame) {
   const offCanvas = (p) => Math.abs(p.x) - p.w / 2 > halfW || Math.abs(p.y) - p.h / 2 > halfH;
   const drawn = all
     .map((p) => ({ p, off: offCanvas(p) ? 1 : 0, d: Math.hypot(p.x, p.y) }))
-    .sort((a, b) => a.off - b.off || a.d - b.d)
+    .sort((a, b) => Number(a.p.alpha<=.01)-Number(b.p.alpha<=.01) || a.off - b.off || a.d - b.d)
     .slice(0, DRAW_BUDGET)
     .sort((a, b) => a.p.i - b.p.i)
     .map((e) => e.p);

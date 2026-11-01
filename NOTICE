@@ -5,6 +5,8 @@ The pre-existing base remains subject to the notices in LICENSE. That file has
 not been replaced or relicensed by this update.
 
 Additional template families (arc, wheelEllipse, revolve, spinner, wipeReveal)
+and catalogue ports (ring3dRef, spiralRef, deckRef, flip, stickers, stickersExact),
+including their shared refScene3d and cardMesh geometry helpers,
 and the shared effect shaders/adapters were imported from Motion Studio commit
 dba311caff2e78c621c17f008eb1bc3f71f361b5. That upstream revision publishes these
 additions under Apache-2.0. Its complete licence and NOTICE are retained in:

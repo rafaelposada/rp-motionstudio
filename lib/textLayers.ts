@@ -3,11 +3,13 @@ import { drawTextShadow, type TextShadowSettings } from './textShadow';
 import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
 import { normalizedRadii, bounded, type CornerRadii } from './transformGeometry';
 
+export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
+
 export interface TextLayer {
   id: string; text: string; font: string; weight: number; size: number;
   color: string; x: number; y: number; rotation: number; opacity: number;
   scaleX?: number; scaleY?: number; backdropRadius?: number;
-  backdropColor?: string; backdropOpacity?: number;
+  backdropColor?: string; backdropOpacity?: number; backdropBlur?: number;
   backdropStroke?: string; backdropStrokeOpacity?: number; backdropStrokeWidth?: number;
   align: CanvasTextAlign; lineHeight: number; visible: boolean;
   start: number; end: number;
@@ -21,8 +23,8 @@ export interface TextLayer {
   media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
   animation?: 'none' | 'fade' | 'rise' | 'typewriter';
   animationDuration?: number; backdrop?: boolean;
-  entrance?: 'none' | 'fade' | 'rise' | 'typewriter';
-  exit?: 'none' | 'fade' | 'rise';
+  entrance?: LayerAnimation;
+  exit?: LayerAnimation;
   entranceDuration?: number; exitDuration?: number;
 }
 
@@ -34,10 +36,22 @@ export function textMotion(layer: TextLayer, seconds: number) {
   const endDuration = Math.min(length / 2, Math.max(0.05, layer.exitDuration ?? layer.animationDuration ?? 0.35));
   const progress = Math.max(0, Math.min(1, (seconds - layer.start) / duration));
   const fadeOut = Math.max(0, Math.min(1, (layer.end - seconds) / endDuration));
+  const pose=(mode:LayerAnimation,p:number)=>{
+    const remaining=(1-p)**3;
+    return {x:mode==='slideLeft'?64*remaining:mode==='slideRight'?-64*remaining:0,
+      y:mode==='rise'?30*remaining:mode==='drop'?-48*remaining:0,
+      scale:mode==='zoomIn'?.65+.35*(1-remaining):mode==='zoomOut'?1+.35*remaining:mode==='pop'?1+Math.pow(2,-8*p)*Math.cos(p*Math.PI*3)*-.45*(1-p):1,
+      rotation:mode==='rotate'?-18*remaining:0};
+  };
+  const incoming=pose(entrance,progress), outgoing=pose(exit,fadeOut);
+  const chars=[...layer.text];
+  const typed=entrance==='typewriter'?Math.ceil(chars.length*progress):chars.length;
+  const remaining=exit==='typewriter'?Math.ceil(chars.length*fadeOut):chars.length;
   return {
     opacity: (entrance !== 'none' ? progress : 1) * (exit !== 'none' ? fadeOut : 1),
-    y: (entrance === 'rise' ? 30 * (1 - progress) ** 3 : 0) - (exit === 'rise' ? 30 * (1 - fadeOut) ** 3 : 0),
-    text: entrance === 'typewriter' ? [...layer.text].slice(0, Math.ceil([...layer.text].length * progress)).join('') : layer.text,
+    x:incoming.x-outgoing.x, y:incoming.y-outgoing.y,
+    scale:incoming.scale*outgoing.scale, rotation:incoming.rotation-outgoing.rotation,
+    text:chars.slice(0,Math.min(typed,remaining)).join(''),
   };
 }
 
@@ -107,7 +121,7 @@ export async function prepareTextFonts(layers: TextLayer[], originals=false) {
 // Coordinates are scene pixels and scale with the requested export resolution.
 export class TextCompositor {
   private canvas: HTMLCanvasElement | null = null;
-  render(source: HTMLCanvasElement, layers: TextLayer[], width: number, height: number, seconds: number, originals=false, mediaPreview:RenderImage|null=null, transparentSource=false) {
+  render(source: HTMLCanvasElement, layers: TextLayer[], width: number, height: number, seconds: number, originals=false, mediaPreview:RenderImage|null=null, transparentSource=false, maskOnly=false) {
     if (!layers.length) {
       source.style.removeProperty('display');
       this.canvas?.remove();
@@ -130,9 +144,9 @@ export class TextCompositor {
       if (!layer.visible || seconds < layer.start || seconds >= layer.end) continue;
       ctx.save();
       const motion = textMotion(layer, seconds);
-      ctx.translate(layer.x, layer.y + motion.y);
-      ctx.rotate(layer.rotation * Math.PI / 180);
-      ctx.scale(bounded(layer.scaleX ?? 1, .05, 20), bounded(layer.scaleY ?? 1, .05, 20));
+      ctx.translate(layer.x + motion.x, layer.y + motion.y);
+      ctx.rotate((layer.rotation+motion.rotation) * Math.PI / 180);
+      ctx.scale(bounded(layer.scaleX ?? 1, .05, 20)*motion.scale, bounded(layer.scaleY ?? 1, .05, 20)*motion.scale);
       ctx.globalAlpha = layer.opacity * motion.opacity;
       if (layer.media) {
         if (layer.media.url) {
@@ -168,14 +182,15 @@ export class TextCompositor {
         const left = layer.align === 'left' ? -18 : layer.align === 'right' ? -textWidth - 18 : -textWidth / 2 - 18;
         const alpha = ctx.globalAlpha;
         ctx.beginPath(); ctx.roundRect(left, -boxHeight / 2, textWidth + 36, boxHeight, bounded(layer.backdropRadius ?? 12, 0, Math.min(textWidth + 36, boxHeight) / 2));
-        ctx.fillStyle = layer.backdropColor ?? '#101114'; ctx.globalAlpha = alpha * bounded(layer.backdropOpacity ?? .8,0,1); ctx.fill();
-        if(layer.backdropStroke && (layer.backdropStrokeWidth ?? 1)>0) {
+        ctx.fillStyle = maskOnly?'#ffffff':layer.backdropColor ?? '#101114'; ctx.globalAlpha = alpha * (maskOnly?1:bounded(layer.backdropOpacity ?? .8,0,1)); ctx.fill();
+        if(!maskOnly && layer.backdropStroke && (layer.backdropStrokeWidth ?? 1)>0) {
           ctx.globalAlpha = alpha * bounded(layer.backdropStrokeOpacity ?? 1,0,1);
           ctx.strokeStyle = layer.backdropStroke; ctx.lineWidth = bounded(layer.backdropStrokeWidth ?? 1,0,30); ctx.lineJoin='round'; ctx.stroke();
         }
         ctx.globalAlpha = alpha;
         ctx.fillStyle = layer.color;
       }
+      if(maskOnly){ctx.restore();continue;}
       ctx.shadowColor = 'transparent';
       const glyphs=(g:CanvasRenderingContext2D,paint:(text:string,x:number,y:number)=>void)=>{
         lines.forEach((line,index)=>{
@@ -216,6 +231,8 @@ export class TextCompositor {
 export class OverlayRaster {
   private source = document.createElement('canvas');
   private compositor = new TextCompositor();
+  private maskCompositor: TextCompositor|null=null;
+  maskCanvas: HTMLCanvasElement|null=null;
   private signature = '';
   private mediaUrl='';
   private mediaPreview:RenderImage|null=null;
@@ -237,7 +254,11 @@ export class OverlayRaster {
     const rw=Math.max(1,Math.round(width*scale)),rh=Math.max(1,Math.round(height*scale));
     if(this.source.width!==rw)this.source.width=rw;if(this.source.height!==rh)this.source.height=rh;
     this.canvas = this.compositor.render(this.source, [layer], width, height, seconds, originals, this.mediaPreview,true);
+    if(layer.backdrop && !layer.media && (layer.backdropBlur??0)>0){
+      this.maskCompositor??=new TextCompositor();
+      this.maskCanvas=this.maskCompositor.render(this.source,[layer],width,height,seconds,originals,null,true,true);
+    }else{this.maskCompositor?.destroy();this.maskCompositor=null;this.maskCanvas=null;}
     return true;
   }
-  destroy() { this.mediaUrl='';this.mediaPreview=null;this.compositor.destroy(); this.source.width = this.source.height = 1; }
+  destroy() { this.mediaUrl='';this.mediaPreview=null;this.compositor.destroy();this.maskCompositor?.destroy();this.maskCanvas=null; this.source.width = this.source.height = 1; }
 }
