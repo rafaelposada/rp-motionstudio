@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
 import { LayerDragHandle, timelineLayerDragProps } from './LayerDropTarget';
@@ -7,7 +7,7 @@ import type { TextLayer } from '@/lib/textLayers';
 import { deleteCompositionLayer, selectOverlayForEditing } from '@/lib/compositionActions';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection, type TimelineWindow } from '@/lib/timelineSelection';
-export default function TextTrackLane({ layer, duration }: { layer: TextLayer; duration: number }) {
+export default function TextTrackLane({ layer, duration, leadingControl }: { layer: TextLayer; duration: number; leadingControl?:ReactNode }) {
   const selectedIds = useUIStore(s => s.selectedLayerIds), pt = useUIStore(s => s.locale) === 'pt';
   const patch = useSceneStore((s) => s.patchTextLayer); const remove = deleteCompositionLayer;
   const fps = useSceneStore((s) => s.fps); const axis = useRef<HTMLDivElement>(null);
@@ -26,7 +26,7 @@ export default function TextTrackLane({ layer, duration }: { layer: TextLayer; d
     else if (d.mode === 'start') patch(layer.id, { start: Math.max(0, Math.min(d.end - 1 / fps, snap(d.start + delta))) });
     else patch(layer.id, { end: Math.min(duration, Math.max(d.start + 1 / fps, snap(d.end + delta))) });
   };
-  return <div className={`tl-lane ${selectedIds.includes(layer.id) ? 'active' : ''} ${layer.visible ? '' : 'hidden'}`}><div className="tl-lane-gutter"><LayerDragHandle id={layer.id} name={layer.text}/>
+  return <div className={`tl-lane ${selectedIds.includes(layer.id) ? 'active' : ''} ${layer.visible ? '' : 'hidden'}`}><div className="tl-lane-gutter">{leadingControl}<LayerDragHandle id={layer.id} name={layer.text}/>
     <button className="tl-lane-btn" title={pt ? 'Mostrar / ocultar camada' : 'Show / hide layer'} onClick={() => patch(layer.id, { visible: !layer.visible })}>{layer.visible ? '◉' : '○'}</button>
     <button className="tl-lane-btn" title={pt ? 'Bloquear / desbloquear camada' : 'Lock / unlock layer'} onClick={() => patch(layer.id, { locked: !layer.locked })}>{layer.locked ? '▣' : '□'}</button>
     <button className="tl-lane-btn danger" title={pt ? 'Excluir camada' : 'Delete layer'} disabled={layer.locked} onClick={() => remove(layer.id)}>×</button>

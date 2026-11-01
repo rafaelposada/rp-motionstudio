@@ -95,7 +95,11 @@ de versão em `package.json` e `package-lock.json`; o número da versão aparece
 - Padding do fundo do texto: valor único ou quatro lados independentes, com cálculos.
   O padding também é respeitado pelo BG Blur, pelo contorno e pela caixa de seleção.
 - Desfazer: ⌘/Ctrl+Z. Refazer: ⌘/Ctrl+Shift+Z; no Windows, Ctrl+Y também funciona.
-- Rotação pela área externa dos quatro cantos, com leitura do ângulo e encaixe de 15° com Shift.
+- Composição dos modelos em um seletor compacto no espaço livre da primeira linha
+  da timeline. O modo Único/Compor e a visibilidade das outras camadas são preservados
+  ao trocar o modelo ativo.
+- Rotação pela área externa das oito alças da BBox, incluindo os centros superior
+  e inferior, com leitura do ângulo e encaixe de 15° com Shift.
 - Botão de ampliar preview dentro da janela; Esc restaura os painéis.
 - Catálogo Google Fonts com prévias e importação de fontes locais. O primeiro
   carregamento de uma fonte Google requer internet; fontes já usadas são armazenadas localmente.

@@ -37,6 +37,8 @@
   ],
   "exclude": [
     "node_modules",
+    "verification",
+    ".next/standalone",
     ".next/types/* *.ts",
     ".next/dev/types/* *.ts"
   ]

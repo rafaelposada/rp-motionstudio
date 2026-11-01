@@ -185,19 +185,20 @@ export default function Timeline({
 
     {lanesOpen && (
       <div className="tl-lanes">
-        <label className="text-edit-label">{locale === 'pt' ? 'Composição dos modelos' : 'Model composition'}
-          <select className="field" value={compositeMode} onChange={(e) => setCompositeMode(e.target.value as 'single' | 'stack')}>
-            <option value="single">{locale === 'pt' ? 'Modelo único — somente a camada selecionada' : 'Single model — selected layer only'}</option>
-            <option value="stack">{locale === 'pt' ? 'Compor camadas — sobrepor camadas visíveis' : 'Compose layers — stack visible layers'}</option>
-          </select>
-        </label>
         {/* Topmost lane = topmost layer, so the list reads like the stack looks:
             the store's array is bottom-to-top, the UI shows it reversed. */}
-        {compositionOrder(tracks, textLayers).reverse().map(item => {
+        {compositionOrder(tracks, textLayers).reverse().map((item, index) => {
           const layer = textLayers.find(l => l.id === item.id), track = tracks.find(t => t.id === item.id);
-          return <LayerDropTarget key={item.id} id={item.id} name={layer?.text ?? track?.name ?? ''}>{layer ? <TextTrackLane layer={layer} duration={duration} /> : track ? <TrackLane
+          const modeControl = index === 0 ? <label className="tl-composition-control" data-mode={compositeMode} onPointerDown={e=>e.stopPropagation()} title={locale === 'pt' ? 'Único: exibe só o modelo ativo. Compor: sobrepõe todos os modelos visíveis. Textos e imagens absolutas continuam independentes.' : 'Single: show only the active model. Stack: overlay all visible models. Text and absolute images remain independent.'}>
+            <select aria-label={locale === 'pt' ? 'Composição dos modelos' : 'Model composition'} value={compositeMode} onChange={e=>setCompositeMode(e.target.value as 'single' | 'stack')}>
+              <option value="single">{locale === 'pt' ? 'Único' : 'Single'}</option>
+              <option value="stack">{locale === 'pt' ? 'Compor' : 'Stack'}</option>
+            </select>
+          </label> : undefined;
+          return <LayerDropTarget key={item.id} id={item.id} name={layer?.text ?? track?.name ?? ''}>{layer ? <TextTrackLane layer={layer} duration={duration} leadingControl={modeControl} /> : track ? <TrackLane
             track={track}
             totalFrames={totalFrames}
+            leadingControl={modeControl}
           /> : null}</LayerDropTarget>;
         })}
 

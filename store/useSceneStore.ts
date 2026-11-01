@@ -322,18 +322,17 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   setValue: (key, val) =>
     set((s) => withTrack(s, s.activeTrackId, { values: { ...s.values, [key]: val } })),
 
-  // Full reset on template switch: wipe bag, refill from declared defaults,
-  // seed easing, and solo the active layer. The other layers stay in the
-  // project, hidden and recoverable from Layers; this prevents an older model
-  // reading as a ghost/background while the user browses the template library.
+  // Replace only the active model. Single/stack is an explicit composition
+  // choice; the renderer already isolates the active track in single mode.
+  // Keep the other tracks and their eye states intact when browsing models.
   setActiveTemplate: (id) =>
     set((s) => {
       const tracks = s.tracks.map((track) => track.id === s.activeTrackId
         ? { ...track, templateId: id, values: defaultsFor(id), easing: easingFor(id), visible: true }
-        : { ...track, visible: false });
+        : track);
       const active=tracks.find(track=>track.id===s.activeTrackId)??tracks[0];
       const frame=trackWindow(active,Math.round(s.duration*s.fps)).inFrame;
-      return { ...projectActive(tracks, s.activeTrackId), compositeMode: 'single', frame };
+      return { ...projectActive(tracks, s.activeTrackId), frame };
     }),
 
   setEasing: (easing) => set((s) => withTrack(s, s.activeTrackId, { easing })),
@@ -688,8 +687,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       persistPresets(next);
       return { customPresets: next };
     }),
-  // A preset lands on the active track and follows the same solo-preview
-  // semantics as picking a built-in template.
+  // Custom presets replace only the active track, just like library models.
   applyCustomPreset: (id) =>
     set((s) => {
       const p = s.customPresets.find((c) => c.id === id);
@@ -703,8 +701,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
             easing: p.easing,
             visible: true,
           }
-        : { ...track, visible: false });
-      return { ...projectActive(tracks, s.activeTrackId), frame: 0 };
+        : track);
+      const active=tracks.find(track=>track.id===s.activeTrackId)??tracks[0];
+      return { ...projectActive(tracks, s.activeTrackId), frame:trackWindow(active,Math.round(s.duration*s.fps)).inFrame };
     }),
   deleteCustomPreset: (id) =>
     set((s) => {

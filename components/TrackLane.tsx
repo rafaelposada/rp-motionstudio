@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { templateList } from '@/templates';
 import { trackWindow, type MotionTrack } from '@/lib/tracks';
@@ -17,9 +17,11 @@ type DragMode = 'move' | 'in' | 'out';
 export default function TrackLane({
   track,
   totalFrames,
+  leadingControl,
 }: {
   track: MotionTrack;
   totalFrames: number;
+  leadingControl?: ReactNode;
 }) {
   const selectedIds = useUIStore(s => s.selectedLayerIds), pt = useUIStore(s => s.locale) === 'pt';
   const name = layerDisplayName(track.name, pt);
@@ -100,7 +102,7 @@ export default function TrackLane({
       {/* Every per-layer control lives here, always visible — they used to hide
           inside the bar on hover, which made them hard to find and put click
           targets on top of the drag surface. */}
-      <div className="tl-lane-gutter"><LayerDragHandle id={track.id} name={name}/>
+      <div className="tl-lane-gutter">{leadingControl}<LayerDragHandle id={track.id} name={name}/>
         <button
           className="tl-lane-btn"
           title={track.visible ? (pt ? 'Ocultar camada' : 'Hide layer') : (pt ? 'Mostrar camada' : 'Show layer')}

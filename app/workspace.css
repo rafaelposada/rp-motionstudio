@@ -56,6 +56,12 @@
 .canvas-inline-text { position: absolute; z-index: 9; display: block; padding: 0; margin: 0; border: 1px solid var(--accent-text); border-radius: 0; outline: 0; background: transparent; box-sizing: border-box; resize: none; overflow: hidden; white-space: pre; user-select: text; -webkit-user-select: text; transform-origin: center; }
 .transform-rotate-zone { position: absolute; pointer-events: auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; transform: translate(-50%,-50%); touch-action: none; z-index: 2; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M7 7a7 7 0 1 1-1 9M7 3v5H2' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 7a7 7 0 1 1-1 9M7 3v5H2' fill='none' stroke='%23202020' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair; }
 .transform-rotate-zone:focus-visible { outline: 1px solid var(--accent-text); outline-offset: 1px; }
+.tl-composition-control { flex:1 1 76px; max-width:100px; min-width:0; margin-right:auto; padding-right:6px; }
+.tl-composition-control select { width:100%; min-width:0; height:26px; padding:2px 5px; border:1px solid var(--line); border-radius:6px; background:var(--card-inset); color:var(--fg-muted); font:inherit; font-size:11px; text-overflow:ellipsis; cursor:pointer; }
+.tl-composition-control select:focus-visible { outline:2px solid var(--accent-text); outline-offset:2px; }
+.tl-composition-control[data-mode="stack"] select { color:var(--accent-text); background:var(--accent-soft); }
+.tl-lane.hidden { opacity:1; }
+.tl-lane.hidden .tl-lane-bars, .tl-lane.hidden .tl-lane-gutter > :not(.tl-composition-control) { opacity:.45; }
 .transform-angle-readout { position: absolute; z-index: 10; pointer-events: none; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--fg); font-size: 11px; font-variant-numeric: tabular-nums; }
 .text-panel .text-section-title { margin: 10px 0 2px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--fg-muted); }
 .text-panel .text-edit-label, .text-panel > .ctl-hint { margin-bottom: 0; }

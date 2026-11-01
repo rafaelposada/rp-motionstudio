@@ -50,7 +50,7 @@ export default function TextPanel() {
   );
   return <div className="section-body text-panel">
     <button className="btn solid full" onClick={() => { add(); const created = useSceneStore.getState().textLayers.at(-1); if (created) selectOverlayForEditing(created.id); }}>{pt ? '+ Adicionar texto' : '+ Add text'}</button>
-    <p className="ctl-hint">{pt ? 'Duplo clique para editar na tela. Arraste para mover; gire pela área externa dos cantos.' : 'Double-click to edit on canvas. Drag to move; rotate outside the corners.'}</p>
+    <p className="ctl-hint">{pt ? 'Duplo clique para editar na tela. Arraste para mover; gire pela área externa das alças.' : 'Double-click to edit on canvas. Drag to move; rotate outside the handles.'}</p>
     {textLayers.map((item, index) => <div key={item.id} className="text-layer-row">
       <button className={`btn ${selectedIds.includes(item.id) ? 'solid' : ''}`} aria-pressed={selectedIds.includes(item.id)} onClick={e => selectOverlayForEditing(item.id, e.shiftKey)}>{index + 1}. {item.text.slice(0, 24) || (pt ? 'Texto vazio' : 'Empty text')}</button>
       <button className="icon-btn" aria-label={pt ? 'Alternar visibilidade' : 'Toggle visibility'} onClick={() => patch(item.id, { visible: !item.visible })}>{item.visible ? '◉' : '○'}</button>
