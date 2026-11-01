@@ -9,6 +9,7 @@ import TrackInspector from './TrackInspector';
 import { useI18n } from '@/lib/useI18n';
 import InfoHint from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
+import MotionPathEditor from './MotionPathEditor';
 
 // Renders the SCENE + TIMING sections (no card wrapper — the page composes cards).
 export default function ScenePanel() {
@@ -97,7 +98,7 @@ export default function ScenePanel() {
 
       {/* layer compositing: opacity, blend, retiming, asset split. Only
           meaningful once a second layer exists. */}
-      {trackCount > 1 && (
+      {trackCount > 0 && (
         <>
           <TrackInspector />
           <div className="hairline" />
@@ -116,6 +117,7 @@ export default function ScenePanel() {
       <div className="hairline" />
 
       <EasingPanel />
+      <MotionPathEditor key={activeTemplateId} />
     </>
   );
 }

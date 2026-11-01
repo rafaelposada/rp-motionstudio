@@ -12,7 +12,6 @@ import ScenePanel from '@/components/ScenePanel';
 import TemplatesCard from '@/components/TemplatesCard';
 import Timeline from '@/components/Timeline';
 import TextPanel from '@/components/TextPanel';
-import HomeDashboard from '@/components/HomeDashboard';
 import { CollapsedStrip } from '@/components/TplCollapse';
 import { useUIStore } from '@/store/useUIStore';
 import { useI18n } from '@/lib/useI18n';
@@ -61,10 +60,10 @@ export default function DesktopEditor() {
     <div className={`app resizable-app ${showGrid ? '' : 'stage-grid-off'} ${tplCollapsed ? 'app-tpl-collapsed' : ''} ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`} style={layoutStyle}>
       <PanelDock panel="rail"><IconRail /></PanelDock>
 
-      <PanelDock panel="library" collapsed={leftCollapsed} strip={tplCollapsed}>{tplCollapsed ? <CollapsedStrip /> : isProjects ? <ProjectsPanel /> : <TemplatesCard />}</PanelDock>
+      <PanelDock panel="library" collapsed={leftCollapsed} strip={tplCollapsed}>{tplCollapsed ? <CollapsedStrip /> : isProjects ? <ProjectsPanel onProjectOpen={() => useUIStore.getState().setNav('library')} /> : <TemplatesCard />}</PanelDock>
 
       <main className="stage-col">
-        {isProjects ? <HomeDashboard /> : <PreviewStage />}
+        <PreviewStage />
         <button
           className="stage-fs"
           title={t('fullscreen')}
@@ -82,7 +81,7 @@ export default function DesktopEditor() {
         </button>
       </main>
 
-      <PanelDock panel="inspector" collapsed={rightCollapsed}><section className="card right card-scroll">
+      <PanelDock panel="inspector" collapsed={rightCollapsed}><div className="inspector-stack"><section className="card right card-scroll">
         <div className="inspector-tabs" role="tablist" aria-label={t('inspector')} onKeyDown={(event) => {
           if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault();
@@ -107,14 +106,13 @@ export default function DesktopEditor() {
             </button>
           ))}
         </div>
-        <CompositionLayers />
         <div className="inspector-content" id="inspector-content" role="tabpanel" aria-labelledby={`inspector-tab-${inspectorTab}`}>
           {inspectorTab === 'motion' && <><ScenePanel /><div className="hairline" /><EffectsPanel /></>}
           {inspectorTab === 'canvas' && <CanvasPanel />}
           {inspectorTab === 'media' && <AssetsPanel />}
           {inspectorTab === 'text' && <TextPanel />}
         </div>
-      </section></PanelDock>
+      </section><section className="card composition-dock" aria-label={t('layers')}><CompositionLayers /></section></div></PanelDock>
 
       <PanelDock panel="timeline"><footer className="card bottom">
         <Timeline />

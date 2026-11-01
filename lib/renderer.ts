@@ -5,6 +5,7 @@ import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
 import { PixelateFilter } from 'pixi-filters';
 import { getTemplate } from '@/templates';
 import { getEffect } from '@/effects';
+import { pixiFiltersFor, applyPixiUniforms, dropPixiFilters } from '@/effects/adapters/pixi';
 import { useSceneStore, type SceneState } from '@/store/useSceneStore';
 import { resolveEasing } from '@/lib/easing';
 import { assetIndexForSlot, clamp } from '@/lib/motion';
@@ -16,6 +17,7 @@ import { previewResolution } from '@/lib/previewResolution';
 import { reelVideoTime, syncReelVideo } from '@/lib/reelVideoClock';
 import { renderableTracks, renderableAssetUrls, exportImageUrls } from '@/lib/renderAssets';
 import { cardOpacity } from '@/lib/cardOpacity';
+import { modelPathOffset } from '@/lib/modelMotionPath';
 
 // Reference base long-edge (px) shared with templates (carousel BASE = 340),
 // so control values read directly in on-screen pixels.
@@ -78,6 +80,7 @@ export class SceneRenderer {
   private ready = false;
 
   private lastFxSig = '';
+  private readonly fxOwner = `${crypto.randomUUID()}/`;
   private bgImageUrl = '';                        // last-loaded uploaded bg url
   private bgImageTex: PIXI.Texture | null = null;
 
@@ -312,7 +315,9 @@ export class SceneRenderer {
         const { url, crop, kind } = asset;
         const fit = asset.fit ?? 'fill';
         this.loadTexture(url, kind).then((base) => {
-          if (!base || slot.sprite.destroyed || slot.bindKey !== binding) return;
+          // Export teardown can replace a cached original with its preview
+          // before this microtask runs. Never rebuild a crop over a retired source.
+          if (!base || base !== this.textureCache.get(url) || slot.sprite.destroyed || slot.bindKey !== binding) return;
           const tex = fit === 'fill' ? this.croppedView(url, base, aspect, crop) : base;
           slot.sprite.texture = tex;
           slot.sprite.tint = 0xffffff;
@@ -361,22 +366,23 @@ export class SceneRenderer {
   }
 
   // ---- effects ----
-  private syncEffects() {
+  private syncEffects(frame: number) {
     const s = useSceneStore.getState();
     const active = s.effects.filter((e) => e.enabled);
     const sig = active.map((e) => e.instanceId + ':' + e.effectId + ':' + JSON.stringify(e.values)).join('|');
-    if (sig === this.lastFxSig) return;
-    this.lastFxSig = sig;
-
     const filters: PIXI.Filter[] = [];
+    const live = new Set<string>();
     for (const e of active) {
       const def = getEffect(e.effectId);
       if (!def) continue;
-      try {
-        filters.push(def.createFilter(e.values));
-      } catch { /* skip bad filter */ }
+      const key = this.fxOwner + e.instanceId; live.add(key);
+      const passes = pixiFiltersFor(def, key);
+      applyPixiUniforms(passes, def, e.values, { width: s.width, height: s.height, time: frame / s.fps });
+      filters.push(...passes);
     }
-    this.content.filters = filters.length ? filters : [];
+    dropPixiFilters(live, this.fxOwner);
+    this.content.filterArea = new PIXI.Rectangle(0, 0, s.width, s.height);
+    if (sig !== this.lastFxSig) { this.content.filters = filters; this.lastFxSig = sig; }
   }
 
   // ---- overlays ----
@@ -480,7 +486,7 @@ export class SceneRenderer {
       v.loop = s.videoEnd !== 'hold';
       if (!this.exportVideoFrames.size) syncReelVideo(v, reelVideoTime(s, url, frame), s, this.onDirty);
     });
-    this.syncEffects();
+    this.syncEffects(frame);
     this.drawOverlays(s);
 
     const totalFrames = Math.max(1, Math.round(s.duration * s.fps));
@@ -512,7 +518,8 @@ export class SceneRenderer {
       rt.container.alpha = clamp(track.opacity, 0, 1) * time.envelope;
       rt.container.blendMode = track.blend;
       // Track-level transform, on top of whatever the template poses.
-      rt.container.position.set(track.transform.x, track.transform.y);
+      const path = modelPathOffset(track, frame, s.fps, s.width, s.height);
+      rt.container.position.set(track.transform.x + path.x, track.transform.y + path.y);
       rt.container.scale.set(track.transform.scale);
       rt.container.rotation = (track.transform.rotation * Math.PI) / 180;
 
@@ -548,6 +555,8 @@ export class SceneRenderer {
         slot.root.rotation = t.rotation;
         const alpha=cardOpacity(t.alpha,track.values._autoTransparency===true,t.solidAlpha);
         slot.root.alpha = alpha;
+        const brightness = 1 - clamp(t.dim ?? 0, 0, 1);
+        slot.sprite.tint = (Math.round(brightness * 255) * 0x010101);
         slot.root.skew.set(t.skewX ?? 0, t.skewY ?? 0);
         slot.root.zIndex = t.depth * 1000 + i; // stable tiebreak
         this.applyMask(slot, track.values.cornerRadius ?? 0);
@@ -706,6 +715,14 @@ export class SceneRenderer {
     return null;
   }
   selectionBounds(id: string) { const rt = this.trackRTs.get(id); if (!rt?.container.visible) return null; const b = rt.container.getBounds(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }
+  selectionFrame(id: string) {
+    const rt = this.trackRTs.get(id), track = useSceneStore.getState().tracks.find(t => t.id === id);
+    if (!rt?.container.visible || !track) return null;
+    const b = rt.container.getLocalBounds();
+    if (!(b.width > 0 && b.height > 0)) return null;
+    const p = rt.container.toGlobal({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+    return { cx: p.x, cy: p.y, width: b.width * track.transform.scale, height: b.height * track.transform.scale, rotation: track.transform.rotation };
+  }
 
   // Deterministic capture: realize frame, render, read pixels as a JPEG data URL.
   // JPEG (q0.92) over PNG: ~5–10× smaller + far faster to encode at 2K/4K, and
@@ -729,6 +746,7 @@ export class SceneRenderer {
   }
 
   destroy() {
+    dropPixiFilters(new Set(), this.fxOwner);
     this.textCompositor.destroy();
     this.overlays.forEach((rt) => { rt.texture.destroy(true); rt.raster.destroy(); }); this.overlays.clear();
     this.ready = false;

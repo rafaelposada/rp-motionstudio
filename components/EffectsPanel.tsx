@@ -6,11 +6,12 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { useSceneStore, type ActiveEffect } from '@/store/useSceneStore';
 import { effectList, getEffect, effectDefaults } from '@/effects';
-import { ControlRow } from './Controls';
+import { ControlRow, controlVisible } from './Controls';
 import { useMobileInteractions } from './MobileInteractions';
 import { useI18n } from '@/lib/useI18n';
 import InfoHint from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
+import { effectHelp } from '@/lib/effectHelp';
 
 function MobileEffectCard({
   effect,
@@ -24,6 +25,7 @@ function MobileEffectCard({
   onValue: (key: string, value: unknown) => void;
 }) {
   const def = getEffect(effect.effectId);
+  const { locale } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: effect.instanceId });
   if (!def) return null;
@@ -40,7 +42,8 @@ function MobileEffectCard({
         </button>
       </div>
       <div className="effect-card-body">
-        {def.controls.map((control) => <ControlRow key={control.key} def={control} value={effect.values[control.key]} onChange={(value) => onValue(control.key, value)} />)}
+        <p className="ctl-hint">{effectHelp(effect.effectId, locale)}</p>
+        {def.controls.filter(control => controlVisible(control, effect.values)).map((control) => <ControlRow key={control.key} def={control} value={effect.values[control.key]} onChange={(value) => onValue(control.key, value)} />)}
       </div>
     </div>
   );
@@ -79,8 +82,10 @@ export default function EffectsPanel() {
           <select className="field" value={pick} onChange={(e) => setPick(e.target.value)}>
             {effectList.map((e) => <option key={e.meta.id} value={e.meta.id}>{label(e.meta.name)}</option>)}
           </select>
-          <button className="btn" onClick={() => pick && addEffect(pick, effectDefaults(pick))}>{t('add')}</button>
+          <button className="btn" disabled={effects.length >= 8} onClick={() => pick && addEffect(pick, effectDefaults(pick))}>{t('add')}</button>
         </div>
+        <p className="ctl-hint">{effectHelp(pick, locale)}</p>
+        <p className="ctl-hint">{locale === 'pt' ? 'Aplicados ao quadro composto, de cima para baixo. Desative o olho para comparar. Até 8 efeitos por composição.' : 'Applied to the composed frame, top to bottom. Toggle the eye to compare. Up to 8 effects per composition.'}</p>
 
         {mobile ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={finishMobileDrag}>
@@ -113,19 +118,20 @@ export default function EffectsPanel() {
               <div className="effect-card-head">
                 <span className="drag-grip">⣿</span>
                 <span className="effect-title">{label(def.meta.name)}</span>
-                <button className="icon-btn" onClick={() => toggleEffect(e.instanceId)}>
+                <button className="icon-btn" aria-label={`${e.enabled ? (locale === 'pt' ? 'Desativar' : 'Disable') : (locale === 'pt' ? 'Ativar' : 'Enable')} ${def.meta.name}`} onClick={() => toggleEffect(e.instanceId)}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                     <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" stroke="currentColor" strokeWidth="1.3"/>
                     <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/>
                     {!e.enabled && <path d="M2.5 13.5l11-11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>}
                   </svg>
                 </button>
-                <button className="icon-btn" onClick={() => removeEffect(e.instanceId)}>
+                <button className="icon-btn" aria-label={`${locale === 'pt' ? 'Remover' : 'Remove'} ${def.meta.name}`} onClick={() => removeEffect(e.instanceId)}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 </button>
               </div>
               <div className="effect-card-body">
-                {def.controls.map((c) => (
+                <p className="ctl-hint">{effectHelp(e.effectId, locale)}</p>
+                {def.controls.filter(c => controlVisible(c, e.values)).map((c) => (
                   <ControlRow key={c.key} def={c} value={e.values[c.key]} onChange={(val) => setEffectValue(e.instanceId, c.key, val)} />
                 ))}
               </div>

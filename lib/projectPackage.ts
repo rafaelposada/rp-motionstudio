@@ -1,18 +1,20 @@
 import JSZip from 'jszip';
 import { idbGet, idbPut, idbDelete, idbKeys } from './assetDb';
-import { flushScene, type ScenePartial } from './scenePersist';
+import { buildScenePartial, flushScene, type ScenePartial } from './scenePersist';
 import { activeProjectId, createProject, listProjects, readProjectScene } from './projects';
 import { useSceneStore } from '@/store/useSceneStore';
 import { templates } from '@/templates';
 import { prepareTextFonts } from './textLayers';
+import { projectPreviewKey } from './projectPreviews';
 
 interface Entry { key: string; path: string; type: string }
-interface PackageManifest { format: 'motion-studio'; version: 1; name: string; scene: ScenePartial; files: Entry[] }
+interface PackageManifest { format: 'motion-studio'; version: 1; name: string; kind?: 'draft' | 'template'; scene: ScenePartial; files: Entry[] }
 const MAX_BYTES = 512 * 1024 * 1024;
 
-export async function saveProjectPackage(id: string) {
+export async function saveProjectPackage(id: string, kind: 'draft' | 'template' = 'draft') {
   flushScene();
-  const scene = readProjectScene(id);
+  const current = useSceneStore.getState(), isActive = id === activeProjectId();
+  const scene = isActive ? buildScenePartial(current) : readProjectScene(id);
   if (!scene) throw new Error('Projeto sem dados.');
   const name = listProjects().find((p) => p.id === id)?.name ?? 'Projeto';
   const zip = new JSZip();
@@ -44,15 +46,14 @@ export async function saveProjectPackage(id: string) {
   }
   // These URLs are deliberately omitted by the disk slice; package the live
   // sources when exporting the active scene, without touching other projects.
-  const current = useSceneStore.getState();
-  if (id === activeProjectId()) {
+  if (isActive) {
     for (const [key, url] of [['audio', current.audioUrl], ['logo', current.logo.url], ['background', current.background.imageUrl]] as const) {
       if (url) await add(`aux:${key}`, await fetch(url).then((r) => r.blob()));
     }
   }
-  zip.file('project.json', JSON.stringify({ format: 'motion-studio', version: 1, name, scene, files } satisfies PackageManifest));
+  zip.file('project.json', JSON.stringify({ format: 'motion-studio', version: 1, name, kind, scene, files } satisfies PackageManifest));
   const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-  const response = await fetch('/api/project-package', { method: 'POST', headers: { 'X-Project-Name': encodeURIComponent(name) }, body: blob });
+  const response = await fetch('/api/project-package', { method: 'POST', headers: { 'X-Project-Name': encodeURIComponent(name), 'X-Package-Kind': kind }, body: blob });
   if (!response.ok) throw new Error(await response.text());
   return response.json() as Promise<{ path: string }>;
 }
@@ -120,6 +121,7 @@ export async function importProjectPackage(file: File) {
 
 export function referencedBlobKeys() {
   const keys = new Set<string>();
+  for (const project of listProjects()) keys.add(projectPreviewKey(project.id));
   // Include backups. Confirmed cleanup separately resets the live undo history.
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)!;

@@ -1,4 +1,5 @@
 import type { Template } from '@/lib/types';
+import type { EasingSpec } from '@/lib/easing';
 
 // A variant is the same template (controls + transform) shipped with different
 // declared defaults — mirroring the reference tool's "Wheel 01…06" presets.
@@ -7,10 +8,12 @@ export function variant(
   base: Template,
   id: string,
   name: string,
-  patch: Record<string, any> = {}
+  patch: Record<string, any> = {},
+  easing?: EasingSpec,
+  meta?: Partial<Template['meta']>,
 ): Template {
   return {
-    meta: { ...base.meta, id, name },
+    meta: { ...base.meta, id, name, ...(easing ? { defaultEasing: easing } : {}), ...meta },
     controls: base.controls.map((c) =>
       patch[c.key] !== undefined ? { ...c, default: patch[c.key] } : c
     ),

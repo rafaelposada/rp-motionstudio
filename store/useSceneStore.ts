@@ -258,6 +258,8 @@ function withTrack(
 }
 
 const INITIAL_TEMPLATE = 'carousel';
+let uploadRestoreEpoch = 0;
+export const sceneRestoreRevision = () => uploadRestoreEpoch;
 const initDims = dimsFor('3:4');
 
 /**
@@ -302,7 +304,7 @@ function initialSceneState() {
 export const useSceneStore = create<SceneState>((set, get) => ({
   ...initialSceneState(),
   customPresets: [],
-  setCompositeMode: (compositeMode) => set({ compositeMode }),
+  setCompositeMode: (compositeMode) => set(s => ({ compositeMode, ...(compositeMode === 'single' ? projectActive(s.tracks.map(t => t.id === s.activeTrackId ? { ...t, visible: true } : t), s.activeTrackId) : {}) })),
   addTextLayer: () => set((s) => ({ textLayers: [...s.textLayers, {
     z: Math.max(-1, ...s.tracks.map((l, i) => l.z ?? i * 2), ...s.textLayers.map((l, i) => l.z ?? s.tracks.length * 2 + i)) + 1,
     id: nid('text'), text: 'Seu texto', font: 'Arial', weight: 700, size: 72,
@@ -339,7 +341,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     })),
 
   // ---- track actions ----
-  setActiveTrack: (id) => set((s) => projectActive(s.tracks, id)),
+  setActiveTrack: (id) => set((s) => projectActive(s.compositeMode === 'single' ? s.tracks.map(t => t.id === id && !t.visible ? { ...t, visible: true } : t) : s.tracks, id)),
 
   // New layers start on a template that contrasts with what's already stacked,
   // so the very first "add layer" reads as two distinct animations rather than
@@ -536,7 +538,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   // Apply a persisted scene (from lib/scenePersist). Each track's `values` is
   // merged over its template's current defaults so a saved scene survives
   // added/removed controls.
-  hydrate: (partial) =>
+  hydrate: (partial) => {
+    uploadRestoreEpoch++;
     set((s) => {
       // Demo slots are re-pointed at the CURRENT demo source rather than kept at
       // whatever URL the scene was saved with. A demo asset is a placeholder for
@@ -582,7 +585,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       seedIdCounter(tracks);
       seedIdCounter(partial.textLayers ?? []);
 
-      const safeTracks = tracks.length > 0 ? tracks : s.tracks;
+      const safeTracks = tracks.length > 0 ? tracks : [makeTrack(INITIAL_TEMPLATE, 'Layer 1')];
       const activeId = safeTracks.some((t) => t.id === partial.activeTrackId)
         ? partial.activeTrackId!
         : safeTracks[0].id;
@@ -597,42 +600,50 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         ...projectActive(safeTracks, activeId),
         frame: 0, // always start at the clip head
       };
-    }),
+    });
+  },
 
   // Back to the built-in defaults, for "new project". Uploaded bytes in
   // IndexedDB are deliberately NOT deleted: they still belong to the scenes of
   // other projects, which reference them by asset id.
-  resetScene: () => set(() => initialSceneState()),
+  resetScene: () => { uploadRestoreEpoch++; set(() => initialSceneState()); },
 
   // Rebuild object URLs for uploaded assets from their IndexedDB bytes. Runs after
   // hydrate; assets whose bytes are gone (evicted/quota) keep an empty url and
   // fall back to the numbered placeholder.
   rehydrateUploads: async () => {
+    const epoch = uploadRestoreEpoch;
     const before = get();
     const overlays = await Promise.all(before.textLayers.map(async (layer) => {
-      if (!layer.media) return layer;
+      if (!layer.media || layer.media.url) return null;
       const blob = await idbGet(layer.media.blobId).catch(() => undefined);
-      return { ...layer, media: { ...layer.media, url: blob ? URL.createObjectURL(blob) : '' } };
+      return { id: layer.id, blobId: layer.media.blobId, previousUrl: layer.media.url, blob };
     }));
-    const [audio, logo, background] = await Promise.all([before.audioBlobId, before.logo.blobId, before.background.blobId].map((id) => id ? idbGet(id).catch(() => undefined) : undefined));
-    if (get().activeTrackId === before.activeTrackId) set((s) => ({
-      audioUrl: audio ? URL.createObjectURL(audio) : s.audioUrl,
-      textLayers: overlays,
-      logo: logo ? { ...s.logo, url: URL.createObjectURL(logo) } : s.logo,
-      background: background ? { ...s.background, imageUrl: URL.createObjectURL(background) } : s.background,
+    const [audio, logo, background] = await Promise.all([!before.audioUrl && before.audioBlobId, !before.logo.url && before.logo.blobId, !before.background.imageUrl && before.background.blobId].map((id) => id ? idbGet(id).catch(() => undefined) : undefined));
+    if (epoch !== uploadRestoreEpoch) return;
+    set((s) => ({
+      audioUrl: audio && s.audioBlobId === before.audioBlobId && s.audioUrl === before.audioUrl ? URL.createObjectURL(audio) : s.audioUrl,
+      textLayers: s.textLayers.map(layer => {
+        const resolved = overlays.find(item => item?.id === layer.id);
+        return layer.media && resolved?.blob && layer.media.blobId === resolved.blobId && layer.media.url === resolved.previousUrl
+          ? { ...layer, media: { ...layer.media, url: URL.createObjectURL(resolved.blob) } } : layer;
+      }),
+      logo: logo && s.logo.blobId === before.logo.blobId && s.logo.url === before.logo.url ? { ...s.logo, url: URL.createObjectURL(logo) } : s.logo,
+      background: background && s.background.blobId === before.background.blobId && s.background.imageUrl === before.background.imageUrl ? { ...s.background, imageUrl: URL.createObjectURL(background) } : s.background,
     }));
     const uploads = get().assets.filter((a) => a.origin === 'upload' && !a.url);
     if (uploads.length === 0) return;
     const resolved = await Promise.all(
       uploads.map(async (a) => {
         const blob = await idbGet(a.id).catch(() => undefined);
-        return { id: a.id, url: blob ? URL.createObjectURL(blob) : '' };
+        return { id: a.id, blob };
       }),
     );
-    const urls = new Map(resolved.map((r) => [r.id, r.url]));
+    if (epoch !== uploadRestoreEpoch) return;
+    const blobs = new Map(resolved.map((r) => [r.id, r.blob]));
     set((s) => ({
       assets: s.assets.map((a) =>
-        a.origin === 'upload' && urls.get(a.id) ? { ...a, url: urls.get(a.id)! } : a,
+        a.origin === 'upload' && !a.url && blobs.get(a.id) ? { ...a, url: URL.createObjectURL(blobs.get(a.id)!) } : a,
       ),
     }));
   },

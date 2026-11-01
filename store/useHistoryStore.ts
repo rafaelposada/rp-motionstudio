@@ -65,6 +65,7 @@ function apply(snap: Snapshot) {
   const frame = scene.frame;
   scene.hydrate(snap);
   useSceneStore.setState({ frame });
+  void useSceneStore.getState().rehydrateUploads();
 }
 
 interface HistoryState {
@@ -79,6 +80,8 @@ interface HistoryState {
   reset: () => void;
   /** Subscribe to the scene store. Returns an unsubscribe. */
   start: () => () => void;
+  beginGesture: () => void;
+  endGesture: (cancel?: boolean) => void;
 }
 
 export const useHistoryStore = create<HistoryState>((set, get) => {
@@ -90,6 +93,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => {
   // Set while apply() runs, so restoring a snapshot can't be recorded as a new
   // edit and trap the user in a loop.
   let applying = false;
+  let gestureDepth = 0;
 
   const commit = () => {
     timer = null;
@@ -110,6 +114,18 @@ export const useHistoryStore = create<HistoryState>((set, get) => {
     future: [],
     canUndo: false,
     canRedo: false,
+    beginGesture: () => {
+      if (!gestureDepth) { if (timer) clearTimeout(timer); commit(); }
+      gestureDepth++;
+    },
+    endGesture: (cancel = false) => {
+      if (!gestureDepth) return;
+      gestureDepth--;
+      if (!gestureDepth) {
+        if (cancel) baseline = snapshot(useSceneStore.getState());
+        else commit();
+      }
+    },
 
     undo: () => {
       // Flush any in-flight gesture first, or the edit being undone would still
@@ -122,7 +138,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => {
       applying = true;
       apply(prev);
       applying = false;
-      baseline = prev;
+      baseline = snapshot(useSceneStore.getState());
       const nextPast = past.slice(0, -1);
       const nextFuture = [restored, ...future];
       set({
@@ -142,7 +158,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => {
       applying = true;
       apply(next);
       applying = false;
-      baseline = next;
+      baseline = snapshot(useSceneStore.getState());
       const nextPast = [...past, left];
       const nextFuture = future.slice(1);
       set({
@@ -156,6 +172,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => {
     // Switching projects must clear history: undoing across the switch would
     // write one project's scene into another.
     reset: () => {
+      gestureDepth = 0;
       if (timer) { clearTimeout(timer); timer = null; }
       baseline = snapshot(useSceneStore.getState());
       set({ past: [], future: [], canUndo: false, canRedo: false });
@@ -164,7 +181,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => {
     start: () => {
       baseline = snapshot(useSceneStore.getState());
       return useSceneStore.subscribe(() => {
-        if (applying) return;
+        if (applying || gestureDepth) return;
         // Playback moves `frame` every animation frame; it is not in the
         // snapshot, so restart the debounce only when something undoable moved.
         if (baseline && same(baseline, snapshot(useSceneStore.getState()))) return;

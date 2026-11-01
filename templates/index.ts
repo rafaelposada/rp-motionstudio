@@ -3,6 +3,11 @@ import { reelClip } from './reelClip';
 import { DEFAULT_EASING, type EasingSpec } from '@/lib/easing';
 import { carousel, carouselVariants, carouselRefVariants } from './carousel';
 import { wheelVariants } from './wheel';
+import { wheelEllipseVariants } from './wheelEllipse';
+import { arcVariants } from './arc';
+import { revolveVariants } from './revolve';
+import { spinnerVariants } from './spinner';
+import { wipeRevealVariants } from './wipeReveal';
 import { orbitVariants } from './orbit';
 import { orbit3dVariants } from './orbit3d';
 import { spinVariants } from './spin';
@@ -62,16 +67,21 @@ export const templateList: Template[] = [
   reelClip,
   ...perspective3dTemplates,
   ...interactiveCardsVariants,
+  ...spinnerVariants,
   ...carouselVariants,
   ...carouselRefVariants,
   ...orbitVariants,
   ...orbit3dVariants,
   ...showcaseVariants.slice(1),
   ...spinVariants,
+  ...revolveVariants,
   ...stackVariants,
   ...wheelVariants,
+  ...wheelEllipseVariants,
+  ...arcVariants,
   ...fieldVariants,
   ...wipeVariants,
+  ...wipeRevealVariants,
   ...storiesVariants,
   ...storiesFocusVariants,
   ...flickerVariants,

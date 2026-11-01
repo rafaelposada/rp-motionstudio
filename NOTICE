@@ -1,0 +1,28 @@
+RP MotionStudio is a modified version of Motion Studio by appariciojunior and
+contributors. It is not the official Motion Studio application.
+
+The pre-existing base remains subject to the notices in LICENSE. That file has
+not been replaced or relicensed by this update.
+
+Additional template families (arc, wheelEllipse, revolve, spinner, wipeReveal)
+and the shared effect shaders/adapters were imported from Motion Studio commit
+dba311caff2e78c621c17f008eb1bc3f71f361b5. That upstream revision publishes these
+additions under Apache-2.0. Its complete licence and NOTICE are retained in:
+
+    licenses/motion-studio-upstream.APACHE-2.0
+    licenses/motion-studio-upstream.NOTICE
+
+Local changes adapt the effect adapters to the existing renderers, correct
+Pixi coordinate mapping, isolate instance caches and release GPU resources.
+Template integration retains existing project IDs and poses; the unsupported
+squircle toggle is withheld from Spinner. New editor features include mixed
+layer ordering, duplication, recovery, motion paths and local destinations.
+
+The Liquid Glass shader includes MIT-licensed lens mathematics by Yousuf Soomro
+(2026), from https://github.com/Yousuf-developer/liquid-glass-carousel. Its full
+MIT notice remains in effects/liquidGlass.ts and the upstream NOTICE above.
+
+The dependency list and asset descriptions in the upstream NOTICE describe
+that upstream revision. The dependencies used by this fork are recorded in
+package.json and package-lock.json. No upstream reference images, private
+projects, user-uploaded artwork or local test captures are included here.

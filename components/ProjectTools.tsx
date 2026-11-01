@@ -5,6 +5,7 @@ import { useHistoryStore } from '@/store/useHistoryStore';
 import { importProjectPackage, saveProjectPackage, storageReport } from '@/lib/projectPackage';
 import { idbDelete } from '@/lib/assetDb';
 import { useI18n } from '@/lib/useI18n';
+import DestinationFolder from './DestinationFolder';
 const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
 export default function ProjectTools() {
   const { locale } = useI18n(); const pt = locale === 'pt';
@@ -14,7 +15,10 @@ export default function ProjectTools() {
   const input = useRef<HTMLInputElement>(null);
   const run = async (action: () => Promise<void>) => { setBusy(true); try { await action(); } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); } finally { setBusy(false); } };
   return <div className="project-tools">
-    <button className="btn full" disabled={busy || !activeId} onClick={() => run(async () => { const saved = await saveProjectPackage(activeId!); setMessage(`${pt ? 'Pacote salvo em' : 'Package saved to'}: ${saved.path}`); })}>{pt ? 'Salvar pacote portátil' : 'Save portable package'}</button>
+    <button className="btn full" disabled={busy || !activeId} onClick={() => run(async () => { const saved = await saveProjectPackage(activeId!, 'draft'); setMessage(`${pt ? 'Rascunho salvo em' : 'Draft saved to'}: ${saved.path}`); })}>{pt ? 'Salvar rascunho no computador' : 'Save draft to computer'}</button>
+    <button className="btn full" disabled={busy || !activeId} onClick={() => run(async () => { const saved = await saveProjectPackage(activeId!, 'template'); setMessage(`${pt ? 'Template salvo em' : 'Template saved to'}: ${saved.path}`); })}>{pt ? 'Salvar composição como template' : 'Save composition as template'}</button>
+    <p className="ctl-hint">{pt ? 'Pacotes .motion.zip incluem a composição e suas mídias. Importe para continuar um rascunho ou criar uma composição a partir de um template.' : '.motion.zip packages include the composition and its media. Import to resume a draft or start from a template.'}</p>
+    <details><summary>{pt ? 'Pastas de salvamento' : 'Save folders'}</summary><DestinationFolder kind="drafts" disabled={busy} /><DestinationFolder kind="templates" disabled={busy} /></details>
     <button className="btn full" disabled={busy} onClick={() => input.current?.click()}>{pt ? 'Importar pacote de projeto' : 'Import project package'}</button>
     <input ref={input} type="file" hidden accept=".zip" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void run(async () => { const project = await importProjectPackage(file); useProjectStore.getState().open(project.id); useProjectStore.getState().refresh(); setMessage(pt ? 'Projeto importado; o original foi preservado.' : 'Project imported; original preserved.'); }); }} />
     <button className="btn full" disabled={busy} onClick={() => run(async () => setReport(await storageReport()))}>{pt ? 'Ver armazenamento' : 'View storage'}</button>

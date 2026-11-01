@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useI18n } from '@/lib/useI18n';
 import { AddIcon, LibraryIcon, ProjectsIcon } from './EditorIcons';
+import { showHome } from '@/lib/homeNavigation';
 
 const NAV = [
   { id: 'projects', labelKey: 'projects' as const, icon: (
@@ -26,16 +27,16 @@ export default function IconRail() {
   // An ACTION, not a nav section — so it never takes the active state. The +
   // icon at the top of the rail now creates what it looks like it creates.
   const newProject = () => {
-    createProject(`Project ${projectCount + 1}`);
-    setActive('projects');
+    createProject(`${locale === 'pt' ? 'Projeto' : 'Project'} ${projectCount + 1}`);
+    setActive('library');
   };
 
   return (
     <aside className="card rail">
       <div className="rail-top">
-        <div className="rail-logo">
+        <button className="rail-logo" onClick={() => void showHome()} aria-label={locale === 'pt' ? 'RP MotionStudio — Início' : 'RP MotionStudio — Home'} title={locale === 'pt' ? 'Ir para o início' : 'Go home'}>
           <img src={`/rp-motionstudio-${theme}.svg`} alt="RP MotionStudio" width="40" height="40" />
-        </div>
+        </button>
         <button className="rail-item rail-action" onClick={newProject} title={t('createProject')} aria-label={t('createProject')}>
           <span className="rail-ico">
             <AddIcon />

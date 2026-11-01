@@ -9,6 +9,7 @@ import { BackIcon, ExportIcon, PauseIcon, PlayIcon } from '@/components/EditorIc
 import { previewResolution } from '@/lib/previewResolution';
 import { prepareTextFonts, releaseOverlayOriginals } from '@/lib/textLayers';
 import { useI18n } from '@/lib/useI18n';
+import DestinationFolder from './DestinationFolder';
 
 type Fmt = 'mp4' | 'gif' | 'both';
 type Res = '1080p' | '2k' | '4k' | 'exact';
@@ -286,6 +287,8 @@ npm run dev`}</code></pre>
             })()}
           </div>
 
+          <DestinationFolder kind="exports" disabled={busy} />
+
           {phase === 'idle' && !confirmDemo && (
             <button className="btn primary full export-primary-action" onClick={() => demoSlots > 0 ? setConfirmDemo(true) : run()}>
               <ExportIcon size={16} />
@@ -297,10 +300,10 @@ npm run dev`}</code></pre>
           {phase === 'idle' && confirmDemo && (
             <div className="export-demo-warning" role="alert">
               <strong>{demoSlots} demo {demoSlots === 1 ? 'slot is' : 'slots are'} still in use</strong>
-              <p>Demo images will appear in the exported file unless you replace them in Media.</p>
+              <p>{pt ? 'Os cartões de demonstração aparecerão no arquivo exportado. Você pode substituí-los em Mídia.' : 'Demo images will appear in the exported file unless you replace them in Media.'}</p>
               <div className="export-demo-actions">
-                <button className="btn" onClick={() => setConfirmDemo(false)}>Cancel</button>
-                <button className="btn primary" onClick={run}>Export anyway</button>
+                <button className="btn" onClick={() => setConfirmDemo(false)}>{pt ? 'Cancelar' : 'Cancel'}</button>
+                <button className="btn primary" onClick={run}>{pt ? 'Exportar mesmo assim' : 'Export anyway'}</button>
               </div>
             </div>
           )}

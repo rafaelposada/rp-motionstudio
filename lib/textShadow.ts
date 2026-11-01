@@ -8,7 +8,8 @@ export function shadowRenderRegion(width:number,height:number,scale:number,setti
   if(!bounds||!matrix||!Number.isFinite(matrix.a))return{x:0,y:0,width,height};
   const points=[[bounds.x,bounds.y],[bounds.x+bounds.width,bounds.y],[bounds.x,bounds.y+bounds.height],[bounds.x+bounds.width,bounds.y+bounds.height]].map(([x,y])=>({x:matrix.a*x+matrix.c*y+matrix.e,y:matrix.b*x+matrix.d*y+matrix.f}));
   const k=settings.type==='realistic'?1.2:1;
-  const pad=Math.ceil((3*settings.blur*k+Math.abs(settings.spread)+Math.max(Math.abs(settings.x),Math.abs(settings.y))*k)*scale)+3;
+  const glyphScale = Math.max(Math.hypot(matrix.a, matrix.b), Math.hypot(matrix.c, matrix.d));
+  const pad=Math.ceil((3*settings.blur*k+Math.max(Math.abs(settings.x),Math.abs(settings.y))*k)*scale+Math.abs(settings.spread)*glyphScale)+3;
   const x=Math.max(0,Math.floor(Math.min(...points.map(p=>p.x))-pad)),y=Math.max(0,Math.floor(Math.min(...points.map(p=>p.y))-pad));
   const right=Math.min(width,Math.ceil(Math.max(...points.map(p=>p.x))+pad)),bottom=Math.min(height,Math.ceil(Math.max(...points.map(p=>p.y))+pad));
   return{x,y,width:Math.max(0,right-x),height:Math.max(0,bottom-y)};

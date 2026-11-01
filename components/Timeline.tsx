@@ -9,6 +9,8 @@ import TextTrackLane from './TextTrackLane';
 import { ExportIcon, PauseIcon, PlayIcon } from './EditorIcons';
 import { useI18n } from '@/lib/useI18n';
 import { useUIStore } from '@/store/useUIStore';
+import { compositionOrder } from '@/lib/composition';
+import LayerDropTarget from './LayerDropTarget';
 
 function fmt(sec: number) {
   const s = Math.max(0, sec);
@@ -53,7 +55,6 @@ export default function Timeline({
   const tracks = useSceneStore((s) => s.tracks);
   const textLayers = useSceneStore((s) => s.textLayers);
   const addTrack = useSceneStore((s) => s.addTrack);
-  const reorderTracks = useSceneStore((s) => s.reorderTracks);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const lanesOpen = useUIStore((state) => state.timelineExpanded);
   const setLanesOpen = useUIStore((state) => state.setTimelineExpanded);
@@ -183,7 +184,6 @@ export default function Timeline({
 
     {lanesOpen && (
       <div className="tl-lanes">
-        {textLayers.slice().reverse().map((layer) => <TextTrackLane key={layer.id} layer={layer} duration={duration} />)}
         <label className="text-edit-label">{locale === 'pt' ? 'Composição dos modelos' : 'Model composition'}
           <select className="field" value={compositeMode} onChange={(e) => setCompositeMode(e.target.value as 'single' | 'stack')}>
             <option value="single">{locale === 'pt' ? 'Modelo único — somente a camada selecionada' : 'Single model — selected layer only'}</option>
@@ -192,15 +192,13 @@ export default function Timeline({
         </label>
         {/* Topmost lane = topmost layer, so the list reads like the stack looks:
             the store's array is bottom-to-top, the UI shows it reversed. */}
-        {tracks.slice().reverse().map((track) => (
-          <TrackLane
-            key={track.id}
+        {compositionOrder(tracks, textLayers).reverse().map(item => {
+          const layer = textLayers.find(l => l.id === item.id), track = tracks.find(t => t.id === item.id);
+          return <LayerDropTarget key={item.id} id={item.id} name={layer?.text ?? track?.name ?? ''}>{layer ? <TextTrackLane layer={layer} duration={duration} /> : track ? <TrackLane
             track={track}
-            index={tracks.findIndex((t) => t.id === track.id)}
             totalFrames={totalFrames}
-            onReorder={reorderTracks}
-          />
-        ))}
+          /> : null}</LayerDropTarget>;
+        })}
 
         {/* one playhead across every lane, in the shared axis space */}
         <div className="tl-lanes-playhead" style={{ left: `calc(var(--tl-axis-left) + var(--tl-axis-w) * ${progress / 100})` }} />

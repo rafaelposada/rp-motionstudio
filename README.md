@@ -32,6 +32,17 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
 - Controles de enquadramento de mídia e transparência/iluminação opcionais.
 - Prévias de imagens com resolução limitada e exportação preparada a partir dos originais.
 - Projetos portáteis e exportações salvos em pastas locais.
+- Duplicação por ⌘/Ctrl+D e Option/Alt+arraste; ordenação conjunta de modelos,
+  textos e imagens no painel de camadas e na linha do tempo.
+- Aviso e recuperação de modelos fora da área visível, com desfazer.
+- 192 modelos visíveis (30 adições: Spinner/Hinge/Fan, Arc, Wheel, Revolve e Sweep),
+  favoritos locais e contagem de versões por família.
+- Trajetória do modelo com pontos editáveis, duração e repetição; desloca o
+  conjunto sem substituir sua animação original.
+- 12 efeitos de GPU nos motores 2D e 3D, com controles e explicações. Aplicação
+  ao quadro composto; até oito efeitos por composição.
+- Escolha de pasta para MP4/GIF e pacotes `.motion.zip` de rascunhos/templates.
+  No macOS há seletor de pasta; também é possível digitar um caminho absoluto.
 
 Os nomes das pastas **Motion Studio Projects** e **Motion Studio Exports** foram
 preservados para compatibilidade. Esta publicação não inclui projetos pessoais,
@@ -50,6 +61,9 @@ O código deriva de Motion Studio. A autoria original, os avisos e a licença
 **PolyForm Noncommercial License 1.0.0** permanecem preservados em [LICENSE](LICENSE).
 A disponibilidade pública deste repositório não altera as restrições da licença original.
 As personalizações desta versão não representam autoria sobre o projeto original.
+As adições importadas do upstream em outubro de 2026 têm os avisos Apache-2.0
+preservados em [NOTICE](NOTICE) e [licenses](licenses). Isso não substitui a licença
+da base anterior. O shader Liquid Glass também preserva sua atribuição MIT.
 
 ## Documentação original
 

@@ -24,7 +24,7 @@ export default function WelcomeDialog() {
     const projects = useProjectStore.getState();
     projects.bootstrap();               // no-op when already booted
     if (!projects.activeId) projects.create('Default project');
-    useUIStore.getState().setNav('library');
+    useUIStore.getState().setNav('home');
     setOpen(false);
   };
 

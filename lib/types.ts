@@ -1,4 +1,3 @@
-import type * as PIXI from 'pixi.js';
 import type { EasingSpec } from './easing';
 
 // ----- Control vocabulary. Templates may ONLY use these types. -----
@@ -20,7 +19,7 @@ export interface ControlDef {
   options?: string[];          // pills / select / toggle
   default: number | string | boolean | { x: number; y: number };
   section?: 'Layout' | 'Motion' | 'Depth' | 'Finish';
-  unit?: '°' | '%' | 'px' | '×' | '';
+  unit?: '°' | '%' | 'px' | '×' | 's' | '';
   description?: string;
   precision?: number;
   visibleWhen?: { key: string; equals?: any; not?: any };
@@ -35,6 +34,7 @@ export interface LayerTransform {
   rotation: number;  // radians
   alpha: number;     // 0..1
   solidAlpha?: number; // same visibility/entry/exit envelope without depth dimming
+  dim?: number;
   skewX?: number;    // optional, for fake-3D tilt
   skewY?: number;
   scaleX?: number;   // optional non-uniform squash (default 1) — flips/page turns
@@ -61,6 +61,7 @@ export interface LayerTransform3D {
   scale: number;
   alpha: number;
   solidAlpha?: number;
+  dim?: number;
 }
 
 // ----- The transform context handed to every template each frame -----
@@ -141,9 +142,18 @@ export interface Template {
   camera?: (values: Record<string, any>, ctx: TransformCtx) => CameraPose;
 }
 
-// ----- An effect (SEAM 2) -----
+export interface EffectContext { width: number; height: number; time: number }
+export interface EffectShader {
+  fragment: string;
+  uniformTypes?: Record<string, 'float' | 'vec2' | 'vec3' | 'vec4'>;
+  uniforms: (values: Record<string, any>, ctx: EffectContext) => Record<string, number | number[]>;
+  fixedUniforms?: string[];
+}
+export type EffectScope = 'scene' | 'artwork' | `track:${string}`;
+// Shared, frame-derived shader contract: the same effect runs in both engines.
 export interface Effect {
-  meta: { id: string; name: string };
+  meta: { id: string; name: string; defaultScope?: EffectScope };
   controls: ControlDef[];
-  createFilter: (values: Record<string, any>) => PIXI.Filter;
+  shader: EffectShader;
+  passes?: EffectShader[];
 }

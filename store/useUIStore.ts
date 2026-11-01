@@ -82,7 +82,7 @@ function savePreferences(prefs: UIPreferences) {
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
-  nav: 'projects',
+  nav: 'home',
   theme: 'light',
   locale: 'en',
   accentColor: DEFAULT_ACCENT,
@@ -128,7 +128,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   mobileTab: 'templates',
   mobileProjectsOpen: false,
   mobilePanelOpen: false,
-  setNav: (nav) => set({ nav: nav === 'projects' ? 'projects' : 'library' }),
+  setNav: (nav) => set({ nav: nav === 'home' || nav === 'projects' ? nav : 'library' }),
   toggleTheme: () => set((state) => {
     const next = { ...state, theme: state.theme === 'dark' ? 'light' as const : 'dark' as const };
     savePreferences(next);

@@ -1,10 +1,12 @@
 import { idbGet, idbPut } from './assetDb';
 import { drawTextShadow, type TextShadowSettings } from './textShadow';
 import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
+import { normalizedRadii, bounded, type CornerRadii } from './transformGeometry';
 
 export interface TextLayer {
   id: string; text: string; font: string; weight: number; size: number;
   color: string; x: number; y: number; rotation: number; opacity: number;
+  scaleX?: number; scaleY?: number; backdropRadius?: number;
   align: CanvasTextAlign; lineHeight: number; visible: boolean;
   start: number; end: number;
   locked?: boolean; stroke?: string;
@@ -14,7 +16,7 @@ export interface TextLayer {
   shadowX?: number; shadowY?: number; shadowOpacity?: number;
   shadowSpread?: number; shadowType?: 'box'|'realistic'; shadowPosition?: 'outside'|'inside';
   z?: number;
-  media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch' };
+  media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
   animation?: 'none' | 'fade' | 'rise' | 'typewriter';
   animationDuration?: number; backdrop?: boolean;
 }
@@ -123,6 +125,7 @@ export class TextCompositor {
       const motion = textMotion(layer, seconds);
       ctx.translate(layer.x, layer.y + motion.y);
       ctx.rotate(layer.rotation * Math.PI / 180);
+      ctx.scale(bounded(layer.scaleX ?? 1, .05, 20), bounded(layer.scaleY ?? 1, .05, 20));
       ctx.globalAlpha = layer.opacity * motion.opacity;
       if (layer.media) {
         if (layer.media.url) {
@@ -130,7 +133,11 @@ export class TextCompositor {
           const { width: w, height: h, fit } = layer.media;
           if (image && image.width && (!('complete' in image)||image.complete)) {
             const scale = fit === 'cover' ? Math.max(w / image.width, h / image.height) : Math.min(w / image.width, h / image.height);
-            ctx.beginPath(); ctx.rect(-w / 2, -h / 2, w, h); ctx.clip();
+            ctx.beginPath();
+            const radii = normalizedRadii(w, h, layer.media.cornerRadii);
+            if (radii.some(r => r > 0)) ctx.roundRect(-w / 2, -h / 2, w, h, radii);
+            else ctx.rect(-w / 2, -h / 2, w, h);
+            ctx.clip();
             const iw = fit === 'stretch' ? w : image.width * scale, ih = fit === 'stretch' ? h : image.height * scale;
             ctx.drawImage(image, -iw / 2, -ih / 2, iw, ih);
           }
@@ -143,16 +150,16 @@ export class TextCompositor {
       ctx.font = `${layer.weight} ${layer.size}px "${layer.font}", sans-serif`;
       let drawSize = layer.size;
       if (layer.backdrop) {
-        const longest = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width));
+        const longest = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
         drawSize = captionFontSize(layer.size, longest, width);
         ctx.font = `${layer.weight} ${drawSize}px "${layer.font}", sans-serif`;
       }
       const lines = motion.text.split('\n');
       if (layer.backdrop && motion.text) {
-        const textWidth = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width));
+        const textWidth = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
         const boxHeight = layer.text.split('\n').length * drawSize * layer.lineHeight + 30;
         const left = layer.align === 'left' ? -18 : layer.align === 'right' ? -textWidth - 18 : -textWidth / 2 - 18;
-        ctx.fillStyle = '#101114cc'; ctx.beginPath(); ctx.roundRect(left, -boxHeight / 2, textWidth + 36, boxHeight, 12); ctx.fill();
+        ctx.fillStyle = '#101114cc'; ctx.beginPath(); ctx.roundRect(left, -boxHeight / 2, textWidth + 36, boxHeight, bounded(layer.backdropRadius ?? 12, 0, Math.min(textWidth + 36, boxHeight) / 2)); ctx.fill();
         ctx.fillStyle = layer.color;
       }
       ctx.shadowColor = 'transparent';

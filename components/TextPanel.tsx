@@ -19,13 +19,11 @@ export default function TextPanel() {
   const layers = useSceneStore((s) => s.textLayers);
   const add = useSceneStore((s) => s.addTextLayer);
   const patch = useSceneStore((s) => s.patchTextLayer);
-  const remove = useSceneStore((s) => s.removeTextLayer);
   const width = useSceneStore((s) => s.width);
   const height = useSceneStore((s) => s.height);
   const duration = useSceneStore((s) => s.duration);
   const selected = useUIStore((s) => s.selectedTextId);
   const showSelectionBox = useUIStore((s) => s.showSelectionBox);
-  const setSelected = useUIStore((s) => s.selectText);
   const [fontName, setFontName] = useState('');
   const [status, setStatus] = useState('');
   const textLayers = layers.filter((item) => !item.media);
@@ -47,8 +45,8 @@ export default function TextPanel() {
     <ControlRow key={key} def={{ key, label, type: 'slider', min, max, step, default: key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0 }} value={layer[key] ?? (key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0)} onChange={(value) => patch(layer.id, { [key]: value })} />
   );
   return <div className="section-body text-panel">
-    <button className="btn solid full" onClick={() => { add(); setSelected(null); }}>{pt ? '+ Adicionar texto' : '+ Add text'}</button>
-    <p className="ctl-hint">{pt ? 'Clique no texto na tela e arraste para posicionar. Fontes do Google exigem internet no primeiro uso.' : 'Click text on the canvas and drag to position. Google fonts require internet on first use.'}</p>
+    <button className="btn solid full" onClick={() => { add(); const created = useSceneStore.getState().textLayers.at(-1); if (created) selectOverlayForEditing(created.id); }}>{pt ? '+ Adicionar texto' : '+ Add text'}</button>
+    <p className="ctl-hint">{pt ? 'Arraste o texto para posicionar e as alças para redimensionar ou girar. Shift preserva a proporção; Alt redimensiona pelo centro. Fontes do Google exigem internet no primeiro uso.' : 'Drag text to position it and use handles to resize or rotate. Shift preserves proportions; Alt resizes from the center. Google fonts require internet on first use.'}</p>
     <label className="text-edit-label"><span><input type="checkbox" checked={showSelectionBox} onChange={(e) => useUIStore.getState().setShowSelectionBox(e.target.checked)} /> {pt ? 'Mostrar caixa delimitadora' : 'Show bounding box'}</span></label>
     {textLayers.map((item, index) => <div key={item.id} className="text-layer-row">
       <button className={`btn ${layer?.id === item.id ? 'solid' : ''}`} onClick={() => selectOverlayForEditing(item.id)}>{index + 1}. {item.text.slice(0, 24) || (pt ? 'Texto vazio' : 'Empty text')}</button>
@@ -73,6 +71,7 @@ export default function TextPanel() {
       {numberControl('y', pt ? 'Posição Y' : 'Position Y', -height, height * 2)}
       <button className="btn" onClick={() => patch(layer.id, { x: width / 2, y: height / 2 })}>{pt ? 'Centralizar na tela' : 'Center on canvas'}</button>
       {numberControl('rotation', pt ? 'Rotação' : 'Rotation', -180, 180)}
+      {(['scaleX','scaleY'] as const).map(key=><ControlRow key={key} def={{key,label:key==='scaleX'?(pt?'Escala horizontal':'Horizontal scale'):(pt?'Escala vertical':'Vertical scale'),type:'slider',min:5,max:2000,step:1,unit:'%',default:100}} value={(layer[key]??1)*100} onChange={value=>patch(layer.id,{[key]:Number(value)/100})}/>)}
       <ControlRow def={{key:'opacity',label:pt?'Opacidade da camada':'Layer opacity',type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={layer.opacity*100} onChange={(value)=>patch(layer.id,{opacity:Number(value)/100})}/>
       <p className="ctl-hint">{pt?'A opacidade da camada afeta o conjunto. A opacidade da cor afeta apenas o preenchimento do texto.':'Layer opacity affects the whole layer. Fill opacity affects only the text fill.'}</p>
       {numberControl('letterSpacing', pt ? 'Espaçamento entre letras' : 'Letter spacing', -10, 80, 0.1)}
@@ -84,6 +83,7 @@ export default function TextPanel() {
       <label className="text-edit-label">{pt ? 'Animação do texto' : 'Text animation'}<select className="field" value={layer.animation ?? 'none'} onChange={(e) => patch(layer.id, { animation: e.target.value as TextLayer['animation'], animationDuration: layer.animationDuration ?? 0.35 })}><option value="none">{pt ? 'Sem animação' : 'None'}</option><option value="fade">{pt ? 'Desvanecer' : 'Fade'}</option><option value="rise">{pt ? 'Subir suavemente' : 'Rise'}</option><option value="typewriter">{pt ? 'Digitar' : 'Typewriter'}</option></select></label>
       {layer.animation && layer.animation !== 'none' && numberControl('animationDuration', pt ? 'Duração da transição (s)' : 'Transition duration (s)', 0.05, 2, 0.05)}
       <label className="text-edit-label"><span><input type="checkbox" checked={layer.backdrop ?? false} onChange={(e) => patch(layer.id, { backdrop: e.target.checked })} /> {pt ? 'Fundo de contraste atrás do texto' : 'Contrast background behind text'}</span></label>
+      {layer.backdrop && <ControlRow def={{key:'backdropRadius',label:pt?'Cantos do fundo':'Backdrop corners',type:'slider',min:0,max:200,step:1,unit:'px',default:12}} value={layer.backdropRadius??12} onChange={value=>patch(layer.id,{backdropRadius:Number(value)})}/>}
       {numberControl('start', pt ? 'Entrada (s)' : 'Start (s)', 0, duration, 0.01)}
       {numberControl('end', pt ? 'Saída (s)' : 'End (s)', 0, duration, 0.01)}
     </>}

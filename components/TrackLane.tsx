@@ -4,26 +4,24 @@ import { useMemo, useRef } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { templateList } from '@/templates';
 import { trackWindow, type MotionTrack } from '@/lib/tracks';
-import { deleteCompositionLayer } from '@/lib/compositionActions';
+import { deleteCompositionLayer, duplicateCompositionLayer, selectModelForEditing, moveCompositionLayer } from '@/lib/compositionActions';
+import { compositionOrder } from '@/lib/composition';
 
 type DragMode = 'move' | 'in' | 'out';
 
 export default function TrackLane({
   track,
-  index,
   totalFrames,
-  onReorder,
 }: {
   track: MotionTrack;
-  index: number;             // index in the store's tracks array
   totalFrames: number;
-  onReorder: (from: number, to: number) => void;
 }) {
   const activeTrackId = useSceneStore((s) => s.activeTrackId);
-  const setActiveTrack = useSceneStore((s) => s.setActiveTrack);
+  const tracks = useSceneStore(s => s.tracks), textLayers = useSceneStore(s => s.textLayers);
+  const order = compositionOrder(tracks, textLayers), index = order.findIndex(l => l.id === track.id);
   const toggleTrackVisible = useSceneStore((s) => s.toggleTrackVisible);
   const patchTrack = useSceneStore((s) => s.patchTrack);
-  const duplicateTrack = useSceneStore((s) => s.duplicateTrack);
+  const duplicateTrack = duplicateCompositionLayer;
   const removeTrack = deleteCompositionLayer;
   const trackCount = useSceneStore((s) => s.tracks.length);
 
@@ -54,7 +52,7 @@ export default function TrackLane({
 
   const onPointerDown = (mode: DragMode) => (e: React.PointerEvent) => {
     e.stopPropagation();
-    setActiveTrack(track.id);
+    selectModelForEditing(track.id);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = { mode, startX: e.clientX, inF: inFrame, outF: outFrame, moved: false };
   };
@@ -86,7 +84,7 @@ export default function TrackLane({
   return (
     <div
       className={`tl-lane ${active ? 'active' : ''} ${track.visible ? '' : 'hidden'}`}
-      onPointerDown={() => setActiveTrack(track.id)}
+      onPointerDown={e => { if (e.button === 0 && !(e.target as HTMLElement).closest('button')) selectModelForEditing(track.id); }}
     >
       {/* Every per-layer control lives here, always visible — they used to hide
           inside the bar on hover, which made them hard to find and put click
@@ -109,8 +107,8 @@ export default function TrackLane({
           <button
             className="tl-lane-arrow"
             title="Bring forward"
-            disabled={index === trackCount - 1}
-            onClick={(e) => { e.stopPropagation(); onReorder(index, index + 1); }}
+            disabled={index === order.length - 1}
+            onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, 1); }}
           >
             <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2.5 7.5L6 4l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
@@ -118,7 +116,7 @@ export default function TrackLane({
             className="tl-lane-arrow"
             title="Send backward"
             disabled={index === 0}
-            onClick={(e) => { e.stopPropagation(); onReorder(index, index - 1); }}
+            onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, -1); }}
           >
             <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
@@ -126,7 +124,7 @@ export default function TrackLane({
 
         <button
           className="tl-lane-btn"
-          title="Duplicate layer (offset)"
+          title="Duplicar camada · ⌘/Ctrl+D"
           onClick={(e) => { e.stopPropagation(); duplicateTrack(track.id); }}
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M5.5 13.5h6a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>

@@ -118,6 +118,14 @@ const labelsPt: Record<string, string> = {
   Flow: 'Fluxo', Glide: 'Deslize', Ease: 'Suave', Sweep: 'Varredura', Smooth: 'Fluido', Flip: 'Virada',
   Settle: 'Acomodar', Snap: 'Encaixe', Bounce: 'Quique', Spring: 'Mola', Wiggle: 'Oscilação', Overshoot: 'Ultrapassagem',
   Pixelate: 'Pixelizar', 'Pixel Size': 'Tamanho do pixel',
+  Grain: 'Granulado', Vignette: 'Vinheta', Blur: 'Desfoque', 'Tilt-shift': 'Foco seletivo', 'Liquid Glass': 'Vidro líquido',
+  Halftone: 'Meio-tom', Posterize: 'Posterizar', Scanlines: 'Linhas de varredura', 'RGB Split': 'Separação RGB', Wave: 'Onda',
+  'Grain Size': 'Tamanho do grão', Animate: 'Animar', Softness: 'Suavidade', 'Applies at': 'Área de aplicação', Reach: 'Alcance',
+  Intensity: 'Intensidade', Focus: 'Foco', Band: 'Faixa', Feather: 'Suavização', Refraction: 'Refração', Dispersion: 'Dispersão de cores',
+  'Ring colour': 'Cor do anel', Shimmer: 'Cintilação', 'Edge blur': 'Desfoque da borda', 'Dot Size': 'Tamanho dos pontos',
+  'Screen Angle': 'Ângulo da trama', Levels: 'Níveis', Mix: 'Mistura', Spacing: 'Espaçamento',
+  'Motion Rotation': 'Giro do conjunto', Diameter: 'Diâmetro', Hinge: 'Articulação', 'Fade Mode': 'Modo de desvanecimento',
+  Frontface: 'Face frontal', Backface: 'Face traseira',
 };
 
 const optionsPt: Record<string, string> = {
@@ -127,6 +135,8 @@ const optionsPt: Record<string, string> = {
   fill: 'preencher', fit: 'ajustar', horizontal: 'horizontal', vertical: 'vertical',
   normal: 'normal', alternate: 'alternado', uniform: 'uniforme', fan: 'leque', none: 'nenhum',
   color: 'cor', image: 'imagem', card: 'cartão', same: 'igual', opposed: 'oposto', staggered: 'defasado',
+  'full frame': 'quadro inteiro', edges: 'bordas', corners: 'cantos', band: 'faixa', lens: 'lente',
+  circle: 'círculo', square: 'quadrado', mono: 'monocromático', show: 'mostrar', hide: 'ocultar', solid: 'sólido', alpha: 'transparência',
 };
 
 export function translateLabel(locale: Locale, value: string) {

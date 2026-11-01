@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/useI18n';
 import InfoHint from './InfoHint';
 import { controlHelp } from '@/lib/controlHelp';
 import { parseNumericExpression } from '@/lib/numericExpression';
+import { xyPadPoint } from '@/lib/xyPad';
 
 interface RowProps {
   def: ControlDef;
@@ -231,8 +232,14 @@ function ColorControl({ value, onChange }: { value: any; onChange: (v: any) => v
   );
 }
 
+function XYAxisField({ axis, value, onChange, range, label }: { axis: string; value: number; onChange: (value: number) => void; range: number; label: string }) {
+  const [draft, setDraft] = useState(String(value)), [editing, setEditing] = useState(false), cancel = useRef(false);
+  useEffect(() => { if (!editing) setDraft(String(Math.round(value * 100) / 100)); }, [value, editing]);
+  return <label className="xy-axis-field"><span>{axis.toUpperCase()}</span><input type="text" aria-label={`${label} ${axis.toUpperCase()}: valor ou cálculo`} value={draft} onFocus={() => setEditing(true)} onChange={e => setDraft(e.target.value)} onBlur={() => { const result = parseNumericExpression(draft); if (!cancel.current && result !== null) onChange(Math.max(-range, Math.min(range, result))); cancel.current = false; setEditing(false); setDraft(String(value)); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } if (e.key === 'Escape') { e.stopPropagation(); cancel.current = true; e.currentTarget.blur(); } }} /></label>;
+}
+
 function XYPadControl({ def, value, onChange }: RowProps) {
-  const { t } = useI18n();
+  const { t, label } = useI18n();
   const mobile = useMobileInteractions();
   const ref = useRef<HTMLDivElement>(null);
   const range = def.max ?? 400;
@@ -242,9 +249,7 @@ function XYPadControl({ def, value, onChange }: RowProps) {
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const nx = (clientX - rect.left) / rect.width;
-    const ny = (clientY - rect.top) / rect.height;
-    onChange({ x: Math.round((nx * 2 - 1) * range), y: Math.round((ny * 2 - 1) * range) });
+    onChange(xyPadPoint(clientX - rect.left, clientY - rect.top, rect.width, rect.height, range));
   };
 
   const dotX = ((v.x / range + 1) / 2) * 100;
@@ -255,14 +260,17 @@ function XYPadControl({ def, value, onChange }: RowProps) {
       <div
         ref={ref}
         className="xypad"
-        onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture(e.pointerId); setFromEvent(e.clientX, e.clientY); }}
+        tabIndex={0} role="group" aria-label={`${label(def.label)} XY`}
+        onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setFromEvent(e.clientX, e.clientY); }}
         onPointerMove={(e) => { if (e.buttons === 1) setFromEvent(e.clientX, e.clientY); }}
+        onDoubleClick={() => onChange({ x: 0, y: 0 })}
+        onKeyDown={e => { if (!e.key.startsWith('Arrow')) return; e.preventDefault(); const step = e.shiftKey ? 10 : 1; onChange({ x: Math.max(-range, Math.min(range, v.x + (e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0))), y: Math.max(-range, Math.min(range, v.y + (e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0))) }); }}
       >
         <div className="xypad-cross-h" />
         <div className="xypad-cross-v" />
         <div className="xypad-dot" style={{ left: `${dotX}%`, top: `${dotY}%` }} />
       </div>
-      <div className="xypad-vals">{v.x}, {v.y}</div>
+      <div className="xy-fields">{(['x', 'y'] as const).map(axis => <XYAxisField key={axis} axis={axis} value={v[axis]} range={range} label={label(def.label)} onChange={value => onChange({ ...v, [axis]: value })} />)}</div>
       {mobile && <button className="xypad-reset" onClick={() => onChange({ x: 0, y: 0 })}>{t('resetCenter')}</button>}
     </div>
   );

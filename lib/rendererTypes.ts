@@ -1,9 +1,11 @@
+import type { TransformFrame } from './transformGeometry';
 // The renderer contract the app depends on. Both the PixiJS SceneRenderer
 // (2D templates) and the Three.js SceneRenderer3D (webgl templates) implement
 // this, so PreviewStage / ExportDialog / rendererInstance are engine-agnostic.
 export interface IRenderer {
   hitTest?(x: number, y: number): string | null;
   selectionBounds?(id: string): { x: number; y: number; width: number; height: number } | null;
+  selectionFrame?(id: string): TransformFrame | null;
   init(canvas: HTMLCanvasElement): Promise<void>;
   resize(width: number, height: number, resolution?: number): void;
   // Realize the scene state for a frame (no draw).

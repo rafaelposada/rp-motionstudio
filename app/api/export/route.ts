@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { destinationFor, isLocalFileRequest } from '@/lib/localDestinations';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -11,12 +12,11 @@ export const maxDuration = 300;
 // Video proxies must remain browser-readable. Finished exports are written
 // straight to the user's Movies folder and never depend on a browser download.
 const PROXIES_DIR = path.join(process.cwd(), 'public', 'exports');
-const EXPORTS_DIR = path.join(os.homedir(), 'Movies', 'Motion Studio Exports');
 
 // sessionId/index/fps feed into filesystem paths and ffmpeg filter strings —
 // accept only the exact shapes we generate ourselves.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const processState = globalThis as typeof globalThis & { motionExports?: Map<string, { child?: ChildProcess; cancelled: boolean; log: string }> };
+const processState = globalThis as typeof globalThis & { motionExports?: Map<string, { child?: ChildProcess; cancelled: boolean; log: string; directory: string }> };
 const sessions = processState.motionExports ??= new Map();
 
 function sessionDir(id: string) {
@@ -47,6 +47,7 @@ function run(cmd: string, args: string[], sessionId?: string): Promise<void> {
 // exports crawl with video cards. An intra-only proxy makes every seek decode
 // exactly one frame. Body: raw video bytes; response: { url } under /exports.
 export async function PUT(req: NextRequest) {
+  if (!isLocalFileRequest(req)) return NextResponse.json({ error: 'Acesso local necessário.' }, { status: 403 });
   try {
     const buf = Buffer.from(await req.arrayBuffer());
     if (buf.length === 0) return NextResponse.json({ error: 'empty body' }, { status: 400 });
@@ -77,6 +78,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isLocalFileRequest(req)) return NextResponse.json({ error: 'Acesso local necessário.' }, { status: 403 });
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }); }
   const { action } = body;
@@ -96,7 +98,7 @@ export async function POST(req: NextRequest) {
     if (action === 'begin') {
       const id = crypto.randomUUID();
       await fs.mkdir(sessionDir(id), { recursive: true });
-      sessions.set(id, { cancelled: false, log: '' });
+      sessions.set(id, { cancelled: false, log: '', directory: await destinationFor('exports') });
       setTimeout(() => sessions.delete(id), 3600000).unref();
       return NextResponse.json({ sessionId: id });
     }
@@ -108,6 +110,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'bad params' }, { status: 400 });
       }
       const dir = sessionDir(sessionId);
+      if (!sessions.has(sessionId) || sessions.get(sessionId)?.cancelled) return NextResponse.json({ error: 'Sessão encerrada.' }, { status: 400 });
       const base64 = String(dataUrl).replace(/^data:image\/\w+;base64,/, '');
       const file = path.join(dir, `frame_${String(idx).padStart(5, '0')}.jpg`);
       await fs.writeFile(file, Buffer.from(base64, 'base64'));
@@ -122,7 +125,10 @@ export async function POST(req: NextRequest) {
       }
       const dir = sessionDir(sessionId);
       const pattern = path.join(dir, 'frame_%05d.jpg');
-      await fs.mkdir(EXPORTS_DIR, { recursive: true });
+      const session = sessions.get(sessionId);
+      if (!session || session.cancelled) return NextResponse.json({ error: 'Sessão encerrada.' }, { status: 400 });
+      const outputDirectory = session.directory;
+      await fs.mkdir(outputDirectory, { recursive: true });
 
       // Exact output size when the client provides one (already even-rounded);
       // otherwise just force even dimensions, which yuv420p requires.
@@ -142,7 +148,7 @@ export async function POST(req: NextRequest) {
 
       if (format === 'mp4' || format === 'both') {
         const out = `motion_${sessionId}.mp4`;
-        const outPath = path.join(EXPORTS_DIR, out);
+        const outPath = path.join(outputDirectory, out);
         const args = ['-y', '-start_number', '0', '-framerate', String(fps), '-i', pattern];
         if (audioFile) args.push('-i', audioFile);
         args.push('-vf', sizeFilter);
@@ -158,7 +164,7 @@ export async function POST(req: NextRequest) {
       if (format === 'gif' || format === 'both') {
         const palette = path.join(dir, 'palette.png');
         const out = `motion_${sessionId}.gif`;
-        const outPath = path.join(EXPORTS_DIR, out);
+        const outPath = path.join(outputDirectory, out);
         await run('ffmpeg', ['-y', '-start_number', '0', '-framerate', String(fps), '-i', pattern,
           '-vf', `fps=${fps},${sizeFilter},palettegen`, palette], sessionId);
         await run('ffmpeg', ['-y', '-start_number', '0', '-framerate', String(fps), '-i', pattern, '-i', palette,
@@ -169,14 +175,15 @@ export async function POST(req: NextRequest) {
       // clean temp frames
       await fs.rm(dir, { recursive: true, force: true });
 
-      return NextResponse.json({ files, directory: EXPORTS_DIR });
+      return NextResponse.json({ files, directory: outputDirectory });
     }
 
     return NextResponse.json({ error: 'unknown action' }, { status: 400 });
   } catch (e: any) {
     if (UUID_RE.test(String(body.sessionId)) && sessions.get(body.sessionId)?.cancelled) {
       await fs.rm(sessionDir(body.sessionId), { recursive: true, force: true });
-      await Promise.all(['mp4', 'gif'].map((extension) => fs.rm(path.join(EXPORTS_DIR, `motion_${body.sessionId}.${extension}`), { force: true })));
+      const directory = sessions.get(body.sessionId)?.directory;
+      if (directory) await Promise.all(['mp4', 'gif'].map((extension) => fs.rm(path.join(directory, `motion_${body.sessionId}.${extension}`), { force: true })));
     }
     return NextResponse.json({ error: String(e?.message ?? e) }, { status: 500 });
   }

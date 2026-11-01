@@ -11,6 +11,7 @@ import { previewResolution } from '@/lib/previewResolution';
 import { prepareTextFonts } from '@/lib/textLayers';
 import { useAudioPreview } from '@/lib/useAudioPreview';
 import CanvasTextSelection from './CanvasTextSelection';
+import ModelVisibilityNotice from './ModelVisibilityNotice';
 
 export default function PreviewStage() {
   useAudioPreview();
@@ -127,6 +128,7 @@ export default function PreviewStage() {
           lastRenderedFrameRef.current = frame;
           if (frame !== st.frame) st.setFrame(frame);
           rendererRef.current?.renderFrame(frame);
+          window.dispatchEvent(new Event('motion-preview-rendered'));
         }
       } else {
         anchorTimeRef.current = 0;
@@ -134,6 +136,7 @@ export default function PreviewStage() {
         if (dirtyRef.current) {
           dirtyRef.current = false;
           rendererRef.current?.renderFrame(st.frame);
+          window.dispatchEvent(new Event('motion-preview-rendered'));
         }
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -189,6 +192,6 @@ export default function PreviewStage() {
   }, [width, height]);
 
   return (
-    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /></div>
+    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /></div>
   );
 }

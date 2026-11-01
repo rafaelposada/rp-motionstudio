@@ -20,7 +20,7 @@ export default function TrackInspector() {
 
   const track = tracks.find((t) => t.id === activeTrackId);
   // A single layer needs no compositing controls — the block would be noise.
-  if (!track || tracks.length < 2) return null;
+  if (!track) return null;
 
   const totalFrames = Math.max(1, Math.round(duration * fps));
   const { inFrame, outFrame, length } = trackWindow(track, totalFrames);

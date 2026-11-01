@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { getTemplate } from '@/templates';
+import { getEffect } from '@/effects';
+import { threeMaterialsFor, applyThreeUniforms, dropThreeMaterials } from '@/effects/adapters/three';
 import { useSceneStore } from '@/store/useSceneStore';
 import { resolveEasing } from '@/lib/easing';
 import { assetIndexForSlot, clamp, lerp } from '@/lib/motion';
@@ -19,6 +21,7 @@ import { reelVideoTime, syncReelVideo } from '@/lib/reelVideoClock';
 import { setImageLighting } from '@/lib/imageLighting';
 import { renderableTracks, renderableAssetUrls, exportImageUrls } from '@/lib/renderAssets';
 import { cardOpacity } from '@/lib/cardOpacity';
+import { modelPathOffset } from '@/lib/modelMotionPath';
 
 // Shared with the Pixi renderer so control values read identically in px.
 const SPRITE_BASE = 340;
@@ -173,6 +176,7 @@ export class SceneRenderer3D implements IRenderer {
   private composeA!: THREE.WebGLRenderTarget;
   private composeB!: THREE.WebGLRenderTarget;
   private composeScene = new THREE.Scene();
+  private readonly fxOwner = `${crypto.randomUUID()}/`;
   private composeCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
   private composeQuad!: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private outputScene = new THREE.Scene();
@@ -664,7 +668,7 @@ export class SceneRenderer3D implements IRenderer {
           this.onDirty?.();
         };
         this.loadTexture(url).then((tex) => {
-          if (!tex || !this.ready || slot.bindKey !== binding) return;
+          if (!tex || tex !== this.textureCache.get(url) || !this.ready || slot.bindKey !== binding) return;
           applyCropped(tex);
         });
       }
@@ -951,7 +955,7 @@ export class SceneRenderer3D implements IRenderer {
       // The source image retains its color while geometry supplies perspective.
       // Lighting/highlights are opt-in for the selected motion layer.
       slot.front.material.color.setRGB(0, 0, 0);
-      slot.front.material.emissiveIntensity = 1;
+      slot.front.material.emissiveIntensity = 1 - clamp(t.dim ?? 0, 0, 1);
     }
     slot.front.castShadow = shadow;
     slot.front.receiveShadow = shadow && imageLighting;
@@ -1001,7 +1005,8 @@ export class SceneRenderer3D implements IRenderer {
       cardAspect: cardAspectFor(template.meta, s.width, s.height, s.cardShape),
     };
     this.updateTrackCamera(rt.camera, Number(track.values.perspective ?? 100), template.camera?.(track.values, ctx));
-    rt.group.position.set(track.transform.x, -track.transform.y, 0);
+    const path = modelPathOffset(track, frame, s.fps, s.width, s.height);
+    rt.group.position.set(track.transform.x + path.x, -(track.transform.y + path.y), 0);
     rt.group.scale.setScalar(track.transform.scale);
     rt.group.rotation.set(0, 0, -(track.transform.rotation * Math.PI) / 180);
     const layerAlpha = clamp(track.opacity, 0, 1) * time.envelope;
@@ -1162,13 +1167,28 @@ export class SceneRenderer3D implements IRenderer {
       [read, write] = [write, read];
     });
 
-    const pixelate = s.effects.find((effect) => effect.enabled && effect.effectId === 'pixelate');
+    const liveEffects = new Set<string>();
+    try {
+      for (const effect of s.effects) {
+        if (!effect.enabled) continue;
+        const definition = getEffect(effect.effectId); if (!definition) continue;
+        const key = this.fxOwner + effect.instanceId; liveEffects.add(key);
+        threeMaterialsFor(definition, key).forEach((material, index) => {
+          applyThreeUniforms(material, definition, effect.values, { width: s.width, height: s.height, time: frame / s.fps }, index);
+          material.uniforms.map.value = read.texture;
+          this.composeQuad.material = material;
+          this.renderer.setRenderTarget(write); this.renderer.clear(true, false, false);
+          this.renderer.render(this.composeScene, this.composeCam);
+          [read, write] = [write, read];
+        });
+      }
+    } finally { this.composeQuad.material = composeMaterial; dropThreeMaterials(liveEffects, this.fxOwner); }
     this.outputQuad.material.uniforms.map.value = read.texture;
     this.outputQuad.material.uniforms.resolution.value.set(
       this.width * this.resolution,
       this.height * this.resolution,
     );
-    this.outputQuad.material.uniforms.pixelSize.value = Number(pixelate?.values.size ?? 1) * this.resolution;
+    this.outputQuad.material.uniforms.pixelSize.value = 1;
     this.renderer.setRenderTarget(null);
     this.renderer.setClearColor(0x000000, 1);
     this.renderer.clear(true, true, true);
@@ -1211,6 +1231,7 @@ export class SceneRenderer3D implements IRenderer {
   }
 
   destroy() {
+    dropThreeMaterials(new Set(), this.fxOwner);
     this.textCompositor.destroy();
     this.overlays.forEach((rt) => { rt.texture.dispose(); rt.raster.destroy(); }); this.overlays.clear();
     this.ready = false;

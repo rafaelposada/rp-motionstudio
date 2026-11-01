@@ -16,6 +16,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { useSceneStore } from '@/store/useSceneStore';
 import { AdjustIcon, BackIcon, CanvasIcon, ChevronDownIcon, ExportIcon, InfoIcon, LibraryIcon, MediaIcon, MoonIcon, ProjectsIcon, SunIcon } from './EditorIcons';
 import { MobileInteractionProvider } from './MobileInteractions';
+import { showHome } from '@/lib/homeNavigation';
 
 const PreviewStage = dynamic(() => import('./PreviewStage'), { ssr: false });
 
@@ -37,6 +38,7 @@ export default function MobileEditor() {
   const setPanelOpen = useUIStore((s) => s.setMobilePanelOpen);
   const setProjectsOpen = useUIStore((s) => s.setMobileProjectsOpen);
   const theme = useUIStore((s) => s.theme);
+  const locale = useUIStore((s) => s.locale);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const projects = useProjectStore((s) => s.projects);
   const activeId = useProjectStore((s) => s.activeId);
@@ -61,6 +63,7 @@ export default function MobileEditor() {
     <MobileInteractionProvider>
     <div className={`mobile-editor ${panelOpen ? 'mobile-panel-is-open' : 'mobile-panel-is-closed'}`}>
       <header className="mobile-topbar">
+        <button className="mobile-home-logo" onClick={() => void showHome()} aria-label={locale === 'pt' ? 'RP MotionStudio — Início' : 'RP MotionStudio — Home'}><img src={`/rp-motionstudio-${theme}.svg`} alt="" width="30" height="30" /></button>
         <button className="mobile-project-button" onClick={() => setProjectsOpen(true)} aria-label="Open projects">
           <ProjectsIcon size={18} />
           <span>{activeProject?.name ?? 'Projects'}</span>

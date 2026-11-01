@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import WelcomeDialog from '@/components/WelcomeDialog';
 import ThemeFavicon from '@/components/ThemeFavicon';
+import HomeDashboard from '@/components/HomeDashboard';
 import { startSceneAutosave } from '@/lib/scenePersist';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { useProjectStore } from '@/store/useProjectStore';
@@ -54,6 +55,7 @@ function EditorLoading() {
 
 export default function Home() {
   const mode = useViewportMode();
+  const nav = useUIStore(s => s.nav);
 
   useEffect(() => {
     useUIStore.getState().hydratePreferences();
@@ -68,6 +70,7 @@ export default function Home() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (useUIStore.getState().nav === 'home') return;
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key !== 'z' && key !== 'y') return;
@@ -88,7 +91,7 @@ export default function Home() {
   return (
     <>
       <ThemeFavicon />
-      {mode === 'mobile' ? <MobileEditor /> : <DesktopEditor />}
+      {nav === 'home' ? <HomeDashboard /> : mode === 'mobile' ? <MobileEditor /> : <DesktopEditor />}
       <WelcomeDialog />
     </>
   );
