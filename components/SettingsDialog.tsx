@@ -8,6 +8,23 @@ import { getPreviewQuality, setPreviewQuality, type PreviewQuality } from '@/lib
 import { panelName } from './PanelDock';
 import { storageReport } from '@/lib/projectPackage';
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '@/lib/accentColor';
+import DestinationFolder from './DestinationFolder';
+import { flushScene, getSaveState } from '@/lib/scenePersist';
+
+function AutosaveSettings({ pt }: { pt: boolean }) {
+  const enabled = useUIStore(s => s.autosaveEnabled), delay = useUIStore(s => s.autosaveDelay);
+  const [state, setState] = useState(getSaveState);
+  useEffect(() => { const update = () => setState(getSaveState()); window.addEventListener('motion-save-status', update); return () => window.removeEventListener('motion-save-status', update); }, []);
+  return <><h3>{pt ? 'Salvamento automático' : 'Autosave'}</h3>
+    <p className="settings-description">{pt ? 'A composição é salva nos dados locais deste aplicativo. Fotos, imagens absolutas e áudio importados ficam no armazenamento local. Ao reabrir o app, o projeto é restaurado.' : 'The composition is saved in local application data. Imported photos, absolute images and audio remain in local storage. Reopening the app restores the project.'}</p>
+    <label className="settings-row"><span><strong>{pt ? 'Salvar alterações automaticamente' : 'Automatically save changes'}</strong><span className="settings-description">{pt ? 'Ativado por padrão. A reprodução não gera gravações a cada quadro.' : 'Enabled by default. Playback does not write on every frame.'}</span></span><input type="checkbox" checked={enabled} onChange={e => useUIStore.getState().setAutosave(e.target.checked)}/></label>
+    <label className="settings-row"><strong>{pt ? 'Intervalo máximo entre gravações' : 'Maximum interval between saves'}</strong><select className="field" disabled={!enabled} value={delay} onChange={e => useUIStore.getState().setAutosave(enabled, Number(e.target.value))}>{[500,1000,2000,5000].map(ms => <option key={ms} value={ms}>{ms/1000} s</option>)}</select></label>
+    <div className="autosave-summary" role="status"><strong>{state.status === 'error' ? (pt ? 'Erro ao salvar — verifique o armazenamento.' : 'Save failed — check storage.') : state.status === 'pending' ? (pt ? 'Há alterações não salvas.' : 'There are unsaved changes.') : state.status === 'saving' ? (pt ? 'Salvando alterações…' : 'Saving changes…') : (pt ? 'Composição salva neste aplicativo.' : 'Composition saved in this app.')}</strong>{state.savedAt && <span>{pt ? 'Última gravação: ' : 'Last saved: '}{new Date(state.savedAt).toLocaleTimeString()}</span>}</div>
+    <button className="btn primary" onClick={() => { flushScene(); setState(getSaveState()); }}>{pt ? 'Salvar agora · ⌘/Ctrl+S' : 'Save now · ⌘/Ctrl+S'}</button>
+    <p className="settings-description">{pt ? 'Trocar de projeto também salva a composição atual. Com o salvamento automático desligado, use Salvar agora antes de fechar.' : 'Switching projects also saves the current composition. When autosave is off, use Save now before closing.'}</p>
+    <div className="settings-callout"><strong>{pt ? 'Cópia portátil no computador' : 'Portable copy on your computer'}</strong><p>{pt ? 'O salvamento local depende dos dados deste aplicativo. Para guardar uma cópia independente ou transferir para outro Mac, use Projetos → Salvar rascunho ou Salvar como template. O pacote .motion.zip inclui a composição e as mídias.' : 'Local saving depends on application data. To keep an independent copy or transfer to another Mac, use Projects → Save draft or Save as template. The .motion.zip package includes the composition and media.'}</p></div>
+  </>;
+}
 
 function AccentPicker({ pt }: { pt: boolean }) {
   const color = useUIStore((s) => s.accentColor);
@@ -42,11 +59,11 @@ function DimensionField({ panel, axis, pt }: { panel: PanelId; axis: PanelAxis; 
 
 export default function SettingsDialog() {
   const { locale } = useI18n(); const pt = locale === 'pt';
-  const theme = useUIStore((s) => s.theme); const grid = useUIStore((s) => s.showStageGrid);
+  const appearance = useUIStore((s) => s.appearance); const grid = useUIStore((s) => s.showStageGrid);
   const leftHidden = useUIStore((s) => s.leftCollapsed); const rightHidden = useUIStore((s) => s.rightCollapsed);
   const preferencesError = useUIStore((s) => s.preferencesError);
   const dialog = useRef<HTMLDialogElement>(null);
-  const [tab, setTab] = useState('interface');
+  const [tab, setTab] = useState(useUIStore.getState().settingsSection);
   const [quality, setQuality] = useState<PreviewQuality>('high');
   const [message, setMessage] = useState('');
   const [storage, setStorage] = useState('');
@@ -66,10 +83,7 @@ export default function SettingsDialog() {
     storageReport().then((report) => { if (active) setStorage(`${(report.total / 1048576).toFixed(1)} MB · ${report.count} ${pt ? 'arquivos de mídia locais' : 'local media files'}`); }).catch(() => { if (active) setStorage(pt ? 'Armazenamento indisponível.' : 'Storage unavailable.'); });
     return () => { active = false; };
   }, [tab, pt]);
-  const openFolder = async (folder: 'exports' | 'projects') => {
-    try { const response = await fetch('/api/diagnostics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder }) }); if (!response.ok) throw new Error(); setMessage(pt ? 'Pasta aberta no Finder.' : 'Folder opened in Finder.'); } catch { setMessage(pt ? 'Não foi possível abrir a pasta.' : 'Could not open the folder.'); }
-  };
-  const tabs = pt ? [['interface', 'Interface'], ['panels', 'Painéis'], ['preview', 'Prévia'], ['files', 'Arquivos'], ['shortcuts', 'Atalhos']] : [['interface', 'Interface'], ['panels', 'Panels'], ['preview', 'Preview'], ['files', 'Files'], ['shortcuts', 'Shortcuts']];
+  const tabs = pt ? [['interface', 'Interface'], ['panels', 'Painéis'], ['preview', 'Prévia'], ['saving', 'Salvamento'], ['files', 'Arquivos'], ['shortcuts', 'Atalhos']] : [['interface', 'Interface'], ['panels', 'Panels'], ['preview', 'Preview'], ['saving', 'Saving'], ['files', 'Files'], ['shortcuts', 'Shortcuts']];
   return <dialog className="settings-dialog" ref={dialog} aria-labelledby="settings-title" onCancel={(event) => { event.preventDefault(); close(); }} onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
     <div className="settings-surface"><header className="settings-header"><div><span className="eyebrow">RP MotionStudio</span><h2 id="settings-title">{pt ? 'Configurações' : 'Settings'}</h2></div><button className="settings-close" aria-label={pt ? 'Fechar configurações' : 'Close settings'} onClick={close} autoFocus>×</button></header>
       <nav className="settings-tabs" role="tablist" aria-label={pt ? 'Seções de configurações' : 'Settings sections'} onKeyDown={(event) => {
@@ -80,7 +94,7 @@ export default function SettingsDialog() {
       }}>{tabs.map(([id, label]) => <button role="tab" tabIndex={tab === id ? 0 : -1} id={`settings-tab-${id}`} aria-controls="settings-content" aria-selected={tab === id} key={id} onClick={() => { setTab(id); setMessage(''); }}>{label}</button>)}</nav>
       <div className="settings-body" role="tabpanel" id="settings-content" aria-labelledby={`settings-tab-${tab}`}>
         {tab === 'interface' && <><h3>{pt ? 'Seu espaço de trabalho' : 'Your workspace'}</h3><p className="settings-description">{pt ? 'Preferências desta instalação. Seus projetos não são alterados.' : 'Preferences for this installation. Your projects stay unchanged.'}</p>
-          <div className="settings-row"><div><strong>{pt ? 'Aparência' : 'Appearance'}</strong><p>{pt ? 'Escolha o contraste da interface.' : 'Choose the interface appearance.'}</p></div><div className="settings-segment">{(['dark', 'light'] as const).map((value) => <button key={value} aria-pressed={theme === value} onClick={() => useUIStore.getState().setTheme(value)}>{value === 'dark' ? (pt ? 'Escuro' : 'Dark') : (pt ? 'Claro' : 'Light')}</button>)}</div></div>
+          <div className="settings-row"><div><strong>{pt ? 'Aparência' : 'Appearance'}</strong><p>{pt ? 'Sistema acompanha a aparência do macOS.' : 'System follows the macOS appearance.'}</p></div><div className="settings-segment">{(['system', 'dark', 'light'] as const).map((value) => <button key={value} aria-pressed={appearance === value} onClick={() => useUIStore.getState().setAppearance(value)}>{value === 'system' ? (pt ? 'Sistema' : 'System') : value === 'dark' ? (pt ? 'Escuro' : 'Dark') : (pt ? 'Claro' : 'Light')}</button>)}</div></div>
           <AccentPicker pt={pt} />
           <label className="settings-row"><span><strong>{pt ? 'Idioma' : 'Language'}</strong><span className="settings-description">{pt ? 'Troca imediata, sem reiniciar.' : 'Changes immediately, no restart needed.'}</span></span><select className="field" aria-label={pt ? 'Idioma da interface' : 'Interface language'} value={locale} onChange={(event) => useUIStore.getState().setLocale(event.target.value === 'pt' ? 'pt' : 'en')}><option value="pt">Português</option><option value="en">English</option></select></label>
           <label className="settings-row"><span><strong>{pt ? 'Grade de fundo' : 'Background grid'}</strong><span className="settings-description">{pt ? 'Pontos ao redor da composição. Não aparecem na exportação.' : 'Dots around the canvas. Not included in exports.'}</span></span><input type="checkbox" checked={grid} onChange={(event) => useUIStore.getState().setShowStageGrid(event.target.checked)} /></label>
@@ -94,8 +108,21 @@ export default function SettingsDialog() {
           <button className="btn" onClick={() => { useUIStore.getState().resetPanelLayout(); setMessage(pt ? 'Layout original restaurado. Projetos preservados.' : 'Default layout restored. Projects preserved.'); }}>{pt ? 'Restaurar layout original' : 'Restore default layout'}</button>
         </>}
         {tab === 'preview' && <><h3>{pt ? 'Qualidade e desempenho' : 'Quality and performance'}</h3><p className="settings-description">{pt ? 'A qualidade abaixo afeta somente a visualização. O vídeo usa a resolução escolhida ao exportar.' : 'This quality affects preview only. Video uses the resolution selected when exporting.'}</p><label className="settings-row"><strong>{pt ? 'Qualidade da prévia' : 'Preview quality'}</strong><select className="field" value={quality} onChange={(event) => { try { setPreviewQuality(event.target.value as PreviewQuality); setMessage(pt ? 'Qualidade aplicada.' : 'Quality applied.'); } catch { setMessage(pt ? 'Não foi possível salvar a qualidade.' : 'Could not save the quality.'); } }}><option value="fast">{pt ? 'Rápida · menor uso de GPU' : 'Fast · lower GPU usage'}</option><option value="balanced">{pt ? 'Equilibrada' : 'Balanced'}</option><option value="high">{pt ? 'Alta · maior nitidez' : 'High · sharper preview'}</option></select></label><p className="settings-description">{pt ? 'Pausar a reprodução reduz o trabalho da prévia. Projetos com muitos vídeos e modelos 3D exigem mais memória.' : 'Pausing playback reduces preview work. Many videos and 3D models use more memory.'}</p></>}
-        {tab === 'files' && <><h3>{pt ? 'Arquivos neste Mac' : 'Files on this Mac'}</h3><p className="settings-description">{storage || (pt ? 'Verificando armazenamento…' : 'Checking storage…')}</p><div className="settings-folder"><strong>{pt ? 'Vídeos exportados' : 'Exported videos'}</strong><code>Movies / Motion Studio Exports</code><button className="btn" onClick={() => void openFolder('exports')}>{pt ? 'Abrir pasta de exportações' : 'Open exports folder'}</button></div><div className="settings-folder"><strong>{pt ? 'Pacotes de projeto' : 'Project packages'}</strong><code>Documents / Motion Studio Projects</code><button className="btn" onClick={() => void openFolder('projects')}>{pt ? 'Abrir pasta de projetos' : 'Open projects folder'}</button></div><p className="settings-description">{pt ? 'Projetos em edição são salvos nos dados locais do aplicativo. Use Salvar pacote portátil em Projetos para manter uma cópia com suas mídias.' : 'Working projects are saved in local application data. Use Save portable package in Projects to keep a copy including media.'}</p><p className="settings-description">{pt ? 'Exportação local' : 'Local export'}: {diagnostics?.ffmpeg ?? '…'}</p></>}
-        {tab === 'shortcuts' && <><h3>{pt ? 'Atalhos do editor' : 'Editor shortcuts'}</h3><dl className="settings-shortcuts">{[[pt ? 'Configurações' : 'Settings', '⌘ / Ctrl + ,'], [pt ? 'Reproduzir / pausar' : 'Play / pause', 'Espaço / K'], [pt ? 'Quadro anterior / seguinte' : 'Previous / next frame', '← / → · J / L'], [pt ? 'Saltar um segundo' : 'Jump one second', 'Shift + ← / →'], [pt ? 'Desfazer' : 'Undo', '⌘ / Ctrl + Z'], [pt ? 'Refazer' : 'Redo', '⌘ / Ctrl + Shift + Z'], [pt ? 'Fechar configurações' : 'Close settings', 'Esc']].map(([name, shortcut]) => <div key={name}><dt>{name}</dt><dd><kbd>{shortcut}</kbd></dd></div>)}</dl><p className="settings-description">{pt ? 'Os atalhos da composição ficam suspensos enquanto você digita ou usa este menu.' : 'Composition shortcuts are suspended while typing or using this menu.'}</p></>}
+        {tab === 'saving' && <AutosaveSettings pt={pt}/>}
+        {tab === 'files' && <><h3>{pt ? 'Arquivos neste Mac' : 'Files on this Mac'}</h3><p className="settings-description">{storage || (pt ? 'Verificando armazenamento…' : 'Checking storage…')}</p><DestinationFolder kind="exports"/><DestinationFolder kind="drafts"/><DestinationFolder kind="templates"/><p className="settings-description">{pt ? 'Rascunhos e templates portáteis incluem as mídias. Os projetos em edição usam os dados locais do aplicativo; veja a aba Salvamento.' : 'Portable drafts and templates include media. Working projects use local application data; see Saving.'}</p><p className="settings-description">{pt ? 'Exportação local' : 'Local export'}: {diagnostics?.ffmpeg ?? '…'}</p></>}
+        {tab === 'shortcuts' && <><h3>{pt ? 'Atalhos do editor' : 'Editor shortcuts'}</h3><dl className="settings-shortcuts">{[[pt ? 'Configurações' : 'Settings', '⌘ / Ctrl + ,'], [pt ? 'Reproduzir / pausar' : 'Play / pause', pt ? 'Espaço / K' : 'Space / K'], [pt ? 'Quadro anterior / seguinte' : 'Previous / next frame', '← / → · J / L'], [pt ? 'Saltar um segundo' : 'Jump one second', 'Shift + ← / →'], [pt ? 'Desfazer' : 'Undo', '⌘ / Ctrl + Z'], [pt ? 'Refazer' : 'Redo', '⌘ / Ctrl + Shift + Z'], [pt ? 'Salvar composição local' : 'Save working composition', '⌘ / Ctrl + S'],
+ [pt ? 'Duplicar seleção' : 'Duplicate selection', '⌘ / Ctrl + D'],
+ [pt ? 'Duplicar ao arrastar' : 'Duplicate while dragging', 'Alt / Option + arraste'],
+ [pt ? 'Selecionar várias camadas' : 'Select multiple layers', 'Shift + clique'],
+ [pt ? 'Selecionar todas as camadas (foco na composição)' : 'Select all layers (composition focused)', '⌘ / Ctrl + A'],
+ [pt ? 'Excluir seleção e confirmar' : 'Delete selection and confirm', 'Backspace / Delete → Return'],
+ [pt ? 'Ordenar camada pela alça' : 'Reorder layer at grip', 'Alt / Option + ↑ / ↓'],
+ [pt ? 'Rotação em passos de 15°' : 'Rotate in 15° steps', 'Shift + rotação'],
+ [pt ? 'Redimensionar pelo centro' : 'Resize from center', 'Alt / Option + alça'],
+ [pt ? 'Manter proporção ao redimensionar' : 'Keep resize aspect ratio', 'Shift + alça'],
+ [pt ? 'Arredondar um canto da imagem' : 'Round one image corner', 'Alt / Option + círculo'],
+ [pt ? 'Suspender encaixe durante arraste' : 'Disable snapping while dragging', 'Alt / Option'],
+ [pt ? 'Cancelar transformação / fechar menu' : 'Cancel transform / close dialog', 'Esc']].map(([name, shortcut]) => <div key={name}><dt>{name}</dt><dd><kbd>{shortcut}</kbd></dd></div>)}</dl><p className="settings-description">{pt ? 'Os atalhos da composição ficam suspensos enquanto você digita ou usa este menu.' : 'Composition shortcuts are suspended while typing or using this menu.'}</p></>}
       </div>
       <footer className="settings-footer"><span role="status">{preferencesError ? (pt ? 'Não foi possível salvar as preferências neste dispositivo.' : 'Could not save preferences on this device.') : message || (pt ? 'Alterações salvas automaticamente neste Mac.' : 'Changes saved automatically on this Mac.')}</span><small>RP MotionStudio · {diagnostics?.version ?? '…'}</small></footer>
     </div>

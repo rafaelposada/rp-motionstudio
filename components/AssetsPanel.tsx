@@ -436,10 +436,10 @@ export default function AssetsPanel() {
               <InfoLabel className="asset-meta-label" help={uiHelp('videoEnd', locale)} name={t('videoEnd')}>{t('videoEnd')}</InfoLabel>
             </div>
             <div className="pills shape-pills">
-              <button className={`pill ${videoEnd === 'loop' ? 'active' : ''}`} onClick={() => setVideoEnd('loop')} title="Restart the video when it ends">
+              <button className={`pill ${videoEnd === 'loop' ? 'active' : ''}`} onClick={() => setVideoEnd('loop')} title={locale === 'pt' ? 'Reiniciar o vídeo ao terminar' : 'Restart the video when it ends'}>
                 {t('loop')}
               </button>
-              <button className={`pill ${videoEnd === 'hold' ? 'active' : ''}`} onClick={() => setVideoEnd('hold')} title="Freeze on the final frame until the clip ends">
+              <button className={`pill ${videoEnd === 'hold' ? 'active' : ''}`} onClick={() => setVideoEnd('hold')} title={locale === 'pt' ? 'Manter o último quadro até o fim da composição' : 'Freeze on the final frame until the clip ends'}>
                 {t('holdLast')}
               </button>
             </div>
@@ -529,7 +529,7 @@ export default function AssetsPanel() {
                 {!a.url ? (
                   // persisted upload still resolving from IndexedDB (or its bytes
                   // are gone) — show a clickable placeholder, never src="".
-                  <span className="asset-thumb asset-thumb-empty" onClick={() => openSlotPicker(i)} title="Re-add file">
+                  <span className="asset-thumb asset-thumb-empty" onClick={() => openSlotPicker(i)} title={locale === 'pt' ? 'Adicionar arquivo novamente' : 'Re-add file'}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                   </span>
                 ) : isVideoSource(a.url, a.kind) ? (
@@ -546,17 +546,17 @@ export default function AssetsPanel() {
                     onMouseEnter={(e) => { e.currentTarget.play().catch(() => { /* noop */ }); }}
                     onMouseLeave={(e) => { const v = e.currentTarget; v.pause(); try { v.currentTime = 0.05; } catch { /* noop */ } }}
                     onClick={() => openSlotPicker(i)}
-                    title="Replace"
+                    title={locale === 'pt' ? 'Substituir' : 'Replace'}
                   />
                 ) : (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <ImageThumbnail url={a.url} name={a.name} onClick={() => openSlotPicker(i)} title="Replace" />
+                  <ImageThumbnail url={a.url} name={a.name} onClick={() => openSlotPicker(i)} title={locale === 'pt' ? 'Substituir' : 'Replace'} />
                 )}
                 <span className="asset-name" title={a.name}>{a.name}</span>
                 <span className="asset-mobile-order" aria-label={`Reorder ${a.name}`}>
                   <button
                     className="icon-btn"
-                    title="Move up"
+                    title={locale === 'pt' ? 'Mover para cima' : 'Move up'}
                     aria-label={`Move ${a.name} up`}
                     disabled={i === 0}
                     onClick={() => i > 0 && reorderAssets(i, i - 1)}
@@ -565,7 +565,7 @@ export default function AssetsPanel() {
                   </button>
                   <button
                     className="icon-btn"
-                    title="Move down"
+                    title={locale === 'pt' ? 'Mover para baixo' : 'Move down'}
                     aria-label={`Move ${a.name} down`}
                     disabled={i >= filled - 1}
                     onClick={() => i < filled - 1 && reorderAssets(i, i + 1)}

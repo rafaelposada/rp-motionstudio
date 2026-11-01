@@ -7,6 +7,9 @@ import AssetsPanel from './AssetsPanel';
 import ScenePanel from './ScenePanel';
 import EffectsPanel from './EffectsPanel';
 import CanvasPanel from './CanvasPanel';
+import AbsoluteMediaPanel from './AbsoluteMediaPanel';
+import CompositionLayers from './CompositionLayers';
+import TextPanel from './TextPanel';
 import ProjectsPanel from './ProjectsPanel';
 import HistoryControls from './HistoryControls';
 import MobileTransport from './MobileTransport';
@@ -64,7 +67,7 @@ export default function MobileEditor() {
     <div className={`mobile-editor ${panelOpen ? 'mobile-panel-is-open' : 'mobile-panel-is-closed'}`}>
       <header className="mobile-topbar">
         <button className="mobile-home-logo" onClick={() => void showHome()} aria-label={locale === 'pt' ? 'RP MotionStudio — Início' : 'RP MotionStudio — Home'}><img src={`/rp-motionstudio-${theme}.svg`} alt="" width="30" height="30" /></button>
-        <button className="mobile-project-button" onClick={() => setProjectsOpen(true)} aria-label="Open projects">
+        <button className="mobile-project-button" onClick={() => setProjectsOpen(true)} aria-label={locale === 'pt' ? 'Abrir projetos' : 'Open projects'}>
           <ProjectsIcon size={18} />
           <span>{activeProject?.name ?? 'Projects'}</span>
           <ChevronDownIcon size={12} />
@@ -100,19 +103,18 @@ export default function MobileEditor() {
               onSelect={() => setPanelOpen(false)}
             />
           )}
-          {tab === 'media' && <AssetsPanel />}
+          {tab === 'media' && <><AbsoluteMediaPanel /><AssetsPanel /></>}
           {tab === 'adjust' && (
             <div className="mobile-composed-panel">
-              {trackCount > 1 && <div className="mobile-desktop-hint">This project has {trackCount} layers. Manage layers and their timeline on desktop.</div>}
+              {trackCount > 1 && <div className="mobile-desktop-hint">{trackCount} {locale === 'pt' ? 'camadas no projeto' : 'layers in this project'}</div>}
               <ScenePanel />
               <div className="hairline" />
-              <EffectsPanel />
+              <EffectsPanel /><CompositionLayers /><TextPanel />
             </div>
           )}
           {tab === 'canvas' && (
             <div className="mobile-composed-panel">
               <CanvasPanel />
-              <div className="mobile-desktop-hint">3D, Web and Board tools are available on desktop.</div>
             </div>
           )}
         </div>
@@ -127,7 +129,7 @@ export default function MobileEditor() {
             aria-current={item.id === tab && panelOpen ? 'page' : undefined}
           >
             {item.icon}
-            <span>{item.label}</span>
+            <span>{locale === 'pt' ? ({templates:'Modelos',media:'Mídia',adjust:'Ajustes',canvas:'Tela',export:'Exportar'} as Record<string,string>)[item.id] : item.label}</span>
           </button>
         ))}
       </nav>
@@ -138,7 +140,7 @@ export default function MobileEditor() {
             <button className="mobile-icon-button" onClick={() => setProjectsOpen(false)} aria-label="Back to editor">
               <BackIcon />
             </button>
-            <strong>Projects</strong>
+            <strong>{locale === 'pt' ? 'Projetos' : 'Projects'}</strong>
             <span />
           </header>
           <ProjectsPanel onProjectOpen={() => setProjectsOpen(false)} />
@@ -148,9 +150,9 @@ export default function MobileEditor() {
       {desktopNotice && (
         <div className="mobile-notice-backdrop" onClick={() => setDesktopNotice(false)}>
           <div className="mobile-notice" role="dialog" aria-modal="true" aria-labelledby="desktop-tools-title" onClick={(event) => event.stopPropagation()}>
-            <strong id="desktop-tools-title">Desktop tools</strong>
-            <p>3D, Web, Board and advanced layer timeline editing need a larger screen. Your projects remain available when you return on desktop.</p>
-            <button className="btn primary full" onClick={() => setDesktopNotice(false)}>Got it</button>
+            <strong id="desktop-tools-title">{locale === 'pt' ? 'Área de trabalho' : 'Workspace'}</strong>
+            <p>{locale === 'pt' ? 'Para ordenar camadas e editar a linha do tempo com mais espaço, abra o aplicativo em uma janela maior. Seus projetos ficam salvos neste aplicativo.' : 'For more space to reorder layers and edit the timeline, open the app in a larger window. Projects remain saved in this app.'}</p>
+            <button className="btn primary full" onClick={() => setDesktopNotice(false)}>{locale === 'pt' ? 'Entendi' : 'Got it'}</button>
           </div>
         </div>
       )}

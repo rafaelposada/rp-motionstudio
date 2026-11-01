@@ -7,7 +7,8 @@ import { captionFontSize, textMotion, textFontRevision, type TextLayer } from '@
 import type { MotionTrack } from '@/lib/tracks';
 import { getRendererInstance } from '@/lib/rendererInstance';
 import { compositionOrder } from '@/lib/composition';
-import { deleteCompositionLayer, duplicateCompositionLayer } from '@/lib/compositionActions';
+import { deleteCompositionLayers, duplicateCompositionLayers, layerDisplayName } from '@/lib/compositionActions';
+import { groupFrame, transformGroupMember } from '@/lib/groupTransform';
 import { snapAlignment, type AlignBox } from '@/lib/alignment';
 import { ANCHOR_AXES, RESIZE_ANCHORS, bounded, frameAABB, mapFramePoint, normalizedAngle, normalizedRadii, pointerRotation, resizeCursor, resizeFrame, rotatePoint, type ResizeAnchor, type TransformFrame, type TransformPoint } from '@/lib/transformGeometry';
 import { modelPathOffset } from '@/lib/modelMotionPath';
@@ -49,6 +50,8 @@ interface Gesture {
   duplicatePending?: boolean;
   duplicateBaseline?: Pick<SceneState, 'tracks' | 'textLayers' | 'activeTrackId' | 'activeTemplateId' | 'values' | 'easing' | 'compositeMode'>;
   originalId?: string;
+  originalSelection?: string[];
+  members?: Gesture[];
   viewport?: { left: number; top: number; width: number; height: number; canvasWidth: number; canvasHeight: number };
 }
 const sameFrame = (a: TransformFrame, b: TransformFrame) => (Object.keys(a) as (keyof TransformFrame)[]).every(key => Math.abs(a[key] - b[key]) < .01);
@@ -58,10 +61,11 @@ export default function CanvasTextSelection() {
   const layers = useSceneStore(s => s.textLayers), tracks = useSceneStore(s => s.tracks);
   const width = useSceneStore(s => s.width), height = useSceneStore(s => s.height), frame = useSceneStore(s => s.frame), fps = useSceneStore(s => s.fps);
   const selected = useUIStore(s => s.selectedTextId), selectedMotion = useUIStore(s => s.selectedMotionId), show = useUIStore(s => s.showSelectionBox);
+  const selectedIds = useUIStore(s => s.selectedLayerIds);
   const rulers = useUIStore(s => s.showRulers), guides = useUIStore(s => s.smartGuides), snap = useUIStore(s => s.snapEnabled), pt = useUIStore(s => s.locale) === 'pt';
   const [guide, setGuide] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
   const [rect, setRect] = useState({ x: 0, y: 0, width: 0, height: 0 });
-  const [renderedModel, setRenderedModel] = useState<{ id: string; box: TransformFrame } | null>(null);
+  const [renderedModels, setRenderedModels] = useState<Record<string, TransformFrame>>({});
   const fontVersion = useRef(textFontRevision()), [, setFontVersion] = useState(fontVersion.current);
   const seconds = frame / fps, ratio = rect.width / width;
   useEffect(() => {
@@ -78,13 +82,17 @@ export default function CanvasTextSelection() {
   useEffect(() => {
     const update = () => {
       const revision = textFontRevision(); if (revision !== fontVersion.current) { fontVersion.current = revision; setFontVersion(revision); }
-      const id = useUIStore.getState().selectedMotionId, box = id ? modelFrame(id) : null;
-      const valid = box && Object.values(box).every(Number.isFinite) && box.width > 0 && box.height > 0;
-      setRenderedModel(prev => id && valid ? prev?.id === id && sameFrame(prev.box, box) ? prev : { id, box } : prev ? null : prev);
+      const s = useSceneStore.getState(), next: Record<string, TransformFrame> = {};
+      for (const id of useUIStore.getState().selectedLayerIds) {
+        if (!s.tracks.some(t => t.id === id && t.visible)) continue;
+        const box = modelFrame(id);
+        if (box && Object.values(box).every(Number.isFinite) && box.width > 0 && box.height > 0) next[id] = box;
+      }
+      setRenderedModels(prev => Object.keys(prev).length === Object.keys(next).length && Object.keys(next).every(id => prev[id] && sameFrame(prev[id], next[id])) ? prev : next);
     };
     window.addEventListener('motion-preview-rendered', update); update();
     return () => window.removeEventListener('motion-preview-rendered', update);
-  }, [selectedMotion]);
+  }, [selectedIds]);
   const finish = (cancel = false) => {
     const d = drag.current; if (!d) return;
     drag.current = null;
@@ -92,9 +100,11 @@ export default function CanvasTextSelection() {
       const s = useSceneStore.getState();
       if (d.duplicateBaseline) {
         useSceneStore.setState(d.duplicateBaseline);
-        if (d.overlay) useUIStore.getState().selectText(d.originalId!); else useUIStore.getState().selectMotion(d.originalId!);
-      } else if (d.overlay) s.patchTextLayer(d.id, d.overlay);
-      else if (d.track) s.patchTrack(d.id, { transform: d.track.transform, values: d.track.values });
+        useUIStore.getState().setLayerSelection(d.originalSelection ?? [d.originalId!], d.originalId, d.overlay ? 'overlay' : 'motion');
+      } else for (const member of d.members ?? [d]) {
+        if (member.overlay) s.patchTextLayer(member.id, member.overlay);
+        else if (member.track) s.patchTrack(member.id, { transform: member.track.transform, values: member.track.values });
+      }
     }
     if (d.pointerId !== undefined && root.current?.hasPointerCapture(d.pointerId)) root.current.releasePointerCapture(d.pointerId);
     setGuide({ x: null, y: null }); useHistoryStore.getState().endGesture(cancel);
@@ -105,26 +115,43 @@ export default function CanvasTextSelection() {
       if (drag.current && (e.key === 'Escape' || (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z')) { e.preventDefault(); e.stopImmediatePropagation(); finishRef.current(true); return; }
       if (e.defaultPrevented || useUIStore.getState().settingsOpen || document.querySelector('dialog[open]')) return;
       if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true]')) return;
-      const ui = useUIStore.getState(), id = ui.selectedTextId ?? ui.selectedMotionId;
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'd' && id) { e.preventDefault(); e.stopImmediatePropagation(); duplicateCompositionLayer(id); }
-      else if (['Backspace', 'Delete'].includes(e.key) && id) { e.preventDefault(); deleteCompositionLayer(id); }
+      const ui = useUIStore.getState(), ids = ui.selectedLayerIds;
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'd' && ids.length) { e.preventDefault(); e.stopImmediatePropagation(); duplicateCompositionLayers(ids); }
+      else if (['Backspace', 'Delete'].includes(e.key) && ids.length) { e.preventDefault(); if (!e.repeat) void deleteCompositionLayers(ids); }
+      else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a' && (e.target as HTMLElement).closest('.canvas-selection,.tl-lanes,.layers-panel')) {
+        e.preventDefault(); const s = useSceneStore.getState(); ui.setLayerSelection(compositionOrder(s.tracks, s.textLayers).map(l => l.id));
+      }
     };
     const blur = () => finishRef.current();
     window.addEventListener('keydown', key, true); window.addEventListener('blur', blur);
     return () => { window.removeEventListener('keydown', key, true); window.removeEventListener('blur', blur); finishRef.current(); };
   }, []);
   const active = layers.find(l => l.id === selected && l.visible && seconds >= l.start && seconds < l.end), track = tracks.find(t => t.id === selectedMotion);
-  const selection = active ? layerFrame(active, width, seconds) : renderedModel?.id === selectedMotion ? renderedModel.box : null;
+  const selectedFrames = selectedIds.map(id => {
+    const l = layers.find(l => l.id === id && l.visible && seconds >= l.start && seconds < l.end);
+    return l ? layerFrame(l, width, seconds) : renderedModels[id];
+  }).filter((f): f is TransformFrame => !!f);
+  const selection = selectedFrames.length > 1 ? groupFrame(selectedFrames) : selectedFrames[0] ?? null;
   const viewport = () => { const r = root.current!.getBoundingClientRect(); return { left: r.x + rect.x, top: r.y + rect.y, width: rect.width, height: rect.height, canvasWidth: width, canvasHeight: height }; };
   const point = (e: PointerEvent) => { const r = drag.current?.viewport ?? viewport(); return { x: (e.clientX - r.left) * r.canvasWidth / r.width, y: (e.clientY - r.top) * r.canvasHeight / r.height }; };
-  const snapshot = (kind: Operation, start: TransformPoint, id?: string): Gesture | null => {
+  const singleSnapshot = (kind: Operation, start: TransformPoint, id?: string): Gesture | null => {
     const s = useSceneStore.getState(), ui = useUIStore.getState();
     const overlay = s.textLayers.find(l => l.id === (id ?? ui.selectedTextId)), model = s.tracks.find(t => t.id === (id ?? ui.selectedMotionId));
     if (overlay?.locked) return null;
     const box = overlay ? layerFrame(overlay, s.width, s.frame / s.fps) : model ? modelFrame(model.id) : null;
     return box && box.width > 0 && box.height > 0 ? { id: overlay?.id ?? model!.id, kind, start, frame: box, overlay, track: overlay ? undefined : model } : null;
   };
+  const snapshot = (kind: Operation, start: TransformPoint, id?: string): Gesture | null => {
+    const ids = useUIStore.getState().selectedLayerIds;
+    if (ids.length < 2) return singleSnapshot(kind, start, id ?? ids[0]);
+    const s = useSceneStore.getState();
+    const members = ids.filter(id => s.textLayers.some(l => l.id === id && l.visible && seconds >= l.start && seconds < l.end) || s.tracks.some(t => t.id === id && t.visible))
+      .map(id => singleSnapshot(kind, start, id)).filter((d): d is Gesture => !!d);
+    const box = groupFrame(members.map(d => d.frame));
+    return box && members.length ? { ...members[0], kind, start, frame: box, members } : null;
+  };
   const patchFrame = (d: Gesture, next: TransformFrame) => {
+    if (d.members) { for (const member of d.members) patchFrame(member, transformGroupMember(member.frame, d.frame, next)); return; }
     const s = useSceneStore.getState(), motionY = d.overlay ? textMotion(d.overlay, s.frame / s.fps).y : 0;
     const path = d.track ? modelPathOffset(d.track, s.frame, s.fps, width, height) : { x: 0, y: 0 };
     const origin = d.overlay ? { x: d.overlay.x, y: d.overlay.y + motionY } : { x: width / 2 + d.track!.transform.x + path.x, y: height / 2 + d.track!.transform.y + path.y };
@@ -143,7 +170,7 @@ export default function CanvasTextSelection() {
   const apply = (d: Gesture, p: TransformPoint, shift: boolean, alt: boolean, snapOff = false) => {
     const s = useSceneStore.getState(), delta = { x: p.x - d.start.x, y: p.y - d.start.y };
     if (d.kind === 'rotate') {
-      const initial = d.overlay?.rotation ?? d.track!.transform.rotation, rotation = pointerRotation(d.frame, d.start, p, initial, shift);
+      const initial = d.members ? d.frame.rotation : d.overlay?.rotation ?? d.track!.transform.rotation, rotation = pointerRotation(d.frame, d.start, p, initial, shift);
       patchFrame(d, { ...d.frame, rotation: d.frame.rotation + normalizedAngle(rotation - initial) }); return;
     }
     if (d.kind === 'radius') {
@@ -161,7 +188,8 @@ export default function CanvasTextSelection() {
       }
       return;
     }
-    const targets: AlignBox[] = [{ x: 0, y: 0, width, height }, ...s.textLayers.filter(l => l.id !== d.id && l.visible && seconds >= l.start && seconds < l.end).map(l => frameAABB(layerFrame(l, width, seconds))), ...s.tracks.filter(t => t.id !== d.id && t.visible).map(t => getRendererInstance()?.selectionBounds?.(t.id)).filter((b): b is AlignBox => !!b)];
+    const excluded = (d.members ?? [d]).map(m => m.id);
+    const targets: AlignBox[] = [{ x: 0, y: 0, width, height }, ...s.textLayers.filter(l => !excluded.includes(l.id) && l.visible && seconds >= l.start && seconds < l.end).map(l => frameAABB(layerFrame(l, width, seconds))), ...s.tracks.filter(t => !excluded.includes(t.id) && t.visible).map(t => getRendererInstance()?.selectionBounds?.(t.id)).filter((b): b is AlignBox => !!b)];
     const box = frameAABB(d.frame);
     const match = snapAlignment(d.kind === 'move' ? { ...box, x: box.x + delta.x, y: box.y + delta.y } : { x: p.x, y: p.y, width: 0, height: 0 }, targets, 6 / Math.max(.01, ratio));
     if (snap && !alt && !snapOff) { delta.x += match.dx; delta.y += match.dy; }
@@ -171,6 +199,11 @@ export default function CanvasTextSelection() {
       patchFrame(d, { ...d.frame, cx: d.frame.cx + delta.x, cy: d.frame.cy + delta.y }); return;
     }
     const l = d.overlay, t = d.track;
+    if (d.members) {
+      const minScale = Math.max(...d.members.map(m => m.track ? .1 / m.track.transform.scale : m.overlay?.media ? 1 / Math.min(m.frame.width, m.frame.height) : .05 / Math.min(m.overlay?.scaleX ?? 1, m.overlay?.scaleY ?? 1)));
+      const maxScale = Math.min(...d.members.map(m => m.track ? 3 / m.track.transform.scale : m.overlay?.media ? 4000 / Math.max(m.frame.width, m.frame.height) : 20 / Math.max(m.overlay?.scaleX ?? 1, m.overlay?.scaleY ?? 1)));
+      patchFrame(d, resizeFrame(d.frame, delta, d.anchor!, { minWidth: d.frame.width * minScale, minHeight: d.frame.height * minScale, maxWidth: d.frame.width * maxScale, maxHeight: d.frame.height * maxScale, proportional: true, centered: alt })); return;
+    }
     const limits = t ? { minWidth: d.frame.width * .1 / t.transform.scale, minHeight: d.frame.height * .1 / t.transform.scale, maxWidth: d.frame.width * 3 / t.transform.scale, maxHeight: d.frame.height * 3 / t.transform.scale }
       : l!.media ? { minWidth: 1, minHeight: 1, maxWidth: 4000, maxHeight: 4000 }
       : { minWidth: bounds(l!, width).width * .05, minHeight: bounds(l!, width).height * .05, maxWidth: bounds(l!, width).width * 20, maxHeight: bounds(l!, width).height * 20 };
@@ -192,7 +225,7 @@ export default function CanvasTextSelection() {
     const d = snapshot(kind, start); if (!d) return; d.anchor = anchor; d.corner = corner;
     useSceneStore.getState().setPlaying(false); useHistoryStore.getState().beginGesture();
     if (kind === 'rotate') {
-      const initial = d.overlay?.rotation ?? d.track!.transform.rotation, rotation = normalizedAngle(initial + (positive ? 1 : -1) * (e.shiftKey ? 15 : 1));
+      const initial = d.members ? d.frame.rotation : d.overlay?.rotation ?? d.track!.transform.rotation, rotation = normalizedAngle(initial + (positive ? 1 : -1) * (e.shiftKey ? 15 : 1));
       patchFrame(d, { ...d.frame, rotation: d.frame.rotation + normalizedAngle(rotation - initial) });
     } else {
       let delta = { x: e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0, y: e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0 };
@@ -202,7 +235,7 @@ export default function CanvasTextSelection() {
     useHistoryStore.getState().endGesture(); setGuide({ x: null, y: null });
   };
   const names: Record<ResizeAnchor, string> = pt ? { nw: 'canto superior esquerdo', n: 'borda superior', ne: 'canto superior direito', e: 'borda direita', se: 'canto inferior direito', s: 'borda inferior', sw: 'canto inferior esquerdo', w: 'borda esquerda' } : { nw: 'top left corner', n: 'top edge', ne: 'top right corner', e: 'right edge', se: 'bottom right corner', s: 'bottom edge', sw: 'bottom left corner', w: 'left edge' };
-  const radiusEnabled = !!(active?.media || active?.backdrop || track && !active);
+  const radiusEnabled = selectedIds.length === 1 && !!(active?.media || active?.backdrop || track && !active);
   const cornerValue = (i: number) => active ? active.media ? normalizedRadii(active.media.width, active.media.height, active.media.cornerRadii)[i] : active.backdropRadius ?? 12 : Number(track?.values.cornerRadius ?? 0);
   return <div ref={root} className="canvas-selection" tabIndex={-1} onPointerDown={e => {
     if (e.button !== 0 || !rect.width || drag.current) return;
@@ -213,7 +246,12 @@ export default function CanvasTextSelection() {
       return Math.abs(local.x) <= f.width / 2 + 6 / Math.max(.01, ratio) && Math.abs(local.y) <= f.height / 2 + 6 / Math.max(.01, ratio);
     });
     const modelId = getRendererInstance()?.hitTest?.(p.x, p.y), id = modelId && (!hit || order.findIndex(l => l.id === modelId) > order.findIndex(l => l.id === hit.id)) ? modelId : hit?.id;
-    if (id && id === modelId) { useUIStore.getState().selectMotion(id); s.setActiveTrack(id); } else useUIStore.getState().selectText(hit?.id ?? null);
+    const ui = useUIStore.getState();
+    if (id) {
+      ui.selectLayer(id, id === modelId ? 'motion' : 'overlay', e.shiftKey, !e.shiftKey, 'canvas');
+      if (id === modelId) { const t = s.tracks.find(t => t.id === id); if (t) useSceneStore.setState({ activeTrackId: id, activeTemplateId: t.templateId, values: t.values, easing: t.easing }); }
+    } else if (!e.shiftKey) ui.setLayerSelection([]);
+    if (e.shiftKey) { e.preventDefault(); return; }
     if (!id || hit?.id === id && hit.locked) return;
     const d = snapshot('move', p, id); if (!d) return;
     e.currentTarget.focus({ preventScroll: true });
@@ -226,20 +264,25 @@ export default function CanvasTextSelection() {
       if (Math.hypot(p.x - d.start.x, p.y - d.start.y) * ratio < 3) return;
       const s = useSceneStore.getState();
       const baseline = { tracks: s.tracks, textLayers: s.textLayers, activeTrackId: s.activeTrackId, activeTemplateId: s.activeTemplateId, values: s.values, easing: s.easing, compositeMode: s.compositeMode };
-      const copyId = duplicateCompositionLayer(d.id, 0, false); if (!copyId) return;
+      const members = d.members ?? [d], originals = members.map(m => m.id);
+      const ordered = compositionOrder(s.tracks, s.textLayers).filter(l => originals.includes(l.id));
+      const copies = duplicateCompositionLayers(originals, 0, false); if (copies.length !== members.length) return;
+      const copyMap = new Map(ordered.map((l, i) => [l.id, copies[i]]));
+      const copyId = copyMap.get(d.id)!;
       const next = useSceneStore.getState();
-      d = { ...d, originalId: d.id, id: copyId, duplicatePending: false, duplicateBaseline: baseline, overlay: d.overlay ? next.textLayers.find(l => l.id === copyId) : undefined, track: d.track ? next.tracks.find(t => t.id === copyId) : undefined };
+      const copyMember = (m: Gesture): Gesture => ({ ...m, id: copyMap.get(m.id)!, overlay: m.overlay ? next.textLayers.find(l => l.id === copyMap.get(m.id)) : undefined, track: m.track ? next.tracks.find(t => t.id === copyMap.get(m.id)) : undefined });
+      d = { ...copyMember(d), originalId: d.id, originalSelection: originals, duplicatePending: false, duplicateBaseline: baseline, members: d.members?.map(copyMember) };
       drag.current = d;
     }
     apply(d, p, e.shiftKey, e.altKey);
   }} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} onLostPointerCapture={() => finish()}>
-    <div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',pt?'Réguas':'Rulers'],['smartGuides',pt?'Guias':'Guides'],['snapEnabled',pt?'Encaixar':'Snap']] as const).map(([key,label])=><button key={key} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}</div>
+    <div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',pt?'Réguas':'Rulers',pt?'Exibe réguas em pixels nas bordas da composição.':'Show pixel rulers at the edges of the composition.'],['smartGuides',pt?'Guias':'Guides',pt?'Mostra linhas de alinhamento ao mover ou redimensionar elementos.':'Show alignment guides while moving or resizing elements.'],['snapEnabled',pt?'Encaixar':'Snap',pt?'Encaixa elementos nas bordas e centros próximos. Alt suspende o encaixe durante o arraste.':'Snap elements to nearby edges and centers. Alt temporarily disables snapping.']] as const).map(([key,label,help])=><button key={key} title={help} aria-label={`${label}: ${help}`} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}<button title={pt?'Mostra ou oculta a caixa delimitadora e as alças de transformação da seleção.':'Show or hide the selection bounding box and transform handles.'} aria-label="BBox" aria-pressed={show} onClick={()=>useUIStore.getState().setShowSelectionBox(!show)}>BBox</button></div>
     {rulers&&rect.width>0&&<svg className="editor-rulers" aria-label={pt?'Réguas em pixels da composição':'Composition pixel rulers'}><rect x={rect.x} y={Math.max(0,rect.y-20)} width={rect.width} height="20"/><rect x={Math.max(0,rect.x-28)} y={rect.y} width="28" height={rect.height}/>{Array.from({length:11},(_,i)=>{const x=rect.x+rect.width*i/10,y=rect.y+rect.height*i/10;return <g key={i}><text x={x+2} y={Math.max(10,rect.y-7)}>{Math.round(width*i/10)}</text><path d={`M${x} ${rect.y-4}v4`}/><text x={Math.max(1,rect.x-26)} y={y+10}>{Math.round(height*i/10)}</text><path d={`M${rect.x-4} ${y}h4`}/></g>;})}</svg>}
     {(guide.x!==null||guide.y!==null)&&<svg className="editor-guides">{guide.x!==null&&<line x1={rect.x+guide.x/width*rect.width} x2={rect.x+guide.x/width*rect.width} y1={rect.y} y2={rect.y+rect.height}/>} {guide.y!==null&&<line y1={rect.y+guide.y/height*rect.height} y2={rect.y+guide.y/height*rect.height} x1={rect.x} x2={rect.x+rect.width}/>}</svg>}
 
     {show && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={pt ? 'Transformar camada selecionada' : 'Transform selected layer'} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
-      <span className="canvas-selection-label">{active?.text.slice(0, 30) || track?.name}{active?.locked ? ' 🔒' : ''}</span>
-      {!active?.locked && <>
+      <span className="canvas-selection-label">{selectedIds.length > 1 ? `${selectedIds.length} ${pt ? 'camadas' : 'layers'}` : active?.text.slice(0, 30) || layerDisplayName(track?.name ?? '', pt)}{active?.locked ? ' 🔒' : ''}</span>
+      {(!active?.locked || selectedIds.length > 1) && <>
         {RESIZE_ANCHORS.map(anchor => { const [x, y] = ANCHOR_AXES[anchor]; const label = `${pt ? 'Redimensionar' : 'Resize'}: ${names[anchor]}`; return <button key={anchor} type="button" className="transform-handle" aria-label={label} title={label + (pt ? '. Shift mantém proporção; Alt redimensiona pelo centro.' : '. Shift preserves aspect; Alt scales from the center.')} style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, cursor: resizeCursor(anchor, selection.rotation) }} onPointerDown={e => begin(e, 'resize', anchor)} onKeyDown={e => handleKey(e, 'resize', anchor)} />; })}
         <i className="transform-rotation-stem" aria-hidden="true" />
         <button type="button" className="transform-rotation" aria-label={pt ? 'Rotacionar camada' : 'Rotate layer'} title={pt ? 'Rotacionar. Shift encaixa a cada 15°. Esc cancela.' : 'Rotate. Shift snaps every 15°. Esc cancels.'} onPointerDown={e => begin(e, 'rotate')} onKeyDown={e => handleKey(e, 'rotate')}><svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15.6 6A6.5 6.5 0 1 0 16 13M15.6 2v4H12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></button>

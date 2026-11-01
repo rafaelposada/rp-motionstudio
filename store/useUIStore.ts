@@ -8,6 +8,12 @@ import { DEFAULT_PANELS, panelDimension, sanitizePanels, type PanelId, type Pane
 export interface UIState {
   nav: string;              // active IconRail section id
   theme: 'light' | 'dark';
+  appearance: 'system' | 'light' | 'dark';
+  setAppearance: (appearance: UIState['appearance']) => void;
+  syncSystemTheme: () => void;
+  autosaveEnabled: boolean;
+  autosaveDelay: number;
+  setAutosave: (enabled: boolean, delay?: number) => void;
   locale: Locale;
   accentColor: string;
   setAccentColor: (color: string) => void;
@@ -18,8 +24,13 @@ export interface UIState {
   panelWidthPriority: PanelWidthPriority;
   timelineExpanded: boolean;
   settingsOpen: boolean;
+  settingsSection: string;
   selectedTextId: string | null;
   selectedMotionId: string | null;
+  selectedLayerIds: string[];
+  selectionOrigin: 'canvas' | 'layers' | 'timeline' | 'inspector';
+  selectLayer: (id: string, kind: 'motion' | 'overlay', additive?: boolean, preserve?: boolean, origin?: UIState['selectionOrigin']) => void;
+  setLayerSelection: (ids: string[], primaryId?: string, kind?: 'motion' | 'overlay') => void;
   selectMotion: (id: string | null) => void;
   showSelectionBox: boolean;
   showRulers: boolean;
@@ -30,7 +41,7 @@ export interface UIState {
   setShowSelectionBox: (show: boolean) => void;
   showStageGrid: boolean;
   preferencesError: string | null;
-  setSettingsOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean, section?: string) => void;
   setTheme: (theme: UIState['theme']) => void;
   setPanelDimension: (panel: PanelId, axis: PanelAxis, value: number, persist?: boolean) => void;
   persistPreferences: () => void;
@@ -55,13 +66,16 @@ export interface UIState {
 
 const PREFS_KEY = 'motion-ui-preferences';
 
-type UIPreferences = Pick<UIState, 'theme' | 'locale' | 'accentColor' | 'leftCollapsed' | 'rightCollapsed' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled'>;
+type UIPreferences = Pick<UIState, 'theme' | 'appearance' | 'autosaveEnabled' | 'autosaveDelay' | 'showSelectionBox' | 'locale' | 'accentColor' | 'leftCollapsed' | 'rightCollapsed' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled'>;
 
 function savePreferences(prefs: UIPreferences) {
   if (typeof window === 'undefined') return;
   let saved = true;
   try { localStorage.setItem(PREFS_KEY, JSON.stringify({
-    version: 4,
+    version: 5,
+    appearance: prefs.appearance,
+    autosaveEnabled: prefs.autosaveEnabled, autosaveDelay: prefs.autosaveDelay,
+    showSelectionBox: prefs.showSelectionBox,
     accentColor: prefs.accentColor,
     theme: prefs.theme,
     locale: prefs.locale,
@@ -84,6 +98,18 @@ function savePreferences(prefs: UIPreferences) {
 export const useUIStore = create<UIState>((set, get) => ({
   nav: 'home',
   theme: 'light',
+  appearance: 'system',
+  setAppearance: (appearance) => set(state => {
+    const theme = appearance === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : appearance;
+    savePreferences({ ...state, appearance, theme }); return { appearance, theme };
+  }),
+  syncSystemTheme: () => { if (get().appearance === 'system') get().setAppearance('system'); },
+  autosaveEnabled: true, autosaveDelay: 500,
+  setAutosave: (autosaveEnabled, delay) => set(state => {
+    const autosaveDelay = Math.max(250, Math.min(10000, delay ?? state.autosaveDelay));
+    const saved = savePreferences({ ...state, autosaveEnabled, autosaveDelay });
+    return { autosaveEnabled, autosaveDelay, preferencesError: saved === false ? 'storage' : null };
+  }),
   locale: 'en',
   accentColor: DEFAULT_ACCENT,
   setAccentColor: (color) => set((state) => {
@@ -97,19 +123,27 @@ export const useUIStore = create<UIState>((set, get) => ({
   panels: sanitizePanels(DEFAULT_PANELS),
   panelWidthPriority: null,
   settingsOpen: false,
+  settingsSection: 'interface',
   selectedTextId: null,
   selectedMotionId: null,
-  selectMotion: (selectedMotionId) => set({ selectedMotionId, selectedTextId: null }),
+  selectedLayerIds: [], selectionOrigin: 'inspector',
+  selectMotion: (selectedMotionId) => set({ selectedMotionId, selectedTextId: null, selectedLayerIds: selectedMotionId ? [selectedMotionId] : [], selectionOrigin: 'inspector' }),
+  selectLayer: (id, kind, additive = false, preserve = false, selectionOrigin = 'canvas') => set(state => {
+    const ids = additive ? (state.selectedLayerIds.includes(id) ? state.selectedLayerIds.filter(i => i !== id) : [...state.selectedLayerIds, id]) : preserve && state.selectedLayerIds.includes(id) ? state.selectedLayerIds : [id];
+    // A removed primary is cleared; the remaining group is still selected.
+    return { selectedLayerIds: ids, selectedTextId: ids.includes(id) && kind === 'overlay' ? id : null, selectedMotionId: ids.includes(id) && kind === 'motion' ? id : null, selectionOrigin };
+  }),
+  setLayerSelection: (selectedLayerIds, primaryId, kind = 'overlay') => set({ selectedLayerIds: [...new Set(selectedLayerIds)], selectedTextId: primaryId && kind === 'overlay' ? primaryId : null, selectedMotionId: primaryId && kind === 'motion' ? primaryId : null }),
   showSelectionBox: true,
   showRulers: false, smartGuides: true, snapEnabled: true,
   setAlignmentOption: (key,value) => set((state)=>{savePreferences({...state,[key]:value});return {[key]:value};}),
-  selectText: (selectedTextId) => set({ selectedTextId, selectedMotionId: null }),
-  setShowSelectionBox: (showSelectionBox) => set({ showSelectionBox }),
+  selectText: (selectedTextId) => set({ selectedTextId, selectedMotionId: null, selectedLayerIds: selectedTextId ? [selectedTextId] : [], selectionOrigin: 'inspector' }),
+  setShowSelectionBox: (showSelectionBox) => set(state => { savePreferences({ ...state, showSelectionBox }); return { showSelectionBox }; }),
   timelineExpanded: false,
   showStageGrid: true,
   preferencesError: null,
-  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
-  setTheme: (theme) => set((state) => { savePreferences({ ...state, theme }); return { theme }; }),
+  setSettingsOpen: (settingsOpen, section = 'interface') => set({ settingsOpen, settingsSection: section }),
+  setTheme: (theme) => get().setAppearance(theme),
   setPanelDimension: (panel, axis, value, persist = true) => set((state) => {
     const size = panelDimension(panel, axis, value);
     const panels = { ...state.panels, [panel]: { ...state.panels[panel], [axis]: size } };
@@ -131,8 +165,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   setNav: (nav) => set({ nav: nav === 'home' || nav === 'projects' ? nav : 'library' }),
   toggleTheme: () => set((state) => {
     const next = { ...state, theme: state.theme === 'dark' ? 'light' as const : 'dark' as const };
-    savePreferences(next);
-    return { theme: next.theme };
+    savePreferences({ ...next, appearance: next.theme });
+    return { theme: next.theme, appearance: next.theme };
   }),
   toggleLocale: () => set((state) => {
     const locale: Locale = state.locale === 'en' ? 'pt' : 'en';
@@ -167,11 +201,14 @@ export const useUIStore = create<UIState>((set, get) => ({
     if (typeof window === 'undefined') return {};
     let saved: Partial<UIPreferences> = {};
     try { const parsed = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}'); if (parsed && typeof parsed === 'object') saved = parsed; } catch { /* use defaults */ }
-    const theme = saved.theme === 'dark' || saved.theme === 'light'
-      ? saved.theme
-      : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const appearance = saved.appearance === 'system' || saved.appearance === 'light' || saved.appearance === 'dark' ? saved.appearance : saved.theme === 'dark' || saved.theme === 'light' ? saved.theme : 'system';
+    const theme = appearance === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : appearance;
     const next = {
       theme,
+      appearance,
+      autosaveEnabled: saved.autosaveEnabled !== false,
+      autosaveDelay: Math.max(250, Math.min(10000, Number(saved.autosaveDelay) || 500)),
+      showSelectionBox: saved.showSelectionBox !== false,
       accentColor: sanitizeAccent(saved.accentColor),
       locale: saved.locale === 'pt' ? 'pt' as const : 'en' as const,
       leftCollapsed: typeof saved.leftCollapsed === 'boolean' ? saved.leftCollapsed : state.leftCollapsed,

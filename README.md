@@ -22,11 +22,15 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
 
 ## Personalizações desta versão
 
-- Painéis com largura/altura ajustáveis, preferências persistentes e tema claro/escuro.
+- Painéis com largura/altura ajustáveis, preferências persistentes e aparência Sistema/claro/escuro.
 - Identidade RP em SVG e favicon que acompanha o tema do editor.
 - Campos numéricos editáveis com expressões matemáticas e ajuda contextual.
 - Réguas, guias inteligentes, encaixe, seleção e arraste de elementos na composição.
-- Camadas de texto e imagens avulsas, ordem de profundidade, contorno, sombra e opacidade.
+- Cinco abas por ícones: Movimento, Tela, Mídia, Texto e Camadas. A aba Mídia reúne
+  as imagens dos modelos, imagens absolutas e áudio.
+- Seleção múltipla de camadas com Shift, transformação em grupo, duplicação e
+  exclusão com uma etapa de desfazer. Arraste o nome ou a alça para ordenar.
+- Camadas de texto e imagens absolutas, ordem de profundidade, contorno, sombra e opacidade.
 - Catálogo Google Fonts com prévias e importação de fontes locais. O primeiro
   carregamento de uma fonte Google requer internet; fontes já usadas são armazenadas localmente.
 - Controles de enquadramento de mídia e transparência/iluminação opcionais.
@@ -43,6 +47,12 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
   ao quadro composto; até oito efeitos por composição.
 - Escolha de pasta para MP4/GIF e pacotes `.motion.zip` de rascunhos/templates.
   No macOS há seletor de pasta; também é possível digitar um caminho absoluto.
+- Configurações → Salvamento: salvamento automático local, intervalo, estado da
+  gravação e salvamento manual por ⌘/Ctrl+S. As alterações também são gravadas ao
+  trocar de projeto e, com o automático ligado, ao sair da janela. Uma cópia
+  portátil independente deve ser salva em Projetos → Salvar rascunho/template.
+- Um único controle BBox, junto a Réguas, Guias e Encaixar na composição.
+  A confirmação de exclusão recebe foco em Confirmar; Esc cancela.
 
 Os nomes das pastas **Motion Studio Projects** e **Motion Studio Exports** foram
 preservados para compatibilidade. Esta publicação não inclui projetos pessoais,

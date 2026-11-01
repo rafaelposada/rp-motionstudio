@@ -41,7 +41,7 @@ const messages = {
     collapseRight: 'Recolher inspetor', expandRight: 'Expandir inspetor', language: 'Idioma', portuguese: 'Português', english: 'English',
     reset: 'Redefinir', cancel: 'Cancelar', apply: 'Aplicar', resetCenter: 'Centralizar', replaceFile: 'Substituir arquivo…', chooseFile: 'Escolher arquivo…',
     play: 'Reproduzir', pause: 'Pausar', layers: 'Camadas', motionLayers: 'Camadas de movimento', export: 'Exportar', addLayer: 'Adicionar camada',
-    timelineHint: 'Arraste a barra para reposicionar · use as bordas para aparar · setas alteram a ordem',
+    timelineHint: 'Arraste o nome para ordenar · arraste a barra para ajustar o tempo · Shift + clique seleciona várias',
     assets: 'Arquivos', dropRepeat: 'Solte imagens ou vídeos — poucos arquivos bastam, eles se repetem', dropFill: 'Solte imagens ou vídeos para preencher {count} espaços',
     slotsLinked: '{count} espaços · vinculados à quantidade', clearAll: 'Limpar tudo', cardShape: 'Formato do cartão',
     fullBleed: 'Modelo em tela cheia — os cartões acompanham a tela', videoEnd: 'Fim do vídeo', loop: 'Repetir', holdLast: 'Manter último quadro',
@@ -64,6 +64,9 @@ export function translate(locale: Locale, key: MessageKey, vars?: Record<string,
 }
 
 const labelsPt: Record<string, string> = {
+  Corner: 'Canto', 'Image Scale': 'Escala da imagem', 'Step Time': 'Tempo por etapa', Ellipticity: 'Elipticidade', 'Card Align': 'Alinhamento dos cartões',
+  Contrast: 'Contraste', Movement: 'Movimento', Pause: 'Pausa', Seconds: 'Segundos', Alignment: 'Alinhamento', Shape: 'Forma', Rounding: 'Arredondamento', Ripple: 'Ondulação', Glow: 'Brilho difuso', Ring: 'Anel',
+  'Offset %': 'Deslocamento %', 'Fade (frames)': 'Desvanecimento (quadros)',
   'Alternate Rings': 'Alternar anéis', Anchor: 'Âncora', Appear: 'Entrada', 'Appear Time': 'Tempo de entrada',
   'Arc Coverage': 'Cobertura do arco', Atmosphere: 'Atmosfera', Axis: 'Eixo', 'Back Fade': 'Desvanecimento traseiro',
   'Big Drift': 'Desvio ampliado', 'Blank Area': 'Área vazia', Bloom: 'Expansão', Breath: 'Respiração',
@@ -129,6 +132,14 @@ const labelsPt: Record<string, string> = {
 };
 
 const optionsPt: Record<string, string> = {
+  surface: 'superfície', camera: 'câmera', wall: 'parede', cascade: 'cascata', totem: 'tótem', continuous: 'contínuo', waypoints: 'pontos de passagem', 'waypoints-no-zoom': 'pontos sem zoom',
+  grid: 'grade', orbit: 'órbita', backward: 'para trás', downward: 'para baixo', upward: 'para cima', 'fast-slow-fast': 'rápido–lento–rápido', 'step-per-card': 'etapa por cartão',
+  curved: 'curvo', upright: 'vertical', scatter: 'disperso', rotation: 'rotação', stream: 'fluxo', showcase: 'vitrine', bloom: 'expansão', ring: 'anel', straight: 'reto',
+  rotate: 'girar', boomerang: 'bumerangue', pull: 'puxar', push: 'empurrar', equal: 'igual', eased: 'suavizado', scale: 'escala', drift: 'desvio', frame: 'quadro',
+  inward: 'para dentro', outward: 'para fora', flow: 'fluxo', in: 'entrada', out: 'saída', tl: 'superior esquerdo', tr: 'superior direito', bl: 'inferior esquerdo', br: 'inferior direito',
+  recede: 'recuar', top: 'topo', bottom: 'base', sweep: 'varredura', figure8: 'em oito', splittop: 'topo dividido', thirds: 'terços', grid6: 'grade de seis', columns: 'colunas', varied: 'variado',
+  spiral: 'espiral', clockwise: 'horário', anticlockwise: 'anti-horário', both: 'ambos', 'in-out': 'entrada–saída', 'out-in': 'saída–entrada', index: 'índice', row: 'linha', col: 'coluna',
+  multiply: 'multiplicar', screen: 'clarear', overlay: 'sobrepor', add: 'adicionar', 'hard-light': 'luz forte', 'soft-light': 'luz suave', difference: 'diferença', exclusion: 'exclusão',
   static: 'Estático', float: 'Flutuar',
   on: 'ligado', off: 'desligado', left: 'esquerda', right: 'direita', up: 'cima', down: 'baixo',
   forward: 'frente', reverse: 'reverso', center: 'centro', start: 'início', end: 'fim',

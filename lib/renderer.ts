@@ -556,7 +556,8 @@ export class SceneRenderer {
         const alpha=cardOpacity(t.alpha,track.values._autoTransparency===true,t.solidAlpha);
         slot.root.alpha = alpha;
         const brightness = 1 - clamp(t.dim ?? 0, 0, 1);
-        slot.sprite.tint = (Math.round(brightness * 255) * 0x010101);
+        const base = slot.sprite.texture === this.placeholder ? placeholderFill(i) & 255 : 255;
+        slot.sprite.tint = Math.round(brightness * base) * 0x010101;
         slot.root.skew.set(t.skewX ?? 0, t.skewY ?? 0);
         slot.root.zIndex = t.depth * 1000 + i; // stable tiebreak
         this.applyMask(slot, track.values.cornerRadius ?? 0);

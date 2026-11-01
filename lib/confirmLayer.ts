@@ -14,6 +14,7 @@ export function confirmLayer(message: string, pt = true): Promise<boolean> {
     const finish = (approved: boolean) => { dialog.close(); dialog.remove(); prior?.focus(); resolve(approved); };
     cancel.onclick = () => finish(false); confirm.onclick = () => finish(true);
     dialog.addEventListener('cancel', (event) => { event.preventDefault(); finish(false); });
-    actions.append(cancel, confirm); dialog.append(text, actions); document.body.append(dialog); dialog.showModal(); cancel.focus();
+    confirm.autofocus = true;
+    actions.append(cancel, confirm); dialog.append(text, actions); document.body.append(dialog); dialog.showModal(); confirm.focus();
   });
 }

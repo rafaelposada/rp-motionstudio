@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/useI18n';
 import InfoHint from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
 import MotionPathEditor from './MotionPathEditor';
+import { layerDisplayName } from '@/lib/compositionActions';
 
 // Renders the SCENE + TIMING sections (no card wrapper — the page composes cards).
 export default function ScenePanel() {
@@ -67,7 +68,7 @@ export default function ScenePanel() {
         {/* With more than one layer, make it explicit that these controls edit
             the SELECTED layer's motion, not the whole scene's. */}
         {trackCount > 1 && (
-          <div className="ctl-hint">{t('editingMotion', { name: activeTrackName })}</div>
+          <div className="ctl-hint">{t('editingMotion', { name: layerDisplayName(activeTrackName, locale === 'pt') })}</div>
         )}
         {sections.map((section) => {
           const controls = primaryControls.filter((def) => (def.section ?? 'Layout') === section);

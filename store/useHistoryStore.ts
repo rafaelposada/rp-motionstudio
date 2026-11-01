@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useSceneStore, type SceneState } from './useSceneStore';
+import { useUIStore } from './useUIStore';
 
 // ============================================================
 //  UNDO / REDO
@@ -65,6 +66,11 @@ function apply(snap: Snapshot) {
   const frame = scene.frame;
   scene.hydrate(snap);
   useSceneStore.setState({ frame });
+  const ui = useUIStore.getState(), state = useSceneStore.getState();
+  const ids = ui.selectedLayerIds.filter(id => state.tracks.some(l => l.id === id) || state.textLayers.some(l => l.id === id));
+  const previous = ui.selectedTextId ?? ui.selectedMotionId;
+  const primary = previous && ids.includes(previous) ? previous : ids.at(-1);
+  ui.setLayerSelection(ids, primary, state.tracks.some(l => l.id === primary) ? 'motion' : 'overlay');
   void useSceneStore.getState().rehydrateUploads();
 }
 

@@ -8,6 +8,12 @@ import { useUIStore } from '@/store/useUIStore';
 export default function ThemeFavicon() {
   const theme = useUIStore((state) => state.theme);
   useEffect(() => {
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const sync = () => useUIStore.getState().syncSystemTheme();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+  useEffect(() => {
     const href = `/rp-motionstudio-${theme}.svg`;
     const sync = () => {
       for (const icon of document.head.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')) {

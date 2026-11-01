@@ -1,11 +1,16 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { templateList } from '@/templates';
 import { trackWindow, type MotionTrack } from '@/lib/tracks';
-import { deleteCompositionLayer, duplicateCompositionLayer, selectModelForEditing, moveCompositionLayer } from '@/lib/compositionActions';
+import { deleteCompositionLayer, selectModelForEditing, moveCompositionLayer } from '@/lib/compositionActions';
 import { compositionOrder } from '@/lib/composition';
+import { useUIStore } from '@/store/useUIStore';
+import { LayerDragHandle, layerDragProps } from './LayerDropTarget';
+import { layerDisplayName, duplicateCompositionLayers, selectedCompositionIds } from '@/lib/compositionActions';
+import { useHistoryStore } from '@/store/useHistoryStore';
+import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection, type TimelineWindow } from '@/lib/timelineSelection';
 
 type DragMode = 'move' | 'in' | 'out';
 
@@ -16,21 +21,24 @@ export default function TrackLane({
   track: MotionTrack;
   totalFrames: number;
 }) {
-  const activeTrackId = useSceneStore((s) => s.activeTrackId);
+  const selectedIds = useUIStore(s => s.selectedLayerIds), pt = useUIStore(s => s.locale) === 'pt';
+  const name = layerDisplayName(track.name, pt);
   const tracks = useSceneStore(s => s.tracks), textLayers = useSceneStore(s => s.textLayers);
   const order = compositionOrder(tracks, textLayers), index = order.findIndex(l => l.id === track.id);
   const toggleTrackVisible = useSceneStore((s) => s.toggleTrackVisible);
   const patchTrack = useSceneStore((s) => s.patchTrack);
-  const duplicateTrack = duplicateCompositionLayer;
   const removeTrack = deleteCompositionLayer;
-  const trackCount = useSceneStore((s) => s.tracks.length);
 
   const barsRef = useRef<HTMLDivElement>(null);
   // Drag state lives in a ref: a pointer drag must not re-render per move, and
   // the store already re-renders us when the window actually changes.
-  const dragRef = useRef<{ mode: DragMode; startX: number; inF: number; outF: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{ mode: DragMode; startX: number; inF: number; outF: number; moved: boolean; windows: TimelineWindow[] } | null>(null);
+  useEffect(() => {
+    const finish = () => { if (dragRef.current) { dragRef.current = null; useHistoryStore.getState().endGesture(); } };
+    window.addEventListener('blur', finish); return () => { window.removeEventListener('blur', finish); finish(); };
+  }, []);
 
-  const active = track.id === activeTrackId;
+  const active = selectedIds.includes(track.id);
   const { inFrame, outFrame, length } = trackWindow(track, totalFrames);
   const leftPct = (inFrame / totalFrames) * 100;
   const widthPct = (length / totalFrames) * 100;
@@ -52,9 +60,11 @@ export default function TrackLane({
 
   const onPointerDown = (mode: DragMode) => (e: React.PointerEvent) => {
     e.stopPropagation();
-    selectModelForEditing(track.id);
+    selectModelForEditing(track.id, e.shiftKey, !e.shiftKey, 'timeline');
+    if (e.shiftKey) return;
+    useHistoryStore.getState().beginGesture();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { mode, startX: e.clientX, inF: inFrame, outF: outFrame, moved: false };
+    dragRef.current = { mode, startX: e.clientX, inF: inFrame, outF: outFrame, moved: false, windows: captureTimelineSelection(track.id) };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -65,6 +75,7 @@ export default function TrackLane({
     d.moved = true;
 
     if (d.mode === 'move') {
+      if (d.windows.length > 1) { moveTimelineSelection(d.windows, dFrames / useSceneStore.getState().fps); return; }
       const span = d.outF - d.inF;
       // Slide the whole window, stopping at both ends of the clip rather than
       // squashing it.
@@ -79,20 +90,20 @@ export default function TrackLane({
     }
   };
 
-  const onPointerUp = () => { dragRef.current = null; };
+  const onPointerUp = (cancel = false) => { const d = dragRef.current; if (!d) return; dragRef.current = null; if (cancel) restoreTimelineSelection(d.windows); useHistoryStore.getState().endGesture(cancel); };
 
   return (
     <div
       className={`tl-lane ${active ? 'active' : ''} ${track.visible ? '' : 'hidden'}`}
-      onPointerDown={e => { if (e.button === 0 && !(e.target as HTMLElement).closest('button')) selectModelForEditing(track.id); }}
+      onPointerDown={e => { if (e.button === 0 && !(e.target as HTMLElement).closest('button')) selectModelForEditing(track.id, e.shiftKey, !e.shiftKey, 'timeline'); }}
     >
       {/* Every per-layer control lives here, always visible — they used to hide
           inside the bar on hover, which made them hard to find and put click
           targets on top of the drag surface. */}
-      <div className="tl-lane-gutter">
+      <div className="tl-lane-gutter"><LayerDragHandle id={track.id} name={name}/>
         <button
           className="tl-lane-btn"
-          title={track.visible ? 'Hide layer' : 'Show layer'}
+          title={track.visible ? (pt ? 'Ocultar camada' : 'Hide layer') : (pt ? 'Mostrar camada' : 'Show layer')}
           onClick={(e) => { e.stopPropagation(); toggleTrackVisible(track.id); }}
         >
           {track.visible ? (
@@ -106,7 +117,7 @@ export default function TrackLane({
         <div className="tl-lane-order">
           <button
             className="tl-lane-arrow"
-            title="Bring forward"
+            title={pt ? 'Trazer à frente' : 'Bring forward'}
             disabled={index === order.length - 1}
             onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, 1); }}
           >
@@ -114,7 +125,7 @@ export default function TrackLane({
           </button>
           <button
             className="tl-lane-arrow"
-            title="Send backward"
+            title={pt ? 'Enviar atrás' : 'Send backward'}
             disabled={index === 0}
             onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, -1); }}
           >
@@ -125,15 +136,14 @@ export default function TrackLane({
         <button
           className="tl-lane-btn"
           title="Duplicar camada · ⌘/Ctrl+D"
-          onClick={(e) => { e.stopPropagation(); duplicateTrack(track.id); }}
+          onClick={(e) => { e.stopPropagation(); duplicateCompositionLayers(selectedCompositionIds(track.id)); }}
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M5.5 13.5h6a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
         </button>
 
         <button
           className="tl-lane-btn danger"
-          title={trackCount > 1 ? 'Remove layer' : 'The last layer can’t be removed'}
-          disabled={trackCount <= 1}
+          title={pt ? 'Excluir camada' : 'Delete layer'}
           onClick={(e) => { e.stopPropagation(); removeTrack(track.id); }}
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6.5 5V3.5h3V5M5 5l.6 8h4.8L11 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -146,9 +156,9 @@ export default function TrackLane({
           style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
           onPointerDown={onPointerDown('move')}
           onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          title={`${track.name} · ${templateName}`}
+          onPointerUp={() => onPointerUp()}
+          onPointerCancel={() => onPointerUp(true)}
+          title={`${name} · ${templateName}`}
         >
           {/* The alpha envelope the renderer applies at the window edges. Only
               drawn when a fade is set (default 0), so a plain bar stays plain. */}
@@ -161,13 +171,13 @@ export default function TrackLane({
             />
           )}
 
-          <span className="tl-bar-label">
-            <b>{track.name}</b>
+          <span className="tl-bar-label" {...layerDragProps(track.id)} onClick={e => { e.stopPropagation(); selectModelForEditing(track.id, e.shiftKey, false, 'timeline'); }} title={pt ? 'Arraste o nome para ordenar camadas' : 'Drag the name to reorder layers'}>
+            <b>{name}</b>
             <em>{templateName}</em>
           </span>
 
-          <span className="tl-bar-edge in" onPointerDown={onPointerDown('in')} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} title="Trim in" />
-          <span className="tl-bar-edge out" onPointerDown={onPointerDown('out')} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} title="Trim out" />
+          <span className="tl-bar-edge in" onPointerDown={onPointerDown('in')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={pt ? 'Aparar início' : 'Trim in'} />
+          <span className="tl-bar-edge out" onPointerDown={onPointerDown('out')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={pt ? 'Aparar fim' : 'Trim out'} />
         </div>
       </div>
     </div>

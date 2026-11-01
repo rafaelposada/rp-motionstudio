@@ -110,22 +110,21 @@ export default function EffectsPanel() {
             <div
               key={e.instanceId}
               className={`effect-card ${e.enabled ? '' : 'disabled'}`}
-              draggable
-              onDragStart={() => setDragIdx(i)}
-              onDragOver={(ev) => ev.preventDefault()}
-              onDrop={() => { if (dragIdx !== null && dragIdx !== i) reorderEffects(dragIdx, i); setDragIdx(null); }}
+              onDragOver={(ev) => { if (ev.dataTransfer.types.includes('application/x-rp-effect')) ev.preventDefault(); }}
+              onDrop={(ev) => { if (!ev.dataTransfer.types.includes('application/x-rp-effect')) return; ev.preventDefault(); if (dragIdx !== null && dragIdx !== i) reorderEffects(dragIdx, i); setDragIdx(null); }}
             >
               <div className="effect-card-head">
-                <span className="drag-grip">⣿</span>
+                <button type="button" className="drag-grip icon-btn" draggable aria-label={locale === 'pt' ? 'Arrastar para ordenar efeito' : 'Drag to reorder effect'}
+                  onDragStart={ev => { ev.dataTransfer.setData('application/x-rp-effect', e.instanceId); ev.dataTransfer.effectAllowed = 'move'; setDragIdx(i); }} onDragEnd={() => setDragIdx(null)}>⣿</button>
                 <span className="effect-title">{label(def.meta.name)}</span>
-                <button className="icon-btn" aria-label={`${e.enabled ? (locale === 'pt' ? 'Desativar' : 'Disable') : (locale === 'pt' ? 'Ativar' : 'Enable')} ${def.meta.name}`} onClick={() => toggleEffect(e.instanceId)}>
+                <button className="icon-btn" aria-label={`${e.enabled ? (locale === 'pt' ? 'Desativar' : 'Disable') : (locale === 'pt' ? 'Ativar' : 'Enable')} ${label(def.meta.name)}`} onClick={() => toggleEffect(e.instanceId)}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                     <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" stroke="currentColor" strokeWidth="1.3"/>
                     <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/>
                     {!e.enabled && <path d="M2.5 13.5l11-11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>}
                   </svg>
                 </button>
-                <button className="icon-btn" aria-label={`${locale === 'pt' ? 'Remover' : 'Remove'} ${def.meta.name}`} onClick={() => removeEffect(e.instanceId)}>
+                <button className="icon-btn" aria-label={`${locale === 'pt' ? 'Remover' : 'Remove'} ${label(def.meta.name)}`} onClick={() => removeEffect(e.instanceId)}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 </button>
               </div>

@@ -1,5 +1,6 @@
 import { useSceneStore, type SceneState } from '@/store/useSceneStore';
 import { writeProjectScene } from './projects';
+import { useUIStore } from '@/store/useUIStore';
 
 // Client-side scene persistence. Settings live in localStorage; uploaded media
 // bytes live in IndexedDB (see lib/assetDb). A refresh restores the full working
@@ -70,12 +71,21 @@ export function loadScene(): ScenePartial | null {
 // stamping a scene onto the wrong project.
 let autosaveTarget: string | null = null;
 let lastSig = '';
+export interface SaveState { status: 'saved' | 'saving' | 'error' | 'pending'; savedAt: number | null }
+let saveState: SaveState = { status: 'saved', savedAt: null };
+export function getSaveState(): SaveState { return saveState; }
+function reportSave(status: SaveState['status'], wrote = true) {
+  saveState = { status, savedAt: status === 'saved' && wrote ? Date.now() : saveState.savedAt };
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('motion-save-status', { detail: status }));
+}
 
 export function setAutosaveTarget(projectId: string | null, seedSig?: ScenePartial | null): void {
   autosaveTarget = projectId;
   // Seed the change signature with what was just loaded, so merely opening a
   // project doesn't immediately rewrite it (and bump its updatedAt).
   lastSig = seedSig ? JSON.stringify(seedSig) : '';
+  saveState = { status: 'saved', savedAt: null };
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('motion-save-status', { detail: 'saved' }));
 }
 
 /**
@@ -87,12 +97,12 @@ export function flushScene(): void {
   try {
     const partial = buildScenePartial(useSceneStore.getState());
     const sig = JSON.stringify(partial);
-    if (sig === lastSig) return;
+    if (sig === lastSig) { if (saveState.status !== 'saved') reportSave('saved', false); return; }
     writeProjectScene(autosaveTarget, partial);
     lastSig = sig;
-    window.dispatchEvent(new CustomEvent('motion-save-status', { detail: 'saved' }));
+    reportSave('saved');
   } catch {
-    window.dispatchEvent(new CustomEvent('motion-save-status', { detail: 'error' }));
+    reportSave('error');
     /* quota exceeded or serialize error — skip this write, non-fatal */
   }
 }
@@ -101,7 +111,7 @@ export function flushScene(): void {
 // most one write every ~500ms, and only when the serialized slice actually
 // changed — so play/scrub (frame churn) produces zero writes.
 export function startSceneAutosave(): () => void {
-  let scheduled = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
   let observed = useSceneStore.getState();
   const persistedKeys = [
     'tracks', 'textLayers', 'compositeMode', 'activeTrackId', 'fps', 'duration', 'aspect', 'width', 'height',
@@ -109,17 +119,30 @@ export function startSceneAutosave(): () => void {
     'videoEnd', 'effects', 'assets', 'audioUrl', 'audioBlobId',
   ] as const;
   const flush = () => {
-    scheduled = false;
+    timer = null;
     flushScene();
   };
-  return useSceneStore.subscribe((next) => {
+  const schedule = () => {
+    const prefs = useUIStore.getState();
+    reportSave(prefs.autosaveEnabled ? 'saving' : 'pending');
+    if (timer || !prefs.autosaveEnabled) return;
+    timer = setTimeout(flush, prefs.autosaveDelay);
+  };
+  const stopScene = useSceneStore.subscribe((next) => {
     const changed = persistedKeys.some((key) => next[key] !== observed[key]);
     observed = next;
     // Playback changes only `frame`; skip the timer and JSON serialization.
     if (!changed) return;
-    window.dispatchEvent(new CustomEvent('motion-save-status', { detail: 'saving' }));
-    if (scheduled) return;
-    scheduled = true;
-    setTimeout(flush, 500);
+    schedule();
   });
+  const stopUI = useUIStore.subscribe((next, previous) => {
+    if (next.autosaveEnabled === previous.autosaveEnabled && next.autosaveDelay === previous.autosaveDelay) return;
+    if (timer) clearTimeout(timer); timer = null;
+    if (saveState.status !== 'saved') schedule();
+  });
+  const leave = () => { if (useUIStore.getState().autosaveEnabled) { if (timer) clearTimeout(timer); timer = null; flushScene(); } };
+  const visibility = () => { if (document.visibilityState === 'hidden') leave(); };
+  const key = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (document.activeElement instanceof HTMLInputElement) document.activeElement.blur(); flushScene(); } };
+  window.addEventListener('pagehide', leave); document.addEventListener('visibilitychange', visibility); window.addEventListener('keydown', key);
+  return () => { stopScene(); stopUI(); leave(); if (timer) clearTimeout(timer); window.removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('keydown', key); };
 }

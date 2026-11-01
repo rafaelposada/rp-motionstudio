@@ -14,10 +14,11 @@ import {
 import { flushScene, setAutosaveTarget } from '@/lib/scenePersist';
 import { useSceneStore } from './useSceneStore';
 import { useHistoryStore } from './useHistoryStore';
+import { useUIStore } from './useUIStore';
 
 // Any switch of the open project drops undo history: undoing across a switch
 // would write one project's scene into another.
-const resetHistory = () => useHistoryStore.getState().reset();
+const resetHistory = () => { useUIStore.getState().setLayerSelection([]); useHistoryStore.getState().reset(); };
 
 // The project list, and the switching that keeps the scene store and the
 // autosave target in step. Kept out of useSceneStore: a project is ABOUT a

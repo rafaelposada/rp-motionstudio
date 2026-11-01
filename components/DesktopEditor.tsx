@@ -17,6 +17,9 @@ import { useUIStore } from '@/store/useUIStore';
 import { useI18n } from '@/lib/useI18n';
 import PanelDock from './PanelDock';
 import CompositionLayers from './CompositionLayers';
+import AbsoluteMediaPanel from './AbsoluteMediaPanel';
+import InspectorIcon from './InspectorIcon';
+import { useSceneStore } from '@/store/useSceneStore';
 import { fitPanelLayout } from '@/lib/panelLayout';
 
 const PreviewStage = dynamic(() => import('@/components/PreviewStage'), { ssr: false });
@@ -46,15 +49,11 @@ export default function DesktopEditor() {
   const layout = fitPanelLayout(panels, viewport.width, viewport.height, leftCollapsed, rightCollapsed, tplCollapsed, expanded, panelWidthPriority);
   const layoutStyle = { '--rail-w': `${layout.rail}px`, '--templates-col': `${layout.library}px`, '--right-col': `${layout.inspector}px`, gridTemplateRows: `minmax(0, 1fr) ${layout.timelineHeight}px` } as CSSProperties;
   const isProjects = nav === 'projects';
-  const [inspectorTab, setInspectorTab] = useState<'motion' | 'canvas' | 'media' | 'text'>('motion');
+  const [inspectorTab, setInspectorTab] = useState<'motion' | 'canvas' | 'media' | 'text' | 'layers'>('motion');
   const selectedTextId = useUIStore((s) => s.selectedTextId);
   const selectedMotionId = useUIStore((s) => s.selectedMotionId);
-  useEffect(() => { if (selectedMotionId) setInspectorTab('motion'); }, [selectedMotionId]);
-  useEffect(() => { if (selectedTextId) setInspectorTab('text'); }, [selectedTextId]);
-
-  useEffect(() => {
-    setInspectorTab('motion');
-  }, [nav]);
+  useEffect(() => { if (selectedMotionId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : 'motion'); }, [selectedMotionId]);
+  useEffect(() => { if (selectedTextId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : useSceneStore.getState().textLayers.find(l => l.id === selectedTextId)?.media ? 'media' : 'text'); }, [selectedTextId]);
 
   return (
     <div className={`app resizable-app ${showGrid ? '' : 'stage-grid-off'} ${tplCollapsed ? 'app-tpl-collapsed' : ''} ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`} style={layoutStyle}>
@@ -85,12 +84,12 @@ export default function DesktopEditor() {
         <div className="inspector-tabs" role="tablist" aria-label={t('inspector')} onKeyDown={(event) => {
           if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault();
-          const tabs = ['motion', 'canvas', 'media', 'text'] as const;
+          const tabs = ['motion', 'canvas', 'media', 'text', 'layers'] as const;
           const index = tabs.indexOf(inspectorTab);
           const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
           setInspectorTab(tabs[next]); document.getElementById(`inspector-tab-${tabs[next]}`)?.focus();
         }}>
-          {(['motion', 'canvas', 'media', 'text'] as const).map((tab) => (
+          {(['motion', 'canvas', 'media', 'text', 'layers'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -99,20 +98,23 @@ export default function DesktopEditor() {
               tabIndex={inspectorTab === tab ? 0 : -1}
               aria-controls="inspector-content"
               aria-selected={inspectorTab === tab}
+              aria-label={t(tab)}
+              title={t(tab)}
               className={`inspector-tab ${inspectorTab === tab ? 'active' : ''}`}
               onClick={() => setInspectorTab(tab)}
             >
-              {t(tab)}
+              <InspectorIcon tab={tab}/>
             </button>
           ))}
         </div>
         <div className="inspector-content" id="inspector-content" role="tabpanel" aria-labelledby={`inspector-tab-${inspectorTab}`}>
           {inspectorTab === 'motion' && <><ScenePanel /><div className="hairline" /><EffectsPanel /></>}
           {inspectorTab === 'canvas' && <CanvasPanel />}
-          {inspectorTab === 'media' && <AssetsPanel />}
+          {inspectorTab === 'media' && <><AbsoluteMediaPanel /><div className="hairline" /><AssetsPanel /></>}
           {inspectorTab === 'text' && <TextPanel />}
+          {inspectorTab === 'layers' && <CompositionLayers />}
         </div>
-      </section><section className="card composition-dock" aria-label={t('layers')}><CompositionLayers /></section></div></PanelDock>
+      </section></div></PanelDock>
 
       <PanelDock panel="timeline"><footer className="card bottom">
         <Timeline />

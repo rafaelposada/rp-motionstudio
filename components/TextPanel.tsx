@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSceneStore } from '@/store/useSceneStore';
+import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { useI18n } from '@/lib/useI18n';
 import { ensureFont, type TextLayer } from '@/lib/textLayers';
 import { ControlRow } from './Controls';
@@ -23,7 +23,7 @@ export default function TextPanel() {
   const height = useSceneStore((s) => s.height);
   const duration = useSceneStore((s) => s.duration);
   const selected = useUIStore((s) => s.selectedTextId);
-  const showSelectionBox = useUIStore((s) => s.showSelectionBox);
+  const selectedIds = useUIStore(s => s.selectedLayerIds);
   const [fontName, setFontName] = useState('');
   const [status, setStatus] = useState('');
   const textLayers = layers.filter((item) => !item.media);
@@ -32,9 +32,11 @@ export default function TextPanel() {
   const loadFont = async (family: string, weight: number) => {
     if (!layer || !family.trim()) return;
     const targetId = layer.id;
+    const revision = sceneRestoreRevision();
     setStatus(pt ? 'Preparando fonte…' : 'Preparing font…');
     try {
       await ensureFont(family.trim(), weight);
+      if (revision !== sceneRestoreRevision()) return;
       patch(targetId, { font: family.trim(), weight });
       setStatus(pt ? 'Fonte pronta e salva para uso offline.' : 'Font ready and saved offline.');
     } catch (error) {
@@ -47,12 +49,12 @@ export default function TextPanel() {
   return <div className="section-body text-panel">
     <button className="btn solid full" onClick={() => { add(); const created = useSceneStore.getState().textLayers.at(-1); if (created) selectOverlayForEditing(created.id); }}>{pt ? '+ Adicionar texto' : '+ Add text'}</button>
     <p className="ctl-hint">{pt ? 'Arraste o texto para posicionar e as alças para redimensionar ou girar. Shift preserva a proporção; Alt redimensiona pelo centro. Fontes do Google exigem internet no primeiro uso.' : 'Drag text to position it and use handles to resize or rotate. Shift preserves proportions; Alt resizes from the center. Google fonts require internet on first use.'}</p>
-    <label className="text-edit-label"><span><input type="checkbox" checked={showSelectionBox} onChange={(e) => useUIStore.getState().setShowSelectionBox(e.target.checked)} /> {pt ? 'Mostrar caixa delimitadora' : 'Show bounding box'}</span></label>
     {textLayers.map((item, index) => <div key={item.id} className="text-layer-row">
-      <button className={`btn ${layer?.id === item.id ? 'solid' : ''}`} onClick={() => selectOverlayForEditing(item.id)}>{index + 1}. {item.text.slice(0, 24) || (pt ? 'Texto vazio' : 'Empty text')}</button>
+      <button className={`btn ${selectedIds.includes(item.id) ? 'solid' : ''}`} aria-pressed={selectedIds.includes(item.id)} onClick={e => selectOverlayForEditing(item.id, e.shiftKey)}>{index + 1}. {item.text.slice(0, 24) || (pt ? 'Texto vazio' : 'Empty text')}</button>
       <button className="icon-btn" aria-label={pt ? 'Alternar visibilidade' : 'Toggle visibility'} onClick={() => patch(item.id, { visible: !item.visible })}>{item.visible ? '◉' : '○'}</button>
       <button className="icon-btn" aria-label={pt ? 'Remover texto' : 'Remove text'} onClick={() => void deleteCompositionLayer(item.id)}>×</button>
     </div>)}
+    {selectedIds.length > 1 && <p className="ctl-hint">{pt ? 'Seleção múltipla: arraste e transforme o conjunto na tela. Os campos abaixo editam o texto ativo.' : 'Multiple selection: drag and transform the group on the canvas. The fields below edit the active text.'}</p>}
     {layer && <>
       <label className="text-edit-label">{pt ? 'Conteúdo' : 'Content'}<textarea className="field text-content" rows={4} value={layer.text} onChange={(e) => patch(layer.id, { text: e.target.value })} /></label>
       <FontBrowser pt={pt} weight={layer.weight} onChoose={(family) => void loadFont(family, 400)} onImport={(family) => patch(layer.id, { font: family })} />
