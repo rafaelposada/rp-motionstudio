@@ -5,6 +5,7 @@ import type { Template } from '@/lib/types';
 import { defaultsFor, easingFor } from '@/templates';
 import { resolveEasing } from '@/lib/easing';
 import { cardOpacity } from '@/lib/cardOpacity';
+import { previewMatrix } from '@/lib/templatePreviewGeometry';
 
 // Live template thumbnail: run the template's own transform at a fixed frame
 // and render the resulting card layout as plain divs. Because it uses the real
@@ -18,7 +19,7 @@ const SPRITE_BASE = 340;
 
 interface CardPose {
   x: number; y: number; w: number; h: number;
-  rotation: number; skewX: number; alpha: number; z: number; r: number;
+  rotation: number; skewX: number; skewY: number; alpha: number; z: number; r: number;
 }
 
 export default function TemplateThumb({
@@ -152,6 +153,7 @@ export default function TemplateThumb({
         x: t.x, y: t.y, w, h,
         rotation: t.rotation,
         skewX: t.skewX ?? 0,
+        skewY: t.skewY ?? 0,
         alpha: cardOpacity(t.alpha,false,t.solidAlpha),
         z: Math.round(t.depth * 1000 + i),
         r: (Math.min(w, h) / 2) * Math.max(0, Math.min(1, (v.cornerRadius ?? 0) / 100)),
@@ -182,14 +184,14 @@ export default function TemplateThumb({
           key={i}
           className="tpl-thumb-el"
           style={{
-            width: `${(p.w / CTX_BASE.width) * 100}%`,
-            aspectRatio: `${Math.max(0.001, p.w)} / ${Math.max(0.001, p.h)}`,
+            width: `${(Math.abs(p.w) / CTX_BASE.width) * 100}%`,
+            aspectRatio: `${Math.max(0.001, Math.abs(p.w))} / ${Math.max(0.001, Math.abs(p.h))}`,
             left: `${50 + (p.x / CTX_BASE.width) * 100}%`,
             top: `${50 + (p.y / CTX_BASE.height) * 100}%`,
-            transform: `translate(-50%, -50%) rotate(${p.rotation}rad) skewX(${p.skewX}rad)`,
+            transform: `translate(-50%, -50%) matrix(${previewMatrix(p.rotation,p.skewX,p.skewY,p.w,p.h).join(',')})`,
             opacity: p.alpha,
             zIndex: p.z,
-            borderRadius: `${Math.max(1, (p.r / p.w) * 100)}%`,
+            borderRadius: `${Math.max(0, p.r / Math.max(.001,Math.abs(p.w)) * 100)}%`,
           }}
         />
       ))}

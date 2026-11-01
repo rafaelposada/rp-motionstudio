@@ -1,4 +1,6 @@
 export const EDITOR_HELP:Record<string,{pt:string;en:string}>=Object.fromEntries([
+  ['backdropRadius','Arredondamento dos cantos do fundo do texto. Zero deixa reto; aumentar torna os cantos mais arredondados.','Text background corner rounding. Zero keeps square corners; increase for rounder corners.'],
+  ['backdropStrokeWidth','Espessura do contorno do fundo em pixels. Aumentar engrossa a borda; zero oculta o contorno.','Text background stroke width in pixels. Increase for a heavier border; zero hides the stroke.'],
   ['opacity','Visibilidade da camada inteira, com contorno e sombra. 0% oculta; 100% mantém a aparência completa.','Visibility of the whole layer, including stroke and shadow. 0% hides it; 100% preserves its full appearance.'],
   ['fillOpacity','Transparência apenas do preenchimento das letras. Reduzir revela o fundo, preservando contorno e sombra.','Transparency of the letter fill only. Lower values reveal the background, preserving stroke and shadow.'],
   ['letterSpacing','Distância extra entre caracteres, em pixels. Aumentar separa as letras; valores negativos aproximam.','Extra space between characters in pixels. Increase to spread letters; negative values bring them closer.'],

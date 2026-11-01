@@ -87,7 +87,13 @@ export default function TextPanel() {
       {layer.stroke && <><ColorField pt={pt} label={pt?'Cor do contorno':'Stroke color'} color={layer.stroke} opacity={layer.strokeOpacity??1} onChange={(stroke,strokeOpacity)=>patch(layer.id,{stroke,strokeOpacity})}/>{numberControl('strokeWidth', pt ? 'Espessura do contorno' : 'Stroke width', 0, 30, 0.1)}</>}
       <ShadowEditor key={layer.id} layer={layer} pt={pt} patch={patch}/>
       <label className="text-edit-label"><span><input type="checkbox" checked={layer.backdrop ?? false} onChange={(e) => patch(layer.id, { backdrop: e.target.checked })} /> {pt ? 'Fundo de contraste atrás do texto' : 'Contrast background behind text'}</span></label>
-      {layer.backdrop && <ControlRow def={{key:'backdropRadius',label:pt?'Cantos do fundo':'Backdrop corners',type:'slider',min:0,max:200,step:1,unit:'px',default:12}} value={layer.backdropRadius??12} onChange={value=>patch(layer.id,{backdropRadius:Number(value)})}/>}
+      {layer.backdrop && <div className="text-backdrop-controls">
+        <ColorField pt={pt} label={pt?'Cor do fundo do texto':'Text background color'} color={layer.backdropColor??'#101114'} opacity={layer.backdropOpacity??.8} onChange={(backdropColor,backdropOpacity)=>patch(layer.id,{backdropColor,backdropOpacity})}/>
+        <ControlRow def={{key:'backdropRadius',label:pt?'Cantos do fundo':'Backdrop corners',type:'slider',min:0,max:200,step:1,unit:'px',default:12}} value={layer.backdropRadius??12} onChange={value=>patch(layer.id,{backdropRadius:Number(value)})}/>
+        <label className="text-edit-label"><span><input type="checkbox" checked={!!layer.backdropStroke} onChange={e=>patch(layer.id,{backdropStroke:e.target.checked?'#ffffff':undefined,backdropStrokeWidth:layer.backdropStrokeWidth??1})}/> {pt?'Contorno do fundo':'Background stroke'}</span></label>
+        {layer.backdropStroke && <><ColorField pt={pt} label={pt?'Cor do contorno do fundo':'Background stroke color'} color={layer.backdropStroke} opacity={layer.backdropStrokeOpacity??1} onChange={(backdropStroke,backdropStrokeOpacity)=>patch(layer.id,{backdropStroke,backdropStrokeOpacity})}/>
+          <ControlRow def={{key:'backdropStrokeWidth',label:pt?'Espessura do contorno do fundo':'Background stroke width',type:'slider',min:0,max:30,step:.1,unit:'px',default:1}} value={layer.backdropStrokeWidth??1} onChange={value=>patch(layer.id,{backdropStrokeWidth:Number(value)})}/></>}
+      </div>}
       <h3 className="text-section-title">{pt ? 'Animação e duração' : 'Animation and timing'}</h3>
       <LayerAnimationControls layer={layer} pt={pt}/>
     </>}

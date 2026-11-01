@@ -627,16 +627,24 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     }));
     const [audio, logo, background] = await Promise.all([!before.audioUrl && before.audioBlobId, !before.logo.url && before.logo.blobId, !before.background.imageUrl && before.background.blobId].map((id) => id ? idbGet(id).catch(() => undefined) : undefined));
     if (epoch !== uploadRestoreEpoch) return;
-    set((s) => ({
-      audioUrl: audio && s.audioBlobId === before.audioBlobId && s.audioUrl === before.audioUrl ? URL.createObjectURL(audio) : s.audioUrl,
-      textLayers: s.textLayers.map(layer => {
+    set((s) => {
+      let changed=false;
+      const overlaysNext=s.textLayers.map(layer => {
         const resolved = overlays.find(item => item?.id === layer.id);
-        return layer.media && resolved?.blob && layer.media.blobId === resolved.blobId && layer.media.url === resolved.previousUrl
-          ? { ...layer, media: { ...layer.media, url: URL.createObjectURL(resolved.blob) } } : layer;
-      }),
-      logo: logo && s.logo.blobId === before.logo.blobId && s.logo.url === before.logo.url ? { ...s.logo, url: URL.createObjectURL(logo) } : s.logo,
-      background: background && s.background.blobId === before.background.blobId && s.background.imageUrl === before.background.imageUrl ? { ...s.background, imageUrl: URL.createObjectURL(background) } : s.background,
-    }));
+        if(layer.media && resolved?.blob && layer.media.blobId === resolved.blobId && layer.media.url === resolved.previousUrl) {
+          changed=true; return {...layer,media:{...layer.media,url:URL.createObjectURL(resolved.blob)}};
+        }
+        return layer;
+      });
+      const textLayers=changed?overlaysNext:s.textLayers;
+      const audioUrl=audio && s.audioBlobId===before.audioBlobId && s.audioUrl===before.audioUrl?URL.createObjectURL(audio):s.audioUrl;
+      const nextLogo=logo && s.logo.blobId===before.logo.blobId && s.logo.url===before.logo.url?{...s.logo,url:URL.createObjectURL(logo)}:s.logo;
+      const nextBackground=background && s.background.blobId===before.background.blobId && s.background.imageUrl===before.background.imageUrl?{...s.background,imageUrl:URL.createObjectURL(background)}:s.background;
+      // An unchanged restore must be a true no-op. New array references here
+      // used to look like an edit after Undo and erase the Redo branch.
+      if(textLayers===s.textLayers && audioUrl===s.audioUrl && nextLogo===s.logo && nextBackground===s.background)return s;
+      return {textLayers,audioUrl,logo:nextLogo,background:nextBackground};
+    });
     const uploads = get().assets.filter((a) => a.origin === 'upload' && !a.url);
     if (uploads.length === 0) return;
     const resolved = await Promise.all(
@@ -647,11 +655,14 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     );
     if (epoch !== uploadRestoreEpoch) return;
     const blobs = new Map(resolved.map((r) => [r.id, r.blob]));
-    set((s) => ({
-      assets: s.assets.map((a) =>
-        a.origin === 'upload' && !a.url && blobs.get(a.id) ? { ...a, url: URL.createObjectURL(blobs.get(a.id)!) } : a,
-      ),
-    }));
+    set((s) => {
+      let changed=false;
+      const assets=s.assets.map(a=>{
+        if(a.origin==='upload'&&!a.url&&blobs.get(a.id)){changed=true;return {...a,url:URL.createObjectURL(blobs.get(a.id)!)};}
+        return a;
+      });
+      return changed?{assets}:s;
+    });
   },
 
   // Loaded lazily on the client (localStorage isn't available during SSR,

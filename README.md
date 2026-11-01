@@ -61,7 +61,9 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
 - Entrada e saída independentes, com tempos editáveis por camada.
 - Áudio com volume e fades na prévia e no MP4.
 - Gradientes com até oito pontos de cor/opacidade, presets e formas linear, radial e cônica.
-- Duplo clique edita o texto na composição; Esc cancela, ⌘/Ctrl+Enter conclui.
+- Duplo clique edita o texto na composição; Esc ou ⌘/Ctrl+Enter confirma.
+- Fundo do texto com cor, opacidade, contorno independente e cantos ajustáveis.
+- Desfazer: ⌘/Ctrl+Z. Refazer: ⌘/Ctrl+Shift+Z; no Windows, Ctrl+Y também funciona.
 - Rotação pela área externa dos quatro cantos, com leitura do ângulo e encaixe de 15° com Shift.
 - Botão de ampliar preview dentro da janela; Esc restaura os painéis.
 - Catálogo Google Fonts com prévias e importação de fontes locais. O primeiro

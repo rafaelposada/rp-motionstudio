@@ -9,6 +9,7 @@ import { startSceneAutosave } from '@/lib/scenePersist';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useUIStore } from '@/store/useUIStore';
+import { historyShortcut } from '@/lib/historyShortcuts';
 
 const MobileEditor = dynamic(() => import('@/components/MobileEditor'), {
   ssr: false,
@@ -71,19 +72,18 @@ export default function Home() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (useUIStore.getState().nav === 'home') return;
-      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
-      const key = e.key.toLowerCase();
-      if (key !== 'z' && key !== 'y') return;
+      if(e.defaultPrevented)return;
+      const action = historyShortcut(e); if(!action)return;
       const target = e.target as HTMLElement | null;
       if (target?.closest('dialog[open]')) return;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return;
-      e.preventDefault();
+      e.preventDefault(); e.stopImmediatePropagation();
       const history = useHistoryStore.getState();
-      if (key === 'y' || e.shiftKey) history.redo();
+      if (action === 'redo') history.redo();
       else history.undo();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, []);
 
   if (mode === 'pending') return <EditorLoading />;

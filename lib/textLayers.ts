@@ -7,6 +7,8 @@ export interface TextLayer {
   id: string; text: string; font: string; weight: number; size: number;
   color: string; x: number; y: number; rotation: number; opacity: number;
   scaleX?: number; scaleY?: number; backdropRadius?: number;
+  backdropColor?: string; backdropOpacity?: number;
+  backdropStroke?: string; backdropStrokeOpacity?: number; backdropStrokeWidth?: number;
   align: CanvasTextAlign; lineHeight: number; visible: boolean;
   start: number; end: number;
   locked?: boolean; stroke?: string;
@@ -164,7 +166,14 @@ export class TextCompositor {
         const textWidth = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
         const boxHeight = layer.text.split('\n').length * drawSize * layer.lineHeight + 30;
         const left = layer.align === 'left' ? -18 : layer.align === 'right' ? -textWidth - 18 : -textWidth / 2 - 18;
-        ctx.fillStyle = '#101114cc'; ctx.beginPath(); ctx.roundRect(left, -boxHeight / 2, textWidth + 36, boxHeight, bounded(layer.backdropRadius ?? 12, 0, Math.min(textWidth + 36, boxHeight) / 2)); ctx.fill();
+        const alpha = ctx.globalAlpha;
+        ctx.beginPath(); ctx.roundRect(left, -boxHeight / 2, textWidth + 36, boxHeight, bounded(layer.backdropRadius ?? 12, 0, Math.min(textWidth + 36, boxHeight) / 2));
+        ctx.fillStyle = layer.backdropColor ?? '#101114'; ctx.globalAlpha = alpha * bounded(layer.backdropOpacity ?? .8,0,1); ctx.fill();
+        if(layer.backdropStroke && (layer.backdropStrokeWidth ?? 1)>0) {
+          ctx.globalAlpha = alpha * bounded(layer.backdropStrokeOpacity ?? 1,0,1);
+          ctx.strokeStyle = layer.backdropStroke; ctx.lineWidth = bounded(layer.backdropStrokeWidth ?? 1,0,30); ctx.lineJoin='round'; ctx.stroke();
+        }
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = layer.color;
       }
       ctx.shadowColor = 'transparent';

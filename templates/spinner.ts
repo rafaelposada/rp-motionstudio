@@ -260,15 +260,22 @@ function slotAt(index: number, count: number, spin: number, roll: number, belt: 
 // so the range is rebuilt here per frame; the belt is at most 40 cards, and the
 // alternative — a closed-form envelope — would disagree with the reference at
 // low counts, where the discrete slots never reach the envelope's extremes.
+const depthRanges = new WeakMap<Record<string,any>, {key:string;lo:number;hi:number}>();
 function viewFade(z: number, frame: number, count: number, spin: number, roll: number, belt: Belt, v: Record<string, any>) {
   const n = clamp(num(v.fade) / 100, 0, 1);
   if (n === 0) return 1;
-  let lo = Infinity, hi = -Infinity;
-  for (let i = 0; i < count; i++) {
-    const depth = slotPoint(i, count, spin, roll, belt, v).point.z;
-    if (depth < lo) lo = depth;
-    if (depth > hi) hi = depth;
+  const key = `${frame}|${count}|${spin}|${roll}|${belt.horizontal}|${belt.across}|${belt.hinge}|${num(v.rotateX)}|${num(v.rotateY)}|${num(v.rotateZ)}`;
+  let range = depthRanges.get(v);
+  if(range?.key!==key) {
+    let lo=Infinity,hi=-Infinity;
+    for (let i = 0; i < count; i++) {
+      const depth = slotPoint(i, count, spin, roll, belt, v).point.z;
+      if (depth < lo) lo = depth;
+      if (depth > hi) hi = depth;
+    }
+    range={key,lo,hi};depthRanges.set(v,range);
   }
+  const {lo,hi}=range;
   const span = hi - lo;
   if (span < 1e-6) return 1;
   // 0 = nearest card, 1 = farthest. The reference remaps it through
@@ -332,7 +339,7 @@ const spinner: Template = {
   },
   controls: [
     { key: 'direction', label: 'Direction', type: 'toggle', options: ['forward', 'reverse'], default: 'forward' },
-    { key: 'speed', label: 'Speed', type: 'slider', min: 0.1, max: 3, step: 0.05, default: 1, unit: '×', section: 'Motion' },
+    { key: 'speed', label: 'Speed', type: 'slider', min: 0.01, max: 3, step: 0.01, default: 1, unit: '×', section: 'Motion' },
     { key: 'motionRotation', label: 'Motion Rotation', type: 'toggle', options: ['static', 'rotation'], default: 'static', section: 'Motion' },
     // 3 is the reference's own floor: two cards share one axis and draw a plane,
     // not a belt.
@@ -410,6 +417,7 @@ const spinner: Template = {
       rotation,
       skewX,
       alpha: shade.alpha * facingAlpha(slot, cam, v),
+      solidAlpha: facingAlpha(slot, cam, v),
       dim: shade.dim,
       // Painter's order for the paths without a depth buffer. The reference
       // sorts by how face-on a card is rather than by depth, which is a choice
@@ -438,6 +446,7 @@ const spinner: Template = {
       quaternion: slot.quaternion,
       scale: (PLANE * k * Math.max(1, aspect)) / BASE,
       alpha: shade.alpha * facingAlpha(slot, cam, v),
+      solidAlpha: facingAlpha(slot, cam, v),
       dim: shade.dim,
     };
   },

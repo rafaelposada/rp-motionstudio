@@ -907,6 +907,10 @@ export class SceneRenderer3D implements IRenderer {
     const bend = clamp(t.bend ?? 0, -0.45, 0.45);
     const bent = Math.abs(bend) > 0.0001;
     const physical = thickness > 0.05 && !bent;
+    // A flat, double-sided card needs one raster pass. Three's default two-pass
+    // transparency path doubles draw calls without improving a single plane.
+    const singlePass = !physical && !bent;
+    if(slot.front.material.forceSinglePass!==singlePass) { slot.front.material.forceSinglePass=singlePass;slot.front.material.needsUpdate=true; }
     const exposure = clamp(t.materialExposure ?? 1, 0.25, 2.5);
     const shadow = (t.shadowStrength ?? 0) > 0.02;
 
@@ -1019,6 +1023,7 @@ export class SceneRenderer3D implements IRenderer {
         slot.front.position.z = 0;
         slot.front.material.opacity = cardOpacity(t.alpha,track.values._autoTransparency===true,t.solidAlpha);
         slot.front.material.depthWrite = false;
+        slot.front.material.forceSinglePass = true;
         slot.front.material.color.setRGB(0, 0, 0);
         slot.front.material.emissiveIntensity = 1;
         setImageLighting(slot.front.material, false);
