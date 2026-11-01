@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { destinationFor, isLocalFileRequest } from '@/lib/localDestinations';
 import { audioFilter } from '@/lib/audioEnvelope';
 import { probeAudioDuration } from '@/lib/serverAudio';
+import {updaterBusy} from '@/lib/updateServer';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -98,9 +99,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ log: sessions.get(body.sessionId)?.log ?? '', cancelled: sessions.get(body.sessionId)?.cancelled ?? false });
     }
     if (action === 'begin') {
+      if(await updaterBusy())return NextResponse.json({error:'Aguarde a atualização do aplicativo antes de exportar.'},{status:409});
       const id = crypto.randomUUID();
       await fs.mkdir(sessionDir(id), { recursive: true });
-      sessions.set(id, { cancelled: false, log: '', directory: await destinationFor('exports') });
+      const directory=await destinationFor('exports');
+      if(await updaterBusy()){await fs.rm(sessionDir(id),{recursive:true,force:true});return NextResponse.json({error:'Aguarde a atualização do aplicativo antes de exportar.'},{status:409});}
+      sessions.set(id, { cancelled: false, log: '', directory });
       setTimeout(() => sessions.delete(id), 3600000).unref();
       return NextResponse.json({ sessionId: id });
     }
@@ -182,11 +186,13 @@ export async function POST(req: NextRequest) {
       // clean temp frames
       await fs.rm(dir, { recursive: true, force: true });
 
+      sessions.delete(sessionId);
       return NextResponse.json({ files, directory: outputDirectory });
     }
 
     return NextResponse.json({ error: 'unknown action' }, { status: 400 });
   } catch (e: any) {
+    const failed=sessions.get(body.sessionId);if(failed)failed.cancelled=true;
     if (UUID_RE.test(String(body.sessionId)) && sessions.get(body.sessionId)?.cancelled) {
       await fs.rm(sessionDir(body.sessionId), { recursive: true, force: true });
       const directory = sessions.get(body.sessionId)?.directory;

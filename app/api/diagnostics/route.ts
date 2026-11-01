@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {APP_VERSION} from '@/lib/appVersion';
 import { destinationFor, isLocalFileRequest } from '@/lib/localDestinations';
 const exec = promisify(execFile);
 export const runtime = 'nodejs';
@@ -11,7 +12,7 @@ const folders = { exports: path.join(os.homedir(), 'Movies', 'Motion Studio Expo
 export async function GET() {
   let ffmpeg = '';
   try { ffmpeg = (await exec('ffmpeg', ['-version'], { timeout: 5000 })).stdout.split('\n')[0]; } catch { /* report unavailable */ }
-  return NextResponse.json({ version: '1.2.7-local', ffmpeg: ffmpeg || 'Indisponível', freeMemoryMB: Math.round(os.freemem() / 1048576), localOnly: true });
+  return NextResponse.json({ version: `${APP_VERSION}-local`,instance:process.env.RP_MOTION_INSTANCE??null, ffmpeg: ffmpeg || 'Indisponível', freeMemoryMB: Math.round(os.freemem() / 1048576), localOnly: true });
 }
 export async function POST(request: NextRequest) {
   if (!isLocalFileRequest(request)) return NextResponse.json({ error: 'Acesso local necessário.' }, { status: 403 });

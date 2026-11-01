@@ -30,19 +30,48 @@ O cupom também pode ser copiado diretamente pelo aplicativo.
 
 ## Executar localmente
 
-Requisitos: Node.js 24, npm e FFmpeg disponível no PATH.
+Requisitos: Node.js 24 ou mais recente, npm, Git e FFmpeg disponível no PATH.
 
 ```bash
 git clone https://github.com/rafaelposada/rp-motionstudio.git
 cd rp-motionstudio
 npm ci
-npm run dev -- --hostname 127.0.0.1
+npm run app
 ```
 
 Abra **http://127.0.0.1:3000/**. Esse é um endereço local, não uma versão hospedada.
 O serviço foi projetado para uso individual, sem autenticação; mantenha-o restrito
 ao computador. Publicar o código no GitHub não hospeda o editor nem seus projetos.
 O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao enviar código.
+
+## Atualizações
+
+`npm run app` prepara uma instalação local gerenciada e inicia o editor. Em aberturas
+seguintes, reutiliza a instalação. Para desenvolver o código, use `npm run dev -- --hostname 127.0.0.1`;
+esse modo informa novas versões, mas não modifica sua pasta de trabalho pelo aplicativo.
+
+Em **Configurações → Atualizações**, é possível verificar versões e ativar/desativar
+a consulta automática (ao abrir e a cada seis horas). A consulta lê somente os metadados
+públicos deste repositório. Projetos e mídias não são enviados ao GitHub.
+
+Uma versão com número maior habilita **Atualizar e reiniciar**. Após sua confirmação,
+o app salva o projeto, pausa a edição, baixa a revisão exata confirmada, instala as
+dependências e executa a compilação e os testes em uma pasta temporária. Reserve pelo
+menos 3 GB livres e mantenha o computador ligado; a preparação pode levar alguns minutos.
+A versão ativa só é trocada depois dessa preparação. Se a nova versão falhar ao iniciar,
+o gerenciador restaura a anterior. Há também uma ação manual de restauração.
+
+O endereço e a porta locais permanecem iguais, preservando o acesso ao armazenamento
+do navegador. Pastas de projetos, mídias e exportações ficam fora das versões do programa.
+O preparo temporário é removido após a tentativa; versões geradas antigas são limpas,
+mantendo a ativa e a anterior. Uma instalação legada na pasta `App` é preservada.
+O gerenciador e as versões usam a mesma pasta de dados do app: `Motion Studio` em
+Application Support no macOS; `RP MotionStudio` em LocalAppData no Windows e
+`~/.local/share/rp-motionstudio` no Linux. O processo só atende no endereço de loopback.
+
+Instalações antigas precisam receber esta versão uma vez antes de oferecer a atualização
+pelo próprio aplicativo. Publicar mudanças de código no GitHub deve incluir um aumento
+de versão em `package.json` e `package-lock.json`; o número da versão aparece no app automaticamente.
 
 ## Recursos
 
@@ -63,6 +92,8 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
 - Gradientes com até oito pontos de cor/opacidade, presets e formas linear, radial e cônica.
 - Duplo clique edita o texto na composição; Esc ou ⌘/Ctrl+Enter confirma.
 - Fundo do texto com cor, opacidade, contorno independente e cantos ajustáveis.
+- Padding do fundo do texto: valor único ou quatro lados independentes, com cálculos.
+  O padding também é respeitado pelo BG Blur, pelo contorno e pela caixa de seleção.
 - Desfazer: ⌘/Ctrl+Z. Refazer: ⌘/Ctrl+Shift+Z; no Windows, Ctrl+Y também funciona.
 - Rotação pela área externa dos quatro cantos, com leitura do ângulo e encaixe de 15° com Shift.
 - Botão de ampliar preview dentro da janela; Esc restaura os painéis.

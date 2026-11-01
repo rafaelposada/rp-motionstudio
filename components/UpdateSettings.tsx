@@ -1,0 +1,31 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {useUpdateStore,refreshUpdates,updateRunning} from '@/store/useUpdateStore';
+import {useSceneStore} from '@/store/useSceneStore';
+import {flushScene,getSaveState} from '@/lib/scenePersist';
+export default function UpdateSettings({pt}:{pt:boolean}){
+  const {info,loading,auto,error,setAuto}=useUpdateStore(),[confirm,setConfirm]=useState<'install'|'rollback'|null>(null),[message,setMessage]=useState(''),[applying,setApplying]=useState(false);
+  useEffect(()=>{void refreshUpdates();},[]);
+  const apply=async()=>{
+    if(!info||!confirm||applying)return;
+    flushScene();if(getSaveState().status==='error'){setMessage(pt?'O projeto não foi salvo. Corrija o salvamento antes de atualizar.':'Project save failed. Save your work before updating.');return;}
+    useSceneStore.getState().setPlaying(false);setMessage('');setApplying(true);
+    try{
+      const response=await fetch('/api/updates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:confirm,token:info.token,confirm:true,sha:info.latest?.sha,version:confirm==='rollback'?info.previous:info.latest?.version})});const data=await response.json();if(!response.ok)throw Error(data.error||'Atualização indisponível.');
+      useUpdateStore.setState({info:data,armed:true,error:''});setConfirm(null);
+    }catch(error){setMessage(error instanceof Error?error.message:'Não foi possível atualizar.');}finally{setApplying(false);}
+  };
+  return <><h3>{pt?'Atualizações do aplicativo':'Application updates'}</h3><p className="settings-description">{pt?'As novas versões vêm somente do repositório público de Rafael Posada. A instalação sempre pede sua confirmação. Projetos, mídias, fontes e pastas de exportação permanecem no computador.':'New versions come only from Rafael Posada’s public repository. Installation always requires your confirmation. Projects, media, fonts and export folders stay on your computer.'}</p>
+    <div className="update-version-card"><div><small>{pt?'INSTALADA':'INSTALLED'}</small><strong>{info?.current??'…'}</strong></div><span aria-hidden="true">→</span><div><small>{pt?'PUBLICADA':'PUBLISHED'}</small><strong>{info?.latest?.version??'—'}</strong></div></div>
+    <label className="settings-row"><span><strong>{pt?'Verificar novas versões automaticamente':'Automatically check for new versions'}</strong><span className="settings-description">{pt?'Consulta ao abrir e a cada seis horas. Precisa de internet apenas para consultar e baixar atualizações.':'Checks on launch and every six hours. Internet is needed only to check and download updates.'}</span></span><input type="checkbox" checked={auto} onChange={e=>{setAuto(e.target.checked);if(e.target.checked)void refreshUpdates(true);}}/></label>
+    <div className="update-actions"><button className="btn" disabled={loading||updateRunning(info)} onClick={()=>void refreshUpdates(true,true)}>{loading?(pt?'Verificando…':'Checking…'):(pt?'Verificar agora':'Check now')}</button>{info?.available&&<button className="btn primary" disabled={!info.managed||updateRunning(info)} onClick={()=>setConfirm('install')}>{pt?'Atualizar e reiniciar':'Update and restart'}</button>}</div>
+    {info?.checkedAt? <p className="settings-description">{pt?'Última consulta: ':'Last checked: '}{new Date(info.checkedAt).toLocaleString()}{!info.available&&!info.error?` · ${pt?'Você está na versão mais recente disponível para esta instalação.':'You have the latest version available for this installation.'}`:''}</p>:null}
+    {(error||info?.error)&&<p className="settings-description" role="status">{error||info?.error} {pt?'O aplicativo continua funcionando com a versão instalada.':'The installed application remains available.'}</p>}
+    {info?.latest&&<div className="settings-callout"><strong>{pt?'Mudanças publicadas recentemente':'Recently published changes'}</strong><ul className="update-notes">{info.latest.notes.map((note,i)=><li key={i}>{note}</li>)}</ul><a href={info.latest.url} target="_blank" rel="noreferrer">{pt?'Ver no GitHub':'View on GitHub'} ↗</a></div>}
+    {info&&!info.managed&&<div className="settings-callout"><strong>{pt?'Ativar instalação pelo aplicativo':'Enable in-app installation'}</strong><p>{pt?'Esta sessão foi iniciada em modo de desenvolvimento. Na pasta do projeto, use o comando abaixo para iniciar uma instalação atualizável. O código da sua pasta de trabalho permanece intacto.':'This session is running in development mode. Run the command below in the project folder to start an updatable installation. Your source checkout is preserved.'}</p><code>npm run app</code></div>}
+    {info?.previous&&<div className="settings-callout"><strong>{pt?'Recuperação':'Recovery'}</strong><p>{pt?`Versão anterior disponível: ${info.previous}. O app volta para ela automaticamente se a nova versão falhar ao iniciar.`:`Previous version available: ${info.previous}. Startup failure restores it automatically.`}</p><button className="btn" disabled={!info.managed||updateRunning(info)} onClick={()=>setConfirm('rollback')}>{pt?'Restaurar versão anterior':'Restore previous version'}</button></div>}
+    {info?.job&&['error','rolledBack'].includes(info.job.phase)&&<p role="alert">{info.job.message}</p>}
+    {confirm&&<div className="update-confirm" role="group" aria-label={pt?'Confirmar troca de versão':'Confirm version change'}><strong>{confirm==='rollback'?(pt?'Restaurar a versão anterior?':'Restore the previous version?'):(pt?`Instalar a versão ${info?.latest?.version}?`:`Install version ${info?.latest?.version}?`)}</strong><p>{pt?'O projeto atual será salvo. Durante a preparação, a edição fica pausada. O processo pode levar alguns minutos e usar pelo menos 3 GB temporários. A versão anterior fica guardada para recuperação.':'Your current project will be saved and editing paused during preparation. This can take several minutes and needs at least 3 GB of temporary space. The previous version is retained for recovery.'}</p><div className="update-actions"><button className="btn" onClick={()=>setConfirm(null)}>{pt?'Cancelar':'Cancel'}</button><button className="btn primary" disabled={applying} onClick={()=>void apply()}>{pt?'Confirmar e continuar':'Confirm and continue'}</button></div></div>}
+    {message&&<p role="alert">{message}</p>}
+  </>;
+}

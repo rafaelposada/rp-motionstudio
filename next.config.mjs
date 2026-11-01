@@ -10,6 +10,8 @@ const nextConfig = {
   agentRules: false,      // keep Next.js from generating AI-agent instruction files
   reactStrictMode: false, // avoid double Pixi mount in dev
   devIndicators: false,   // hide the dev overlay badge (it covers the play button)
+  outputFileTracingIncludes:{'/api/updates':['./scripts/update-common.cjs','./scripts/update-worker.cjs','./scripts/local-app.cjs']},
+  outputFileTracingExcludes:{'/*':['./verification/**/*','./.env*','./.shots/**/*','./public/exports/**/*','./public/demo-arqe/**/*']},
   async headers() {
     return [{
       source: '/',

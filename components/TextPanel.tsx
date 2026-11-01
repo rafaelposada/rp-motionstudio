@@ -1,4 +1,5 @@
 'use client';
+import TextPaddingEditor from './TextPaddingEditor';
 
 import { useState } from 'react';
 import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
@@ -88,6 +89,7 @@ export default function TextPanel() {
       <ShadowEditor key={layer.id} layer={layer} pt={pt} patch={patch}/>
       <label className="text-edit-label"><span><input type="checkbox" checked={layer.backdrop ?? false} onChange={(e) => patch(layer.id, { backdrop: e.target.checked })} /> {pt ? 'Fundo de contraste atrás do texto' : 'Contrast background behind text'}</span></label>
       {layer.backdrop && <div className="text-backdrop-controls">
+        <TextPaddingEditor value={layer.backdropPadding} pt={pt} onChange={backdropPadding=>patch(layer.id,{backdropPadding})}/>
         <ControlRow def={{key:'backdropBlur',label:pt?'BG Blur · desfoque do fundo':'BG Blur',type:'slider',min:0,max:40,step:.5,unit:'px',default:0}} value={layer.backdropBlur??0} onChange={value=>patch(layer.id,{backdropBlur:Number(value)})}/>
         <ColorField pt={pt} label={pt?'Cor do fundo do texto':'Text background color'} color={layer.backdropColor??'#101114'} opacity={layer.backdropOpacity??.8} onChange={(backdropColor,backdropOpacity)=>patch(layer.id,{backdropColor,backdropOpacity})}/>
         <ControlRow def={{key:'backdropRadius',label:pt?'Cantos do fundo':'Backdrop corners',type:'slider',min:0,max:200,step:1,unit:'px',default:12}} value={layer.backdropRadius??12} onChange={value=>patch(layer.id,{backdropRadius:Number(value)})}/>

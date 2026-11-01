@@ -2,6 +2,7 @@ import { idbGet, idbPut } from './assetDb';
 import { drawTextShadow, type TextShadowSettings } from './textShadow';
 import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
 import { normalizedRadii, bounded, type CornerRadii } from './transformGeometry';
+import {textBackdropBox,type TextPadding} from './textPadding';
 
 export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
 
@@ -10,6 +11,7 @@ export interface TextLayer {
   color: string; x: number; y: number; rotation: number; opacity: number;
   scaleX?: number; scaleY?: number; backdropRadius?: number;
   backdropColor?: string; backdropOpacity?: number; backdropBlur?: number;
+  backdropPadding?: TextPadding;
   backdropStroke?: string; backdropStrokeOpacity?: number; backdropStrokeWidth?: number;
   align: CanvasTextAlign; lineHeight: number; visible: boolean;
   start: number; end: number;
@@ -178,10 +180,9 @@ export class TextCompositor {
       const lines = motion.text.split('\n');
       if (layer.backdrop && motion.text) {
         const textWidth = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
-        const boxHeight = layer.text.split('\n').length * drawSize * layer.lineHeight + 30;
-        const left = layer.align === 'left' ? -18 : layer.align === 'right' ? -textWidth - 18 : -textWidth / 2 - 18;
+        const box = textBackdropBox(textWidth,layer.text.split('\n').length * drawSize * layer.lineHeight,layer.align,layer.backdropPadding);
         const alpha = ctx.globalAlpha;
-        ctx.beginPath(); ctx.roundRect(left, -boxHeight / 2, textWidth + 36, boxHeight, bounded(layer.backdropRadius ?? 12, 0, Math.min(textWidth + 36, boxHeight) / 2));
+        ctx.beginPath(); ctx.roundRect(box.x, box.y, box.width, box.height, bounded(layer.backdropRadius ?? 12, 0, Math.min(box.width,box.height) / 2));
         ctx.fillStyle = maskOnly?'#ffffff':layer.backdropColor ?? '#101114'; ctx.globalAlpha = alpha * (maskOnly?1:bounded(layer.backdropOpacity ?? .8,0,1)); ctx.fill();
         if(!maskOnly && layer.backdropStroke && (layer.backdropStrokeWidth ?? 1)>0) {
           ctx.globalAlpha = alpha * bounded(layer.backdropStrokeOpacity ?? 1,0,1);

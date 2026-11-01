@@ -13,9 +13,10 @@ import { snapAlignment, type AlignBox } from '@/lib/alignment';
 import { ANCHOR_AXES, RESIZE_ANCHORS, bounded, frameAABB, mapFramePoint, normalizedAngle, normalizedRadii, pointerRotation, resizeCursor, resizeFrame, rotatePoint, type ResizeAnchor, type TransformFrame, type TransformPoint } from '@/lib/transformGeometry';
 import { modelPathOffset } from '@/lib/modelMotionPath';
 import CanvasInlineTextEditor from './CanvasInlineTextEditor';
+import {textBackdropBox} from '@/lib/textPadding';
 
 let measureContext: CanvasRenderingContext2D | null = null;
-interface LocalBounds { width: number; height: number; left: number }
+interface LocalBounds { width: number; height: number; left: number; top?:number }
 const measuredBounds = new WeakMap<TextLayer, { revision: number; canvasWidth: number; box: LocalBounds }>();
 function bounds(layer: TextLayer, canvasWidth: number): LocalBounds {
   if (layer.media) return { width: layer.media.width, height: layer.media.height, left: -layer.media.width / 2 };
@@ -28,13 +29,14 @@ function bounds(layer: TextLayer, canvasWidth: number): LocalBounds {
   const lineWidth = (line: string) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * spacing;
   const size = layer.backdrop ? captionFontSize(layer.size, Math.max(0, ...lines.map(lineWidth)), canvasWidth) : layer.size;
   ctx.font = font(size);
-  const w = Math.max(20, ...lines.map(lineWidth)), pad = layer.backdrop ? 18 : 0;
-  const box = { width: w + pad * 2, height: lines.length * size * layer.lineHeight + (layer.backdrop ? 30 : 0), left: (layer.align === 'left' ? 0 : layer.align === 'right' ? -w : -w / 2) - pad };
+  const w = Math.max(20, ...lines.map(lineWidth)),inkHeight=lines.length*size*layer.lineHeight;
+  const padded=textBackdropBox(w,inkHeight,layer.align,layer.backdropPadding);
+  const box = layer.backdrop?{width:padded.width,height:padded.height,left:padded.x,top:padded.y}:{width:w,height:inkHeight,left:layer.align==='left'?0:layer.align==='right'?-w:-w/2,top:-inkHeight/2};
   measuredBounds.set(layer, { revision, canvasWidth, box }); return box;
 }
 function layerFrame(layer: TextLayer, width: number, seconds: number): TransformFrame {
   const b = bounds(layer, width), motion=textMotion(layer,seconds), sx = bounded(layer.scaleX ?? 1, .05, 20)*motion.scale, sy = bounded(layer.scaleY ?? 1, .05, 20)*motion.scale;
-  const c = rotatePoint({ x: (b.left + b.width / 2) * sx, y: 0 }, layer.rotation+motion.rotation);
+  const c = rotatePoint({ x: (b.left + b.width / 2) * sx, y: ((b.top??-b.height/2)+b.height/2)*sy }, layer.rotation+motion.rotation);
   return { cx: layer.x + motion.x + c.x, cy: layer.y + motion.y + c.y, width: b.width * sx, height: b.height * sy, rotation: layer.rotation+motion.rotation };
 }
 function modelFrame(id: string): TransformFrame | null {
