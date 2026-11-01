@@ -104,7 +104,11 @@ export async function deleteCompositionLayers(ids: string[]) {
   const revision = sceneRestoreRevision(), s = useSceneStore.getState(), pt = useUIStore.getState().locale === 'pt';
   const removable = ids.filter(id => s.tracks.some(l => l.id === id) || s.textLayers.some(l => l.id === id && !l.locked));
   if (!removable.length) return;
-  const message = removable.length > 1 ? (pt ? `Excluir ${removable.length} camadas da composição?` : `Delete ${removable.length} composition layers?`) : (pt ? 'Excluir esta camada da composição?' : 'Delete this composition layer?');
+  const removesLastModel = s.tracks.length > 0 && s.tracks.every(t => removable.includes(t.id));
+  const message = removable.length === 1 && removesLastModel
+    ? (pt ? 'Este é o último modelo. Ocultá-lo da composição? A camada base será mantida para novos modelos.' : 'This is the last model. Hide it from the composition? The base layer is kept for new models.')
+    : (removable.length > 1 ? (pt ? `Excluir ${removable.length} camadas da composição?` : `Delete ${removable.length} composition layers?`) : (pt ? 'Excluir esta camada da composição?' : 'Delete this composition layer?'))
+      + (removesLastModel ? (pt ? ' O último modelo será mantido oculto como base do editor.' : ' The last model is kept hidden as the editor base.') : '');
   if (!await confirmLayer(message, pt) || revision !== sceneRestoreRevision()) return;
   const current = useSceneStore.getState();
   let tracks = current.tracks.filter(l => !removable.includes(l.id));
