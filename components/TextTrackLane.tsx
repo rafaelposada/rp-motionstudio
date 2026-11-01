@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
-import { LayerDragHandle, layerDragProps } from './LayerDropTarget';
+import { LayerDragHandle, timelineLayerDragProps } from './LayerDropTarget';
 import type { TextLayer } from '@/lib/textLayers';
 import { deleteCompositionLayer, selectOverlayForEditing } from '@/lib/compositionActions';
 import { useHistoryStore } from '@/store/useHistoryStore';
@@ -30,8 +30,8 @@ export default function TextTrackLane({ layer, duration }: { layer: TextLayer; d
     <button className="tl-lane-btn" title={pt ? 'Mostrar / ocultar camada' : 'Show / hide layer'} onClick={() => patch(layer.id, { visible: !layer.visible })}>{layer.visible ? '◉' : '○'}</button>
     <button className="tl-lane-btn" title={pt ? 'Bloquear / desbloquear camada' : 'Lock / unlock layer'} onClick={() => patch(layer.id, { locked: !layer.locked })}>{layer.locked ? '▣' : '□'}</button>
     <button className="tl-lane-btn danger" title={pt ? 'Excluir camada' : 'Delete layer'} disabled={layer.locked} onClick={() => remove(layer.id)}>×</button>
-  </div><div className="tl-lane-bars" ref={axis}><div className="tl-bar tl-text-bar" style={{ left: `${Math.max(0, layer.start) / duration * 100}%`, width: `${Math.max(0, Math.min(duration, layer.end) - layer.start) / duration * 100}%` }} onPointerDown={begin('move')} onPointerMove={move} onPointerUp={() => finish()} onPointerCancel={() => finish(true)}>
-    <span className="tl-bar-label" {...layerDragProps(layer.id)} onClick={e => { e.stopPropagation(); selectOverlayForEditing(layer.id, e.shiftKey, false, 'timeline'); }} title={pt ? 'Arraste o nome para ordenar camadas' : 'Drag the name to reorder layers'}><b>{layer.media ? '▧' : 'T'} · {layer.text.slice(0, 40)}</b></span>
+  </div><div className="tl-lane-bars" ref={axis}><div className="tl-bar tl-text-bar" style={{ left: `${Math.max(0, layer.start) / duration * 100}%`, width: `${Math.max(0, Math.min(duration, layer.end) - layer.start) / duration * 100}%` }} {...timelineLayerDragProps(layer.id,e=>selectOverlayForEditing(layer.id,e.shiftKey,!e.shiftKey,'timeline'),begin('move'),move,finish)}>
+    <span className="tl-bar-label"><b>{layer.media ? '▧' : 'T'} · {layer.text.slice(0, 40)}</b></span>
     <span className="tl-bar-edge in" onPointerDown={begin('start')} onPointerMove={move} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} />
     <span className="tl-bar-edge out" onPointerDown={begin('end')} onPointerMove={move} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} />
   </div></div></div>;

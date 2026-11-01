@@ -1,5 +1,6 @@
 import type { ControlDef } from '@/lib/types';
 import type { Locale } from '@/lib/i18n';
+import { EDITOR_HELP } from './editorHelp';
 
 type HelpPair = { en: string; pt: string };
 
@@ -212,8 +213,8 @@ const UI_HELP: Record<string, HelpPair> = {
     pt: 'Abre os controles do logo sobreposto. Adicionar ou substituir o logo preserva a animação e as mídias dos cartões.',
   },
   gradient: {
-    en: 'Blends two background colours. Turning it on creates a transition; turning it off uses one solid colour.',
-    pt: 'Mistura duas cores no fundo. Ligado cria uma transição; desligado usa uma única cor sólida.',
+    en: 'Blends up to eight colors. Adjust their opacity, positions, direction and shape.',
+    pt: 'Mistura até oito cores. Ajuste opacidade, posições, direção e forma da transição.',
   },
   backgroundImage: {
     en: 'Uses an uploaded image as the canvas background. Replacing it changes only the background, not card media.',
@@ -250,20 +251,16 @@ function normalize(value: string): string {
 }
 
 export function controlHelp(def: ControlDef, locale: Locale, displayLabel: string): string {
-  const calculationHelp = locale === 'pt'
-    ? ' O campo ƒx aceita um valor exato ou um cálculo, como 100/2, 20+5 ou 3*12; pressione Enter para aplicar. Parâmetros fracionários aceitam precisão de centésimos.'
-    : ' The ƒx field accepts an exact value or a calculation such as 100/2, 20+5 or 3*12; press Enter to apply. Fractional parameters accept hundredth precision.';
-  const known = CONTROL_HELP[normalize(def.label)] ?? CONTROL_HELP[normalize(displayLabel)];
-  if (known) return known[locale] + (def.type === 'slider' ? calculationHelp : '');
+  const editorKey = def.key === 'size' && !/text|texto|font|fonte/i.test(def.label) ? '' : def.key;
+  const known = EDITOR_HELP[editorKey] ?? CONTROL_HELP[normalize(def.label)] ?? CONTROL_HELP[normalize(displayLabel)];
+  if (known) return known[locale];
   if (locale === 'en' && def.description) {
-    return def.type === 'slider'
-      ? `${def.description} Move toward the maximum to emphasize this behaviour; toward the minimum to reduce or reverse it.${calculationHelp}`
-      : def.description;
+    return def.description;
   }
   if (def.type === 'slider') {
     return locale === 'pt'
-      ? `Ajusta ${displayLabel.toLowerCase()}. Valores próximos do máximo acentuam esse comportamento; valores próximos do mínimo reduzem ou invertem o resultado.${calculationHelp}`
-      : `Adjusts ${displayLabel.toLowerCase()}. Values near the maximum emphasize this behaviour; values near the minimum reduce or reverse it.${calculationHelp}`;
+      ? `Ajusta ${displayLabel.toLowerCase()} neste modelo, de ${def.min ?? 0} a ${def.max ?? 100}${def.unit ?? ''}. Compare o resultado na prévia ao alterar o valor.`
+      : `Adjusts ${displayLabel.toLowerCase()} in this model, from ${def.min ?? 0} to ${def.max ?? 100}${def.unit ?? ''}. Compare the preview while changing it.`;
   }
   if (def.type === 'xypad') {
     return locale === 'pt'

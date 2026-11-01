@@ -1,10 +1,10 @@
 {
   "name": "rp-motionstudio",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "RP MotionStudio — editor local de composição e animação, baseado em Motion Studio.",
   "main": "index.js",
   "scripts": {
-    "test": "node scripts/verify-tilt.cjs && node scripts/verify-catalogue.cjs && node scripts/verify-contexts.cjs && node scripts/verify-reference.cjs && node scripts/verify-editor.cjs && node scripts/verify-settings.cjs && node scripts/verify-performance.cjs && node scripts/verify-animation.cjs && node scripts/verify-transforms.cjs && node scripts/verify-home.cjs && node scripts/verify-workflow.cjs && node scripts/verify-workspace.cjs",
+    "test": "node scripts/verify-tilt.cjs && node scripts/verify-catalogue.cjs && node scripts/verify-contexts.cjs && node scripts/verify-reference.cjs && node scripts/verify-editor.cjs && node scripts/verify-settings.cjs && node scripts/verify-performance.cjs && node scripts/verify-animation.cjs && node scripts/verify-transforms.cjs && node scripts/verify-home.cjs && node scripts/verify-workflow.cjs && node scripts/verify-workspace.cjs && node scripts/verify-finishing.cjs",
     "dev": "next dev",
     "dev:network": "next dev -H 0.0.0.0",
     "build": "next build",

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { TextLayer } from '@/lib/textLayers';
+import { audioSettings, DEFAULT_AUDIO, type AudioSettings } from '@/lib/audioEnvelope';
+import type { BackgroundGradient } from '@/lib/backgroundGradient';
 import { defaultsFor, easingFor, templates } from '@/templates';
 import type { EasingSpec } from '@/lib/easing';
 import type { CropFocus, MediaFit } from '@/lib/crop';
@@ -52,6 +54,7 @@ export interface BackgroundSettings {
   source: 'color' | 'image' | 'card'; // solid/gradient · uploaded image · reflected from the featured card
   color: string;
   gradient: boolean;
+  gradientSpec?: BackgroundGradient;
   color2: string;
   imageUrl: string | null;            // for source: 'image'
   blur: number;                       // px blur for image/card backgrounds
@@ -116,6 +119,7 @@ export interface SceneState {
   logo: LogoSettings;
   audioUrl: string | null;
   audioBlobId?: string;
+  audioSettings: AudioSettings;
 
   // assets → layer slots
   assets: AssetItem[];
@@ -291,6 +295,7 @@ function initialSceneState() {
     background: { source: 'color' as const, color: '#0d0d0d', gradient: false, color2: '#1f1f1f', imageUrl: null, blur: 28 },
     logo: { url: null, position: 'br' as const, size: 96 },
     audioUrl: null,
+    audioSettings: { ...DEFAULT_AUDIO },
     audioBlobId: undefined as string | undefined,
 
     // Start with neutral numbered cards so motion is visible before media is added.
@@ -596,6 +601,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         textLayers: partial.textLayers ?? [],
         compositeMode: partial.compositeMode ?? 'single',
         audioBlobId: partial.audioBlobId,
+        audioSettings: audioSettings(partial.audioSettings),
         assets,
         ...projectActive(safeTracks, activeId),
         frame: 0, // always start at the clip head

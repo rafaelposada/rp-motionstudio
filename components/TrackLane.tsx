@@ -7,7 +7,7 @@ import { trackWindow, type MotionTrack } from '@/lib/tracks';
 import { deleteCompositionLayer, selectModelForEditing, moveCompositionLayer } from '@/lib/compositionActions';
 import { compositionOrder } from '@/lib/composition';
 import { useUIStore } from '@/store/useUIStore';
-import { LayerDragHandle, layerDragProps } from './LayerDropTarget';
+import { LayerDragHandle, timelineLayerDragProps } from './LayerDropTarget';
 import { layerDisplayName, duplicateCompositionLayers, selectedCompositionIds } from '@/lib/compositionActions';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection, type TimelineWindow } from '@/lib/timelineSelection';
@@ -154,10 +154,7 @@ export default function TrackLane({
         <div
           className="tl-bar"
           style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-          onPointerDown={onPointerDown('move')}
-          onPointerMove={onPointerMove}
-          onPointerUp={() => onPointerUp()}
-          onPointerCancel={() => onPointerUp(true)}
+          {...timelineLayerDragProps(track.id,e=>selectModelForEditing(track.id,e.shiftKey,!e.shiftKey,'timeline'),onPointerDown('move'),onPointerMove,onPointerUp)}
           title={`${name} · ${templateName}`}
         >
           {/* The alpha envelope the renderer applies at the window edges. Only
@@ -171,7 +168,7 @@ export default function TrackLane({
             />
           )}
 
-          <span className="tl-bar-label" {...layerDragProps(track.id)} onClick={e => { e.stopPropagation(); selectModelForEditing(track.id, e.shiftKey, false, 'timeline'); }} title={pt ? 'Arraste o nome para ordenar camadas' : 'Drag the name to reorder layers'}>
+          <span className="tl-bar-label">
             <b>{name}</b>
             <em>{templateName}</em>
           </span>

@@ -9,6 +9,7 @@ import { useUIStore } from '@/store/useUIStore';
 import FontBrowser from './FontBrowser';
 import ColorField from './ColorField';
 import ShadowEditor from './ShadowEditor';
+import LayerAnimationControls from './LayerAnimationControls';
 import { moveCompositionLayer, deleteCompositionLayer, selectOverlayForEditing } from '@/lib/compositionActions';
 
 const FONTS = ['Arial', 'Georgia', 'monospace', 'Inter', 'Roboto', 'Montserrat', 'Poppins', 'DM Sans', 'Manrope', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Lora', 'Merriweather', 'Space Grotesk'];
@@ -88,10 +89,7 @@ export default function TextPanel() {
       <label className="text-edit-label"><span><input type="checkbox" checked={layer.backdrop ?? false} onChange={(e) => patch(layer.id, { backdrop: e.target.checked })} /> {pt ? 'Fundo de contraste atrás do texto' : 'Contrast background behind text'}</span></label>
       {layer.backdrop && <ControlRow def={{key:'backdropRadius',label:pt?'Cantos do fundo':'Backdrop corners',type:'slider',min:0,max:200,step:1,unit:'px',default:12}} value={layer.backdropRadius??12} onChange={value=>patch(layer.id,{backdropRadius:Number(value)})}/>}
       <h3 className="text-section-title">{pt ? 'Animação e duração' : 'Animation and timing'}</h3>
-      <label className="text-edit-label">{pt ? 'Animação do texto' : 'Text animation'}<select className="field" value={layer.animation ?? 'none'} onChange={(e) => patch(layer.id, { animation: e.target.value as TextLayer['animation'], animationDuration: layer.animationDuration ?? 0.35 })}><option value="none">{pt ? 'Sem animação' : 'None'}</option><option value="fade">{pt ? 'Desvanecer' : 'Fade'}</option><option value="rise">{pt ? 'Subir suavemente' : 'Rise'}</option><option value="typewriter">{pt ? 'Digitar' : 'Typewriter'}</option></select></label>
-      {layer.animation && layer.animation !== 'none' && numberControl('animationDuration', pt ? 'Duração da transição (s)' : 'Transition duration (s)', 0.05, 2, 0.05)}
-      {numberControl('start', pt ? 'Entrada (s)' : 'Start (s)', 0, duration, 0.01)}
-      {numberControl('end', pt ? 'Saída (s)' : 'End (s)', 0, duration, 0.01)}
+      <LayerAnimationControls layer={layer} pt={pt}/>
     </>}
   </div>;
 }

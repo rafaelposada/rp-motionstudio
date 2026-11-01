@@ -9,6 +9,7 @@ import { assetIndexForSlot, clamp, lerp } from '@/lib/motion';
 import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
+import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
 import { cardAspectFor, coverCrop, cropKey } from '@/lib/crop';
 import { advanceVideoForExport, createCardVideo, isVideoSource, prepareVideoForSequentialExport } from '@/lib/videoTexture';
@@ -106,21 +107,6 @@ function makeCornerAlphaMap(fracR: number, aspect: number): THREE.CanvasTexture 
   g.roundRect(0, 0, W, H, r);
   g.fill();
   const tex = new THREE.CanvasTexture(c);
-  return tex;
-}
-
-// 2-stop vertical gradient texture for the scene backdrop.
-function makeGradientTexture(c1: string, c2: string): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 2; c.height = 512;
-  const g = c.getContext('2d')!;
-  const grad = g.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, c1);
-  grad.addColorStop(1, c2);
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 2, 512);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -728,10 +714,11 @@ export class SceneRenderer3D implements IRenderer {
     // Background parity with Pixi: solid, gradient, uploaded image, or an
     // asset reflected from the active motion layer.
     if (s.background.source === 'color' && s.background.gradient) {
-      const sig = s.background.color + '|' + s.background.color2;
+      const spec = gradientFor(s.background), sig = JSON.stringify([spec,s.width,s.height]);
       if (this.gradientSig !== sig) {
         this.gradientTex?.dispose();
-        this.gradientTex = makeGradientTexture(s.background.color, s.background.color2);
+        this.gradientTex = new THREE.CanvasTexture(gradientCanvas(spec,s.width,s.height));
+        this.gradientTex.colorSpace = THREE.SRGBColorSpace;
         this.gradientSig = sig;
       }
       this.scene.background = this.gradientTex;
@@ -1156,6 +1143,9 @@ export class SceneRenderer3D implements IRenderer {
         if (!layer.visible || frame / s.fps < layer.start || frame / s.fps >= layer.end) return;
         let rt = this.overlays.get(item.id);
         if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages); const texture = new THREE.CanvasTexture(raster.canvas); texture.colorSpace = THREE.SRGBColorSpace; rt = { raster, texture }; this.overlays.set(item.id, rt); }
+        // The compositor consumes premultiplied layer RGB. Canvas textures
+        // otherwise upload straight RGB, cancelling text opacity and fades.
+        rt.texture.premultiplyAlpha = true;
         if (rt.raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages)) rt.texture.needsUpdate = true;
         texture = rt.texture;
       }

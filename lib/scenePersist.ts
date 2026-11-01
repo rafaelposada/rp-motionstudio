@@ -40,6 +40,7 @@ export function buildScenePartial(s: SceneState) {
     safeArea: s.safeArea,
     audioUrl: s.audioUrl?.startsWith('blob:') ? null : s.audioUrl,
     audioBlobId: s.audioBlobId,
+    audioSettings: s.audioSettings,
     // blob-backed logo/background images aren't persisted (they'd be dead on
     // reload); remote/color backgrounds and logos restore normally.
     background: s.background.imageUrl?.startsWith('blob:')
@@ -116,7 +117,7 @@ export function startSceneAutosave(): () => void {
   const persistedKeys = [
     'tracks', 'textLayers', 'compositeMode', 'activeTrackId', 'fps', 'duration', 'aspect', 'width', 'height',
     'customW', 'customH', 'safeArea', 'background', 'logo', 'cardShape',
-    'videoEnd', 'effects', 'assets', 'audioUrl', 'audioBlobId',
+    'videoEnd', 'effects', 'assets', 'audioUrl', 'audioBlobId', 'audioSettings',
   ] as const;
   const flush = () => {
     timer = null;

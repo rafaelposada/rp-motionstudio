@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/useI18n';
 import InfoHint, { InfoLabel } from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
 import { idbPut } from '@/lib/assetDb';
+import GradientEditor from './GradientEditor';
 
 const FPS_OPTIONS = [15, 25, 30, 60] as const;
 const BG_SOURCES = ['color', 'image', 'card'] as const;
@@ -170,7 +171,7 @@ export default function CanvasPanel({ is3DMode = false }: { is3DMode?: boolean }
 
           {background.source === 'color' && (
             <>
-              <ControlRow def={{ key: 'bgc', label: t('colour'), type: 'color', default: '' }} value={background.color} onChange={(v) => setBackground({ color: v })} />
+              {!background.gradient && <ControlRow def={{ key: 'bgc', label: t('colour'), type: 'color', default: '' }} value={background.color} onChange={(v) => setBackground({ color: v })} />}
               <div className="ctl-row">
                 <InfoLabel help={uiHelp('gradient', locale)} name={t('gradient')}>{t('gradient')}</InfoLabel>
                 <div className="segmented">
@@ -178,9 +179,7 @@ export default function CanvasPanel({ is3DMode = false }: { is3DMode?: boolean }
                   <button className={`seg ${background.gradient ? 'active' : ''}`} onClick={() => setBackground({ gradient: true })}>{t('on')}</button>
                 </div>
               </div>
-              {background.gradient && (
-                <ControlRow def={{ key: 'bgc2', label: 'Colour 2', type: 'color', default: '' }} value={background.color2} onChange={(v) => setBackground({ color2: v })} />
-              )}
+              {background.gradient && <GradientEditor pt={locale==='pt'}/>}
             </>
           )}
 

@@ -1,8 +1,21 @@
 # RP MotionStudio
 
-Versão personalizada do [Motion Studio](https://github.com/appariciojunior/motion-studio-open),
-de appariciojunior e colaboradores. Editor de composição e animação com processamento
-local, interface em português/inglês e exportação usando FFmpeg instalado no computador.
+Editor local de composição e animação com biblioteca de modelos, camadas de texto,
+imagens absolutas, áudio e exportação para pastas do computador. Interface em
+português e inglês. Desenvolvimento da versão RP e direção do produto: Rafael Posada.
+
+## Apoio, contato e feedback
+
+Quer ajudar a melhorar o RP MotionStudio e criar novas soluções? Você pode
+apoiar com o valor que quiser. Entre em contato para combinar o apoio, enviar
+sugestões, reportar bugs ou conversar sobre o aplicativo.
+
+- Instagram: [@rafaelposada](https://instagram.com/rafaelposada)
+- Site: [rafaelposada.com](https://rafaelposada.com)
+- E-mail profissional: [contato@rafaelposada.com](mailto:contato@rafaelposada.com)
+
+O menu **Configurações → Apoio e contato** reúne os mesmos canais.
+Nenhuma cobrança é processada pelo aplicativo.
 
 ## Executar localmente
 
@@ -20,7 +33,7 @@ O serviço foi projetado para uso individual, sem autenticação; mantenha-o res
 ao computador. Publicar o código no GitHub não hospeda o editor nem seus projetos.
 O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao enviar código.
 
-## Personalizações desta versão
+## Recursos
 
 - Painéis com largura/altura ajustáveis, preferências persistentes e aparência Sistema/claro/escuro.
 - Identidade RP em SVG e favicon que acompanha o tema do editor.
@@ -32,8 +45,11 @@ O workflow herdado de GitHub Pages tem acionamento manual e não é executado ao
 - Cinco abas por ícones: Movimento, Tela, Mídia, Texto e Camadas. A aba Mídia reúne
   as imagens dos modelos, imagens absolutas e áudio.
 - Seleção múltipla de camadas com Shift, transformação em grupo, duplicação e
-  exclusão com uma etapa de desfazer. Arraste o nome ou a alça para ordenar.
+  exclusão com uma etapa de desfazer. Na linha do tempo, arraste qualquer área: vertical ordena, horizontal ajusta o tempo.
 - Camadas de texto e imagens absolutas, ordem de profundidade, contorno, sombra e opacidade.
+- Entrada e saída independentes, com tempos editáveis por camada.
+- Áudio com volume e fades na prévia e no MP4.
+- Gradientes com até oito pontos de cor/opacidade, presets e formas linear, radial e cônica.
 - Duplo clique edita o texto na composição; Esc cancela, ⌘/Ctrl+Enter conclui.
 - Rotação pela área externa dos quatro cantos, com leitura do ângulo e encaixe de 15° com Shift.
 - Botão de ampliar preview dentro da janela; Esc restaura os painéis.
@@ -71,177 +87,9 @@ npm test
 npm run build
 ```
 
-## Licença e créditos
+## Licença e atribuições
 
-O código deriva de Motion Studio. A autoria original, os avisos e a licença
-**PolyForm Noncommercial License 1.0.0** permanecem preservados em [LICENSE](LICENSE).
-A disponibilidade pública deste repositório não altera as restrições da licença original.
-As personalizações desta versão não representam autoria sobre o projeto original.
-As adições importadas do upstream em outubro de 2026 têm os avisos Apache-2.0
-preservados em [NOTICE](NOTICE) e [licenses](licenses). Isso não substitui a licença
-da base anterior. O shader Liquid Glass também preserva sua atribuição MIT.
-
-## Documentação original
-
-A documentação abaixo foi mantida como referência do projeto de origem. Links de
-demonstração e descrições históricas se referem ao Motion Studio original.
-
----
-
-# motion-studio-open
-
-An **open-source factory for quick videos and GIFs**. Drag in images, pick a
-motion template, tweak live controls, preview in real time, and export MP4/GIF
-via native ffmpeg. Runs self-hosted on localhost — single machine, no auth.
-
-![UI — light mode](ui-light.png)
-
-![UI — dark mode](ui-dark.png)
-
-## Try it live
-
-**https://appariciojunior.github.io/motion-studio-open/**
-
-The hosted demo is a static build (auto-deployed from `main` via GitHub
-Pages) — every template, control, and preview works in the browser. The only
-exception is MP4/GIF export, which uses a native ffmpeg pipeline: clone the
-repo and `npm run dev` to export.
-
-## Stack
-
-- **Next.js** (App Router, TypeScript)
-- **PixiJS v8** — sprites are image layers, filters are effects (GPU)
-- **Zustand** — single live state, read every frame by the Pixi ticker
-- **native ffmpeg** — deterministic frame-stepped export (`/api/export`)
-
-## Run
-
-```bash
-npm install
-npm run dev          # → http://localhost:3000
-brew install ffmpeg  # required only for MP4/GIF export
-```
-
-## Architecture
-
-```
-Layers (assets → Pixi sprites, slots in order)
-  → Motion   templates/*.ts  transform(frame, i, count, values, ctx)  ← SEAM 1
-  → Composite (depth-sorted stage)
-  → Effects  effects/*.ts    ordered Pixi filter stack                ← SEAM 2
-  → getFrameState(frame) — ONE clock for live preview AND export
-```
-
-Principles: one live state read every frame · templates fully self-declare
-their controls · full value reset on template switch · fixed 8-type control
-vocabulary · shared `cardPath` helper (line / arc / ring / zwall) · every
-template ships a default easing curve (`lib/easing.ts`).
-
-## Motion templates
-
-17 families, 68 presets in `templates/` — each family is one file; variants are
-preset bundles over the same pure transform (`templates/variant.ts`).
-
-| Family | Motion |
-|---|---|
-| **Runway** | cards glide past in a row; the featured card grows at centre |
-| **Orbit** | cards circle an ellipse — plus true-3D WebGL variants (`orbit3d.ts`) |
-| **Shuffle** | a perspective deck: the front card lifts away, followers advance |
-| **Ferris** | cards ride a rotating ring or fan arc |
-| **Warp** | a starfield — cards drift out of depth toward the camera |
-| **Takeover** | full-bleed images push in from an edge, hard-covering the last |
-| **Spotlight** | one dominant featured card with neighbours peeking at the edges |
-| **Pulse** | cards take turns at centre, cross-fading on a cycle |
-| **Globe** | images tiled over a slowly spinning sphere (Fibonacci layout) |
-| **Helix** | the camera corkscrews through a spiral staircase of cards |
-| **Voyage** | a slow cinematic pan-and-zoom across a scattered collage |
-| **Bounce** | cards drop and bounce on analytic physics (one-shot by design) |
-| **Drift** | a multi-layer parallax wall; includes the seeded Scatter field |
-| **Dive** | Ken-Burns zoom slideshow; includes the infinite Zoom tunnel |
-| **Dock** | a dense tile grid; tiles near the focus point magnify, macOS-dock style |
-| **Editorial** | magazine panels swept in one-by-one, held, swept out in reverse |
-| **Canvas** | a blank, static slate to build from |
-
-**Seamless loops.** Every template quantizes its speed to a whole number of
-motif cycles per clip via `loopCycles()` (`lib/motion.ts`), so frame 0 ≡ frame
-`totalFrames` and exported MP4/GIF loops never pop. Conveyor templates use
-`period = count` so textures land back on their own slots. Templates that are
-one-shot by design (Bounce) simply skip the helper. `meta.repeatAssets` lets
-high-count fields (Dock, Editorial, Warp, Drift Scatter, Dive Zoom) cycle a
-small image set across hundreds of layers.
-
-**Deliberately not implemented** (from the reference-tool analysis): per-lane
-offset sliders (a single lane-offset control covers it), a global `delay` param
-(in a perfect loop it is just a phase rotation), and `count=0` auto-fill
-(conflicts with the slot model; `repeatAssets` covers the intent).
-
-## Easing
-
-Every template carries a cubic-bezier easing curve editable in the Easing block
-(`components/EasingPanel.tsx`). The preset library (`lib/easing.ts`) covers the
-signature curves (Flow, Glide, Linear, Ease, Sweep, Smooth, Flip, Settle,
-Snap), the standard Sine/Quad/Cubic/Quart/Expo families, physics curves
-(Bounce, Spring, Wiggle, Overshoot), and hand-dragged custom beziers. The
-renderer resolves the curve once per frame and reshapes each motion's cyclic
-phase while keeping loops seamless.
-
-## Design system
-
-Light, Figma-style UI: flat white panels separated by 1px hairlines on a soft
-grey stage, Tailwind-gray text scale, Inter, square corners. Every colour,
-radius, and type size lives in one token sheet — `styles/tokens.css` — so
-restyling the whole app is a one-file edit. A dark theme ships under
-`:root[data-theme="dark"]`.
-
-## Duplicate & contribute
-
-Want your own copy or want to add to this one? The codebase is deliberately
-small and seam-oriented — most contributions touch exactly one file.
-
-**Get it running**
-
-```bash
-git clone <your fork>
-cd motion-studio-open && npm install && npm run dev
-npx tsc --noEmit   # the only required check — keep it clean
-```
-
-**Where things live**
-
-```
-templates/   one file per motion family + index.ts registry
-effects/     Pixi filter effects (same self-declaring pattern)
-lib/         renderer, easing, loop math, card paths, types
-components/  panels (templates, controls, easing, timeline, preview)
-store/       the single Zustand state
-styles/      tokens.css — the entire visual system
-app/api/     ffmpeg export route
-```
-
-**Add a motion template** (the most common contribution):
-
-1. Copy the closest existing family in `templates/` to a new file.
-2. Declare your controls (slider / segmented / xypad / toggle… — 8 fixed types)
-   and give the family a `meta` block: id, name, group, `defaultEasing`.
-3. Write the pure transform `(frame, i, count, values, ctx)` → position, scale,
-   alpha, rotation, depth. Route your phase through `ctx.easedPhase` so the
-   scene's easing curve applies, and quantize speed with `loopCycles()` so the
-   clip loops seamlessly.
-4. Register it in `templates/index.ts`. Done — the sidebar group, control
-   panel, easing block, thumbnail, and export all pick it up automatically.
-   Ship variants as preset bundles via `templates/variant.ts`.
-
-Ground rules: transforms stay **pure and deterministic** (no `Math.random` —
-use the seeded hash pattern in `field.ts`/`gravity.ts`), never read state
-outside `values`/`ctx`, and keep template IDs stable once shipped (display
-names can change freely; IDs are what saved projects reference).
-
-**Restyle it**: edit `styles/tokens.css` only — components never hardcode
-colours. **New effects**: same pattern as templates, in `effects/`.
-
-## Collaborators
-
-Thanks to [@quefreen](https://github.com/quefreen),
-[@milkatx](https://github.com/milkatx), and
-[@davicorrea0](https://github.com/davicorrea0) for the help, support, and
-quick repo edits.
+RP MotionStudio é uma versão modificada baseada no [Motion Studio](https://github.com/appariciojunior/motion-studio-open),
+de appariciojunior e colaboradores; não é o aplicativo oficial. A base preserva a
+[PolyForm Noncommercial 1.0.0](LICENSE). Componentes adicionais preservam suas
+licenças Apache-2.0 e MIT em [NOTICE](NOTICE) e [licenses](licenses).

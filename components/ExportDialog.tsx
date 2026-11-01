@@ -193,6 +193,7 @@ export default function ExportDialog({ onClose }: { onClose: () => void }) {
         width: target.width,
         height: target.height,
         audio,
+        audioSettings: s.audioSettings,
       });
 
       setOutputs(files as string[]);

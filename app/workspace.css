@@ -1,4 +1,27 @@
 /* Workspace controls share spacing and remain usable at the inspector minimum. */
+.info-tooltip {position:fixed;z-index:10000;width:min(280px,calc(100vw - 24px));padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);box-shadow:0 8px 28px #0003;font:400 12px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:0;text-transform:none;pointer-events:none;user-select:none;-webkit-user-select:none;}
+.layer-animation-controls, .gradient-editor { display:flex;flex-direction:column;gap:16px;min-width:0; }
+.gradient-presets {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
+.gradient-presets button {height:32px;border-radius:6px;border:1px solid var(--line);}
+.gradient-ramp {position:relative;height:36px;margin:4px 9px 18px;border:1px solid var(--line);border-radius:6px;}
+.gradient-ramp button {position:absolute;top:26px;transform:translateX(-50%);width:18px;height:24px;border:2px solid var(--card);border-radius:4px;touch-action:none;cursor:ew-resize;}
+.gradient-ramp button.selected {outline:2px solid var(--accent-text);outline-offset:1px;}
+.gradient-actions {display:flex;gap:6px;}
+.gradient-actions .btn {flex:1;padding:7px 5px;font-size:11px;}
+.layer-drop-target.layer-drop-over {box-shadow:none;background:transparent;}
+.layer-drop-over .tl-bar, .layer-drop-over .composition-row {outline:1px dashed var(--accent-text);outline-offset:-1px;}
+.tl-lane.active .tl-bar, .tl-lane.active .tl-bar b, .tl-lane.active .tl-bar em {color:var(--accent-on);}
+.tl-bar-label {pointer-events:none;}
+.projects-header .project-new {border:0;box-shadow:none;outline:none;}
+.projects-header .project-new:focus-visible {outline:2px solid var(--accent-text);outline-offset:3px;}
+.support-panel {font-size:13px;line-height:1.6;}
+.support-panel > p {color:var(--fg-muted);}
+.support-callout {margin:22px 0;padding:16px;border:1px solid var(--line);border-radius:10px;}
+.support-callout p {margin:8px 0 0;color:var(--fg-muted);}
+.support-links {display:flex;flex-direction:column;gap:8px;margin:20px 0;}
+.support-links a {display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:12px 14px;border-radius:8px;background:var(--card-inset);text-decoration:none;color:var(--fg);}
+.support-links a span {color:var(--fg-muted);}
+.support-links a strong {font-weight:500;color:var(--accent-text);overflow-wrap:anywhere;}
 .stage-wrap { overflow: hidden; }
 .stage-canvas { transform: translate(var(--preview-x,0px),var(--preview-y,0px)) scale(var(--preview-zoom,1)); transform-origin: center; flex-shrink: 0; }
 .preview-navigation { position: absolute; z-index: 7; bottom: 10px; left: 12px; display: flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--line); background: var(--card); border-radius: 8px; }

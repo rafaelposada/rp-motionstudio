@@ -35,7 +35,7 @@ const KEYS = [
   'tracks', 'textLayers', 'compositeMode', 'activeTrackId',
   'fps', 'duration',
   'aspect', 'width', 'height', 'customW', 'customH',
-  'safeArea', 'background', 'logo', 'audioUrl', 'audioBlobId',
+  'safeArea', 'background', 'logo', 'audioUrl', 'audioBlobId', 'audioSettings',
   'assets', 'cardShape', 'videoEnd', 'effects',
 ] as const;
 

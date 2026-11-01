@@ -19,18 +19,23 @@ export interface TextLayer {
   media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
   animation?: 'none' | 'fade' | 'rise' | 'typewriter';
   animationDuration?: number; backdrop?: boolean;
+  entrance?: 'none' | 'fade' | 'rise' | 'typewriter';
+  exit?: 'none' | 'fade' | 'rise';
+  entranceDuration?: number; exitDuration?: number;
 }
 
 export function textMotion(layer: TextLayer, seconds: number) {
   const length = Math.max(0.01, layer.end - layer.start);
-  const duration = Math.min(length / 2, Math.max(0.05, layer.animationDuration ?? 0.35));
+  const entrance = layer.entrance ?? layer.animation ?? 'none';
+  const exit = layer.exit ?? (layer.animation && layer.animation !== 'none' ? 'fade' : 'none');
+  const duration = Math.min(length / 2, Math.max(0.05, layer.entranceDuration ?? layer.animationDuration ?? 0.35));
+  const endDuration = Math.min(length / 2, Math.max(0.05, layer.exitDuration ?? layer.animationDuration ?? 0.35));
   const progress = Math.max(0, Math.min(1, (seconds - layer.start) / duration));
-  const fadeOut = Math.max(0, Math.min(1, (layer.end - seconds) / duration));
-  const animated = layer.animation && layer.animation !== 'none';
+  const fadeOut = Math.max(0, Math.min(1, (layer.end - seconds) / endDuration));
   return {
-    opacity: animated ? progress * fadeOut : 1,
-    y: layer.animation === 'rise' ? 30 * (1 - progress) ** 3 : 0,
-    text: layer.animation === 'typewriter' ? [...layer.text].slice(0, Math.ceil([...layer.text].length * progress)).join('') : layer.text,
+    opacity: (entrance !== 'none' ? progress : 1) * (exit !== 'none' ? fadeOut : 1),
+    y: (entrance === 'rise' ? 30 * (1 - progress) ** 3 : 0) - (exit === 'rise' ? 30 * (1 - fadeOut) ** 3 : 0),
+    text: entrance === 'typewriter' ? [...layer.text].slice(0, Math.ceil([...layer.text].length * progress)).join('') : layer.text,
   };
 }
 

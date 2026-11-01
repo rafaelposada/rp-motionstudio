@@ -17,7 +17,8 @@ function beginReorder(e: PointerEvent, id: string) {
   const ids = selectedCompositionIds(id), element = e.currentTarget as HTMLElement;
   let moved = false, over: HTMLElement | null = null;
   const cleanup = () => {
-    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', cancel); window.removeEventListener('blur', cancel);
+    window.removeEventListener('pointermove', move, true); window.removeEventListener('pointerup', end, true); window.removeEventListener('pointercancel', cancel, true); window.removeEventListener('blur', cancel); window.removeEventListener('keydown', key, true);
+    over?.classList.remove('layer-drop-over');
     document.querySelectorAll('.layer-drop-over').forEach(node => node.classList.remove('layer-drop-over')); element.classList.remove('layer-is-sorting');
     if (element.hasPointerCapture?.(pointerId)) element.releasePointerCapture(pointerId);
     cancelReorder = null;
@@ -38,8 +39,36 @@ function beginReorder(e: PointerEvent, id: string) {
     if (moved && overId && revision === sceneRestoreRevision()) reorderCompositionLayer(id, overId, ids);
   };
   const cancel = () => { if (moved) suppressClick = { id, until: performance.now() + 300 }; cleanup(); };
+  const key = (event: KeyboardEvent) => { if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();cancel();} };
   cancelReorder = cancel;
-  window.addEventListener('pointermove', move, { passive: false }); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', cancel); window.addEventListener('blur', cancel);
+  window.addEventListener('pointermove', move, { passive: false, capture:true }); window.addEventListener('pointerup', end, true); window.addEventListener('pointercancel', cancel, true); window.addEventListener('blur', cancel); window.addEventListener('keydown',key,true);
+  return {move};
+}
+// Horizontal drags move time; vertical drags sort the same whole clip surface.
+export function timelineLayerDragProps(id:string, select:(e:PointerEvent)=>void, start:(e:PointerEvent)=>void, move:(e:PointerEvent)=>void, finish:(cancel?:boolean)=>void) {
+  return {onPointerDown:(e:PointerEvent)=>{
+    if(e.button!==0)return; e.stopPropagation(); select(e); if(e.shiftKey)return;
+    cancelReorder?.();
+    const element=e.currentTarget as HTMLElement, pointer=e.pointerId, x=e.clientX,y=e.clientY,revision=sceneRestoreRevision();
+    const down={...e,currentTarget:element,clientX:x,clientY:y,pointerId:pointer,shiftKey:false,stopPropagation:()=>{}} as PointerEvent;
+    let horizontal=false;
+    const cleanup=()=>{window.removeEventListener('pointermove',onMove,true);window.removeEventListener('pointerup',up,true);window.removeEventListener('pointercancel',cancel,true);window.removeEventListener('blur',cancel);window.removeEventListener('keydown',key,true);cancelReorder=null;};
+    const end=(cancelled=false)=>{cleanup();if(horizontal)finish(cancelled&&revision===sceneRestoreRevision());if(element.hasPointerCapture(pointer))element.releasePointerCapture(pointer);};
+    const onMove=(event:globalThis.PointerEvent)=>{
+      if(event.pointerId!==pointer)return;
+      if(revision!==sceneRestoreRevision()){end(true);return;}
+      const dx=event.clientX-x,dy=event.clientY-y;
+      if(!horizontal&&Math.hypot(dx,dy)<5)return;
+      if(!horizontal&&Math.abs(dy)>Math.abs(dx)){cleanup();beginReorder(down,id)?.move(event);return;}
+      if(!horizontal){horizontal=true;start(down);}
+      event.preventDefault();move(event as unknown as PointerEvent);
+    };
+    const up=(event:globalThis.PointerEvent)=>{if(event.pointerId===pointer)end();};
+    const cancel=()=>end(true);
+    const key=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();cancel();}};
+    cancelReorder=cancel;
+    window.addEventListener('pointermove',onMove,{passive:false,capture:true});window.addEventListener('pointerup',up,true);window.addEventListener('pointercancel',cancel,true);window.addEventListener('blur',cancel);window.addEventListener('keydown',key,true);
+  },onClickCapture:(e:React.MouseEvent)=>{if(suppressClick?.id===id&&performance.now()<suppressClick.until){e.preventDefault();e.stopPropagation();suppressClick=null;}}};
 }
 export function layerDragProps(id: string) {
   return { draggable: false, onPointerDown: (e: PointerEvent) => beginReorder(e, id), onDragStart: (e: DragEvent) => e.preventDefault(),

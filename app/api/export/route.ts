@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { destinationFor, isLocalFileRequest } from '@/lib/localDestinations';
+import { audioFilter } from '@/lib/audioEnvelope';
+import { probeAudioDuration } from '@/lib/serverAudio';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -139,9 +141,11 @@ export async function POST(req: NextRequest) {
           : 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos';
 
       let audioFile: string | null = null;
+      let sourceAudioDuration = 0;
       if (audio) {
         audioFile = path.join(dir, 'audio.input');
         await fs.writeFile(audioFile, Buffer.from(audio, 'base64'));
+        sourceAudioDuration = await probeAudioDuration(audioFile);
       }
 
       const files: string[] = [];
@@ -155,7 +159,10 @@ export async function POST(req: NextRequest) {
         // veryfast: 2–4× faster encode than the default 'medium' for a marginal
         // size increase. Server-side encoding lets us save directly to disk.
         args.push('-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-crf', '18');
-        if (audioFile) args.push('-af', 'apad', '-c:a', 'aac', '-shortest');
+        if (audioFile) {
+          const frameCount = (await fs.readdir(dir)).filter(name => /^frame_\d{5}\.jpg$/.test(name)).length;
+          args.push('-af', audioFilter(body.audioSettings, frameCount / fps, sourceAudioDuration), '-c:a', 'aac', '-shortest');
+        }
         args.push(outPath);
         await run('ffmpeg', args, sessionId);
         files.push(out);

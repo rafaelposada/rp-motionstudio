@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
+import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
 import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
 import { PixelateFilter } from 'pixi-filters';
@@ -84,6 +85,9 @@ export class SceneRenderer {
   private readonly fxOwner = `${crypto.randomUUID()}/`;
   private bgImageUrl = '';                        // last-loaded uploaded bg url
   private bgImageTex: PIXI.Texture | null = null;
+  private gradientSprite: PIXI.Sprite | null = null;
+  private gradientTexture: PIXI.Texture | null = null;
+  private gradientSig = '';
 
   constructor() {
     this.app = new PIXI.Application();
@@ -116,7 +120,8 @@ export class SceneRenderer {
     this.bgSprite.anchor.set(0.5);
     this.bgSprite.visible = false;
     this.bgSprite.filters = [this.bgBlur];
-    this.content.addChild(this.bg, this.bgSprite, this.motion);
+    this.gradientSprite = new PIXI.Sprite(); this.gradientSprite.visible = false;
+    this.content.addChild(this.bg, this.gradientSprite, this.bgSprite, this.motion);
     this.app.stage.addChild(this.content, this.overlay);
     this.overlay.addChild(this.safeGfx);
 
@@ -392,12 +397,17 @@ export class SceneRenderer {
 
     // background
     this.bg.clear();
-    if (s.background.gradient) {
-      const grad = new PIXI.FillGradient(0, 0, 0, height);
-      grad.addColorStop(0, s.background.color);
-      grad.addColorStop(1, s.background.color2);
-      this.bg.rect(0, 0, width, height).fill(grad);
+    if (s.background.gradient && s.background.source === 'color') {
+      const spec = gradientFor(s.background), sig = JSON.stringify([spec,width,height]);
+      if (!this.gradientSprite) return;
+      if (sig !== this.gradientSig) {
+        const old = this.gradientTexture;
+        this.gradientTexture = PIXI.Texture.from(gradientCanvas(spec,width,height)); this.gradientSprite.texture = this.gradientTexture;
+        old?.destroy(true); this.gradientSig = sig;
+      }
+      this.gradientSprite.visible = true; this.gradientSprite.width = width; this.gradientSprite.height = height;
     } else {
+      if (this.gradientSprite) this.gradientSprite.visible = false;
       this.bg.rect(0, 0, width, height).fill(s.background.color);
     }
 
@@ -748,6 +758,7 @@ export class SceneRenderer {
   }
 
   destroy() {
+    this.gradientTexture?.destroy(true); this.gradientTexture = null;
     dropPixiFilters(new Set(), this.fxOwner);
     this.textCompositor.destroy();
     this.overlays.forEach((rt) => { rt.texture.destroy(true); rt.raster.destroy(); }); this.overlays.clear();
