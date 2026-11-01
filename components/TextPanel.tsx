@@ -11,6 +11,7 @@ import FontBrowser from './FontBrowser';
 import ColorField from './ColorField';
 import ShadowEditor from './ShadowEditor';
 import LayerAnimationControls from './LayerAnimationControls';
+import {addCompositionText} from '@/lib/textActions';
 import { moveCompositionLayer, deleteCompositionLayer, selectOverlayForEditing } from '@/lib/compositionActions';
 
 const FONTS = ['Arial', 'Georgia', 'monospace', 'Inter', 'Roboto', 'Montserrat', 'Poppins', 'DM Sans', 'Manrope', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Lora', 'Merriweather', 'Space Grotesk'];
@@ -19,7 +20,6 @@ export default function TextPanel() {
   const { locale } = useI18n();
   const pt = locale === 'pt';
   const layers = useSceneStore((s) => s.textLayers);
-  const add = useSceneStore((s) => s.addTextLayer);
   const patch = useSceneStore((s) => s.patchTextLayer);
   const width = useSceneStore((s) => s.width);
   const height = useSceneStore((s) => s.height);
@@ -49,7 +49,7 @@ export default function TextPanel() {
     <ControlRow key={key} def={{ key, label, type: 'slider', min, max, step, default: key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0 }} value={layer[key] ?? (key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0)} onChange={(value) => patch(layer.id, { [key]: value })} />
   );
   return <div className="section-body text-panel">
-    <button className="btn solid full" onClick={() => { add(); const created = useSceneStore.getState().textLayers.at(-1); if (created) selectOverlayForEditing(created.id); }}>{pt ? '+ Adicionar texto' : '+ Add text'}</button>
+    <button className="btn solid full" onClick={() => addCompositionText()}>{pt ? '+ Adicionar texto' : '+ Add text'}</button>
     <p className="ctl-hint">{pt ? 'Duplo clique para editar na tela. Arraste para mover; gire pela área externa das alças.' : 'Double-click to edit on canvas. Drag to move; rotate outside the handles.'}</p>
     {textLayers.map((item, index) => <div key={item.id} className="text-layer-row">
       <button className={`btn ${selectedIds.includes(item.id) ? 'solid' : ''}`} aria-pressed={selectedIds.includes(item.id)} onClick={e => selectOverlayForEditing(item.id, e.shiftKey)}>{index + 1}. {item.text.slice(0, 24) || (pt ? 'Texto vazio' : 'Empty text')}</button>

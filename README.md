@@ -91,6 +91,9 @@ de versão em `package.json` e `package-lock.json`; o número da versão aparece
 - Áudio com volume e fades na prévia e no MP4.
 - Gradientes com até oito pontos de cor/opacidade, presets e formas linear, radial e cônica.
 - Duplo clique edita o texto na composição; Esc ou ⌘/Ctrl+Enter confirma.
+- T ativa a ferramenta de texto: clique na composição para criar e digitar no
+  ponto escolhido. Esc cancela a ferramenta antes do clique; durante a edição,
+  confirma o conteúdo. O atalho respeita campos, diálogos e digitação em andamento.
 - Fundo do texto com cor, opacidade, contorno independente e cantos ajustáveis.
 - Padding do fundo do texto: valor único ou quatro lados independentes, com cálculos.
   O padding também é respeitado pelo BG Blur, pelo contorno e pela caixa de seleção.

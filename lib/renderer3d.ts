@@ -480,7 +480,7 @@ export class SceneRenderer3D implements IRenderer {
     const defaultAspect = cardAspectFor(meta, s.width, s.height, s.cardShape);
     const slotAspects = Array.from({ length: count }, (_, i) =>
       template.slotAspect?.(i, track.values, s.width, s.height) ?? defaultAspect);
-    const pool = trackAssetIndices(track, s.assets).map((i) => s.assets[i]).filter(Boolean);
+    const pool = trackAssetIndices(track, s.assets, repeat).map((i) => s.assets[i]).filter(Boolean);
     const assetSig = pool.map((a) => a.crop?.zoom ?? 1).join(',') + (repeat ? 'R|' : '') + 'A' + slotAspects.map((a) => a.toFixed(4)).join(',') + '|' +
       pool.map((a) => a.id + ':' + a.url + ':' + a.visible + ':' + (a.fit ?? 'fill') + ':' + (a.crop ? a.crop.x + ',' + a.crop.y : 'c')).join('|');
     if (!rt.r3fManaged && r3fManaged) {
@@ -749,7 +749,7 @@ export class SceneRenderer3D implements IRenderer {
       this.syncBackgroundTexture(s.background.imageUrl, s.background.blur);
     } else if (s.background.source === 'card') {
       const active = s.tracks.find((track) => track.id === s.activeTrackId) ?? s.tracks.find((track) => track.visible);
-      const assetIndex = active ? trackAssetIndices(active, s.assets)[0] : undefined;
+      const assetIndex = active ? trackAssetIndices(active, s.assets, getTemplate(active.templateId).meta.repeatAssets === true)[0] : undefined;
       const url = assetIndex === undefined ? null : s.assets[assetIndex]?.url;
       if (url && !isVideoSource(url, s.assets[assetIndex!]?.kind)) this.syncBackgroundTexture(url, s.background.blur);
       else this.scene.background = new THREE.Color(s.background.color);
@@ -962,10 +962,11 @@ export class SceneRenderer3D implements IRenderer {
       const quantizedFront = Math.round((t.stickerPeelFront ?? 0) * 180) / 180;
       const quantizedRadius = Math.round((t.stickerCurlRadius ?? 0.15) * 180) / 180;
       const quantizedDirection = Math.round((t.peelDirection ?? 50) * 2) / 2;
-      const key = `sticker-roll:${quantizedFront.toFixed(4)}:${quantizedRadius.toFixed(4)}:${quantizedDirection.toFixed(1)}`;
+      const aspect=slot.texW/Math.max(.0001,slot.texH);
+      const key = `sticker-roll:${quantizedFront.toFixed(4)}:${quantizedRadius.toFixed(4)}:${quantizedDirection.toFixed(1)}:${aspect.toFixed(6)}`;
       let geometry = this.bentCardGeometries.get(key);
       if (!geometry) {
-        geometry = makeStickerRollGeometry(quantizedFront, quantizedRadius, quantizedDirection);
+        geometry = makeStickerRollGeometry(quantizedFront, quantizedRadius, quantizedDirection,aspect);
         this.bentCardGeometries.set(key, geometry);
       }
       slot.front.geometry = geometry;

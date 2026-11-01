@@ -85,6 +85,7 @@ export function makeStickerRollGeometry(
   front: number,
   radius: number,
   directionDeg: number,
+  aspect = 1,
 ): THREE.PlaneGeometry {
   // 32×32 is already sub-pixel smooth at the editor's card sizes and keeps
   // animated geometry caching bounded enough for Sticker 01's 36-second loop.
@@ -96,10 +97,11 @@ export function makeStickerRollGeometry(
   const nx = -dy;
   const ny = dx;
   const safeRadius = Math.max(0.0001, radius);
+  const safeAspect=Number.isFinite(aspect)&&aspect>0?aspect:1;
 
   for (let i = 0; i < position.count; i++) {
     const x = position.getX(i);
-    const y = position.getY(i);
+    const y = position.getY(i)/safeAspect;
     let along = x * dx + y * dy;
     const across = x * nx + y * ny;
     let z = 0;
@@ -116,7 +118,7 @@ export function makeStickerRollGeometry(
       }
     }
 
-    position.setXYZ(i, dx * along + nx * across, dy * along + ny * across, z);
+    position.setXYZ(i, dx * along + nx * across, (dy * along + ny * across)*safeAspect, z);
   }
 
   position.needsUpdate = true;

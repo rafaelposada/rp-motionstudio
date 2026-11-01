@@ -14,6 +14,7 @@ import { ANCHOR_AXES, RESIZE_ANCHORS, bounded, frameAABB, mapFramePoint, normali
 import { modelPathOffset } from '@/lib/modelMotionPath';
 import CanvasInlineTextEditor from './CanvasInlineTextEditor';
 import {textBackdropBox} from '@/lib/textPadding';
+import {addCompositionText,textToolShortcut} from '@/lib/textActions';
 
 let measureContext: CanvasRenderingContext2D | null = null;
 interface LocalBounds { width: number; height: number; left: number; top?:number }
@@ -67,6 +68,7 @@ export default function CanvasTextSelection() {
   const selectedIds = useUIStore(s => s.selectedLayerIds);
   const rulers = useUIStore(s => s.showRulers), guides = useUIStore(s => s.smartGuides), snap = useUIStore(s => s.snapEnabled), pt = useUIStore(s => s.locale) === 'pt';
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [textTool,setTextTool]=useState(false),textToolRef=useRef(false);
   const [rotationReadout, setRotationReadout] = useState<{x:number;y:number;angle:number} | null>(null);
   const [groupTransform, setGroupTransform] = useState<TransformFrame | null>(null);
   const [guide, setGuide] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
@@ -122,6 +124,9 @@ export default function CanvasTextSelection() {
       if (drag.current && (e.key === 'Escape' || (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z')) { e.preventDefault(); e.stopImmediatePropagation(); finishRef.current(true); return; }
       if (e.defaultPrevented || useUIStore.getState().settingsOpen || document.querySelector('dialog[open]')) return;
       if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true]')) return;
+      if(drag.current)return;
+      if(textToolShortcut(e)){e.preventDefault();e.stopImmediatePropagation();textToolRef.current=true;setTextTool(true);window.dispatchEvent(new Event('motion-text-tool'));return;}
+      if(e.key==='Escape'&&textToolRef.current){e.preventDefault();e.stopImmediatePropagation();textToolRef.current=false;setTextTool(false);return;}
       const ui = useUIStore.getState(), ids = ui.selectedLayerIds;
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'd' && ids.length) { e.preventDefault(); e.stopImmediatePropagation(); duplicateCompositionLayers(ids); }
       else if (['Backspace', 'Delete'].includes(e.key) && ids.length) { e.preventDefault(); if (!e.repeat) void deleteCompositionLayers(ids); }
@@ -131,9 +136,11 @@ export default function CanvasTextSelection() {
     };
     const blur = () => finishRef.current();
     const navigation = () => finishRef.current(true);
+    const selectionTool=()=>{textToolRef.current=false;setTextTool(false);};
+    window.addEventListener('motion-selection-tool',selectionTool);
     window.addEventListener('motion-preview-navigation', navigation);
     window.addEventListener('keydown', key, true); window.addEventListener('blur', blur);
-    return () => { window.removeEventListener('motion-preview-navigation', navigation); window.removeEventListener('keydown', key, true); window.removeEventListener('blur', blur); finishRef.current(); };
+    return () => { window.removeEventListener('motion-selection-tool',selectionTool); window.removeEventListener('motion-preview-navigation', navigation); window.removeEventListener('keydown', key, true); window.removeEventListener('blur', blur); finishRef.current(); };
   }, []);
   const active = layers.find(l => l.id === selected && l.visible && seconds >= l.start && seconds < l.end), track = tracks.find(t => t.id === selectedMotion);
   const selectedFrames = selectedIds.map(id => {
@@ -249,7 +256,7 @@ export default function CanvasTextSelection() {
   const cornerValue = (i: number) => active ? active.media ? normalizedRadii(active.media.width, active.media.height, active.media.cornerRadii)[i] : active.backdropRadius ?? 12 : Number(track?.values.cornerRadius ?? 0);
   const editingLayer = layers.find(l => l.id === editingId && !l.media);
   const editFrame = editingLayer ? layerFrame(editingLayer,width,seconds) : null;
-  return <div ref={root} className="canvas-selection" tabIndex={-1} onPointerDown={e => {
+  return <div ref={root} className={`canvas-selection${textTool?' canvas-text-tool':''}`} tabIndex={-1} onPointerDown={e => {
     if (e.button !== 0 || !rect.width || drag.current || (e.target as HTMLElement).closest('.canvas-inline-text')) return;
     const p = point(e), s = useSceneStore.getState(), order = compositionOrder(tracks, layers);
     const hit = [...order].reverse().filter(l => l.kind === 'overlay').map(item => layers.find(l => l.id === item.id)!).find(l => {
@@ -258,6 +265,12 @@ export default function CanvasTextSelection() {
       return Math.abs(local.x) <= f.width / 2 + 6 / Math.max(.01, ratio) && Math.abs(local.y) <= f.height / 2 + 6 / Math.max(.01, ratio);
     });
     const modelId = getRendererInstance()?.hitTest?.(p.x, p.y), id = modelId && (!hit || order.findIndex(l => l.id === modelId) > order.findIndex(l => l.id === hit.id)) ? modelId : hit?.id;
+    if(textToolRef.current){
+      e.preventDefault();e.stopPropagation();
+      const existing=hit&&hit.id===id&&!hit.media&&!hit.locked?hit:null;
+      const textId=existing?.id??addCompositionText(p);
+      if(textId){s.setPlaying(false);useUIStore.getState().selectText(textId);textToolRef.current=false;setTextTool(false);setEditingId(textId);}return;
+    }
     const ui = useUIStore.getState();
     if (id) {
       ui.selectLayer(id, id === modelId ? 'motion' : 'overlay', e.shiftKey, !e.shiftKey, 'canvas');
@@ -304,7 +317,7 @@ export default function CanvasTextSelection() {
     {rulers&&rect.width>0&&<svg className="editor-rulers" aria-label={pt?'Réguas em pixels da composição':'Composition pixel rulers'}><rect x={rect.x} y={Math.max(0,rect.y-20)} width={rect.width} height="20"/><rect x={Math.max(0,rect.x-28)} y={rect.y} width="28" height={rect.height}/>{Array.from({length:11},(_,i)=>{const x=rect.x+rect.width*i/10,y=rect.y+rect.height*i/10;return <g key={i}><text x={x+2} y={Math.max(10,rect.y-7)}>{Math.round(width*i/10)}</text><path d={`M${x} ${rect.y-4}v4`}/><text x={Math.max(1,rect.x-26)} y={y+10}>{Math.round(height*i/10)}</text><path d={`M${rect.x-4} ${y}h4`}/></g>;})}</svg>}
     {(guide.x!==null||guide.y!==null)&&<svg className="editor-guides">{guide.x!==null&&<line x1={rect.x+guide.x/width*rect.width} x2={rect.x+guide.x/width*rect.width} y1={rect.y} y2={rect.y+rect.height}/>} {guide.y!==null&&<line y1={rect.y+guide.y/height*rect.height} y2={rect.y+guide.y/height*rect.height} x1={rect.x} x2={rect.x+rect.width}/>}</svg>}
 
-    {show && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={pt ? 'Transformar camada selecionada' : 'Transform selected layer'} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
+    {show && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={pt ? 'Transformar camada selecionada' : 'Transform selected layer'} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
       <span className="canvas-selection-label">{selectedIds.length > 1 ? `${selectedIds.length} ${pt ? 'camadas' : 'layers'}` : active?.text.slice(0, 30) || layerDisplayName(track?.name ?? '', pt)}{active?.locked ? ' 🔒' : ''}</span>
       {(!active?.locked || selectedIds.length > 1) && <>
         {RESIZE_ANCHORS.map(anchor => { const [x, y] = ANCHOR_AXES[anchor]; const label = `${pt ? 'Redimensionar' : 'Resize'}: ${names[anchor]}`; return <button key={anchor} type="button" className="transform-handle" aria-label={label} title={label + (pt ? '. Shift mantém proporção; Alt redimensiona pelo centro.' : '. Shift preserves aspect; Alt scales from the center.')} style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, cursor: resizeCursor(anchor, selection.rotation) }} onPointerDown={e => begin(e, 'resize', anchor)} onKeyDown={e => handleKey(e, 'resize', anchor)} />; })}

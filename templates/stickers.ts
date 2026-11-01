@@ -1,6 +1,6 @@
 import type { Template } from '@/lib/types';
 import { variant } from './variant';
-import { exactStickerVariants } from './stickersExact';
+import { exactStickerVariants,stickerCamera } from './stickersExact';
 
 const BASE = 340;
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -78,6 +78,7 @@ function stickerBackColor(v: Record<string, any>) {
 // centre and are peeled away from the top-right corner one by one; after the
 // last sheet the composition stays empty until the 21-second clip ends.
 const poster: Template = {
+  camera:stickerCamera,
   meta: {
     id: 'poster-01', name: 'Poster 01', group: 'Stickers', repeatAssets: true,
     engine: 'webgl', cardAspect: 4 / 5, isNew: true, defaultEasing: { id: 'smooth' },

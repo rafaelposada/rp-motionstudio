@@ -39,7 +39,7 @@ export default function PreviewNavigation({ stage }: { stage: RefObject<HTMLDivE
     const key = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('input,textarea,select,[contenteditable=true],dialog') && !e.metaKey && !e.ctrlKey && !e.altKey && !document.querySelector('dialog[open]')) {
-        if (e.key.toLowerCase() === 'z' && !e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); loupe.current = !loupe.current; element.classList.toggle('preview-loupe', loupe.current); return; }
+        if (e.key.toLowerCase() === 'z' && !e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); window.dispatchEvent(new Event('motion-selection-tool'));loupe.current = !loupe.current; element.classList.toggle('preview-loupe', loupe.current); return; }
         if (e.key === 'Escape' && loupe.current) { e.preventDefault(); e.stopImmediatePropagation(); loupe.current = false; element.classList.remove('preview-loupe','preview-loupe-out'); return; }
       }
       if (e.key === 'Alt' && loupe.current) element.classList.add('preview-loupe-out');
@@ -75,11 +75,13 @@ export default function PreviewNavigation({ stage }: { stage: RefObject<HTMLDivE
     };
     const pointerUp = (e: PointerEvent) => { touches.delete(e.pointerId); if (pinch || pan) { e.stopImmediatePropagation(); pinch = null; pan = null; element.classList.remove('preview-panning'); } };
     const blur = () => { touches.clear(); pinch = null; pan = null; gesture = null; element.classList.remove('preview-panning','preview-loupe-out'); };
+    const textTool=()=>{loupe.current=false;element.classList.remove('preview-loupe','preview-loupe-out');};
+    window.addEventListener('motion-text-tool',textTool);
     window.addEventListener('keyup', keyUp, true);
     document.addEventListener('wheel', wheel, { passive: false, capture: true }); window.addEventListener('keydown', key, true);
     document.addEventListener('gesturestart', gestureStart, { passive: false }); document.addEventListener('gesturechange', gestureChange, { passive: false }); document.addEventListener('gestureend', gestureEnd, { passive: false });
     element.addEventListener('pointerdown', pointerDown, true); window.addEventListener('pointermove', pointerMove, { passive: false, capture: true }); window.addEventListener('pointerup', pointerUp, true); window.addEventListener('pointercancel', pointerUp, true); window.addEventListener('blur', blur);
-    return () => { cancelAnimationFrame(paint); window.removeEventListener('keyup', keyUp, true); document.removeEventListener('wheel', wheel, true); window.removeEventListener('keydown', key, true); document.removeEventListener('gesturestart', gestureStart); document.removeEventListener('gesturechange', gestureChange); document.removeEventListener('gestureend', gestureEnd); element.removeEventListener('pointerdown', pointerDown, true); window.removeEventListener('pointermove', pointerMove, true); window.removeEventListener('pointerup', pointerUp, true); window.removeEventListener('pointercancel', pointerUp, true); window.removeEventListener('blur', blur); };
+    return () => { window.removeEventListener('motion-text-tool',textTool);cancelAnimationFrame(paint); window.removeEventListener('keyup', keyUp, true); document.removeEventListener('wheel', wheel, true); window.removeEventListener('keydown', key, true); document.removeEventListener('gesturestart', gestureStart); document.removeEventListener('gesturechange', gestureChange); document.removeEventListener('gestureend', gestureEnd); element.removeEventListener('pointerdown', pointerDown, true); window.removeEventListener('pointermove', pointerMove, true); window.removeEventListener('pointerup', pointerUp, true); window.removeEventListener('pointercancel', pointerUp, true); window.removeEventListener('blur', blur); };
   }, [stage]);
   return <div className="preview-navigation" aria-label={pt ? 'Zoom da visualização' : 'Preview zoom'} onPointerDown={e => e.stopPropagation()}>
     <button title={pt ? 'Diminuir zoom · ⌘/Ctrl −' : 'Zoom out · ⌘/Ctrl −'} aria-label={pt ? 'Diminuir zoom da prévia' : 'Zoom out preview'} onClick={() => change.current(view.current.zoom / 1.2)}>−</button>

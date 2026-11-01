@@ -136,8 +136,7 @@ export function resolveTrackTime(track: MotionTrack, frame: number, totalFrames:
  * `assetIds` means "all of them" — that keeps a freshly added track showing
  * real images instead of placeholders.
  */
-export function trackAssetIndices(track: MotionTrack, assets: { id: string }[]): number[] {
-  if (track.assetIds.length === 0) return assets.map((_, i) => i);
+export function trackAssetIndices(track: MotionTrack, assets: { id: string; origin?: string }[], repeat = false): number[] {
   const picked: number[] = [];
   for (const id of track.assetIds) {
     const idx = assets.findIndex((a) => a.id === id);
@@ -145,5 +144,12 @@ export function trackAssetIndices(track: MotionTrack, assets: { id: string }[]):
   }
   // Every id is stale (assets deleted) → fall back to the full list rather
   // than rendering an empty track the user can't explain.
-  return picked.length > 0 ? picked : assets.map((_, i) => i);
+  const indices = picked.length > 0 ? picked : assets.map((_, i) => i);
+  // Repeating fields cycle the imported media, not the unfilled demo slots.
+  // Keep demo-only projects and explicit track subsets intact.
+  if (repeat) {
+    const imported = indices.filter((index) => assets[index].origin !== 'demo');
+    if (imported.length > 0) return imported;
+  }
+  return indices;
 }

@@ -402,7 +402,9 @@ export default function AssetsPanel() {
         <div className="asset-meta">
           <span>
             {repeat
-              ? `${realAssetCount || 'your'} image${realAssetCount === 1 ? '' : 's'} repeat across ${count} layers`
+              ? locale === 'pt'
+                ? `${realAssetCount || 'Suas'} ${realAssetCount === 1 ? 'imagem se repete' : 'imagens se repetem'} em ${count} cartões`
+                : `${realAssetCount || 'Your'} image${realAssetCount === 1 ? ' repeats' : 's repeat'} across ${count} cards`
               : t('slotsLinked', { count })}
           </span>
           <span className="spacer" />

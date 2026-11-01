@@ -81,7 +81,11 @@
 .composition-actions { display: flex; align-items: center; gap: 0; flex: 0 0 auto; }
 .layers-panel .composition-actions button { min-width: 22px; width: 22px; min-height: 28px; padding: 0; font-size: 13px; color: var(--fg-muted); border-radius: 4px; }
 .composition-actions button:hover:not(:disabled) { background: var(--card-inset); color: var(--fg); }
-.layers-panel .layer-recover { margin-top: 8px; padding: 10px; white-space: normal; border-style: solid; }
+.layers-panel .layer-recover { margin-top:12px; min-height:36px; height:auto; padding:9px 12px; gap:9px; justify-content:flex-start; text-align:left; white-space:normal; border:1px solid var(--line); border-radius:8px; background:var(--card-inset); color:var(--fg-muted); font-size:12px; line-height:1.4; outline:none; box-shadow:none; }
+.layers-panel .layer-recover svg { flex:none; color:var(--fg-muted); }
+.layers-panel .layer-recover:hover { background:var(--card-thumb); color:var(--fg); }
+.layers-panel .layer-recover:focus-visible { outline:2px solid var(--accent-text); outline-offset:2px; }
+.canvas-selection.canvas-text-tool { cursor:text; }
 .selection-count { color: var(--accent-text); font-size: 11px; margin-top: 8px; }
 .absolute-media-panel { display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--line); }
 .absolute-media-panel .upload { margin: 0; padding: 12px; min-height: 40px; border-radius: 8px; text-align: center; }

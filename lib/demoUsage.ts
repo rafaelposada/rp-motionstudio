@@ -7,9 +7,9 @@ export function countDemoSlotsInUse(scene: Pick<SceneState, 'tracks' | 'assets'>
   let total = 0;
   for (const track of scene.tracks) {
     if (!track.visible || track.opacity <= 0 || (scene.compositeMode === 'single' && track.id !== scene.activeTrackId)) continue;
-    const pool = trackAssetIndices(track, scene.assets).map((index) => scene.assets[index]).filter(Boolean);
     const count = Math.max(1, Math.round(track.values.count ?? 6));
     const repeat = getTemplate(track.templateId).meta.repeatAssets === true;
+    const pool = trackAssetIndices(track, scene.assets, repeat).map((index) => scene.assets[index]).filter(Boolean);
     for (let slot = 0; slot < count; slot++) {
       let asset = pool[assetIndexForSlot(slot, pool.length, repeat)];
       if (!asset && pool.length > 0) asset = pool[slot % pool.length];

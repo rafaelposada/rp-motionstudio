@@ -121,6 +121,7 @@ export default function SettingsDialog() {
  [pt ? 'Deslocar a visualização' : 'Pan preview', pt ? 'Dois dedos · botão do meio' : 'Two fingers · middle mouse'],
  [pt ? 'Ativar / sair da lupa' : 'Toggle magnifier', 'Z · Esc'],
  [pt ? 'Lupa: ampliar / reduzir' : 'Magnifier: zoom in / out', pt ? 'Clique / Alt + clique' : 'Click / Alt + click'],
+ [pt ? 'Adicionar texto na composição' : 'Add text on canvas', pt ? 'T → clique na composição · Esc cancela a ferramenta' : 'T → click the canvas · Esc cancels the tool'],
  [pt ? 'Editar texto na composição' : 'Edit text on canvas', pt ? 'Duplo clique · Esc ou ⌘/Ctrl+Enter confirma' : 'Double-click · Esc or ⌘/Ctrl+Enter commits'],
  [pt ? 'Refazer no Windows (alternativa)' : 'Redo on Windows (alternative)', 'Ctrl + Y'],
  [pt ? 'Zoom na posição do cursor' : 'Zoom at cursor', pt ? 'Alt + roda · pinça' : 'Alt + wheel · pinch'],

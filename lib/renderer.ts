@@ -256,7 +256,7 @@ export class SceneRenderer {
     const slotAspects = Array.from({ length: count }, (_, i) =>
       template.slotAspect?.(i, track.values, s.width, s.height) ?? defaultAspect);
     // Which scene assets feed this track, in track order.
-    const indices = trackAssetIndices(track, s.assets);
+    const indices = trackAssetIndices(track, s.assets, repeat);
     const pool = indices.map((i) => s.assets[i]).filter(Boolean);
 
     const assetSig = pool.map((a) => a.crop?.zoom ?? 1).join(',') + (repeat ? 'R|' : '') + 'A' + slotAspects.map((a) => a.toFixed(4)).join(',') + '|' +

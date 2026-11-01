@@ -36,6 +36,6 @@ export default function CompositionLayers() {
       })}
     </div>
     {selectedIds.length > 1 && <p className="selection-count" role="status">{selectedIds.length} {pt ? 'camadas selecionadas' : 'layers selected'}</p>}
-    {model && selectedIds.length === 1 && <button className="btn full layer-recover" onClick={() => recoverModel(model)}>{pt ? 'Recuperar enquadramento do modelo' : 'Restore model framing'}</button>}
+    {model && selectedIds.length === 1 && <button type="button" className="btn full layer-recover" onClick={() => recoverModel(model)}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 2H2v3m9-3h3v3M2 11v3h3m9-3v3h-3M5 5h6v6H5z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{pt ? 'Recuperar enquadramento' : 'Restore framing'}</span></button>}
   </section>;
 }

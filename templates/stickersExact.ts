@@ -5,6 +5,9 @@ const BASE = 340;
 const DEG = Math.PI / 180;
 const CAMERA_HALF_Y = Math.tan(45 * DEG / 2) * 4;
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+// A pixel-scaled scene also needs a pixel-scaled near plane. A fixed 0.1px
+// near plane loses depth precision as export resolution increases.
+export const stickerCamera=(_values:Record<string,any>,ctx:TransformCtx)=>({near:Math.max(.1,ctx.height/1000)});
 
 const DIRECTIONS = [
   'right', 'top right', 'top', 'top left',
@@ -83,7 +86,7 @@ function direction(v: Record<string, any>, index: number, seed: number, fallback
   const token = randomToken(from);
   const shiftedSeed = (seed ^ Math.imul(token, 2246822519)) >>> 0;
   const random = rng(shiftedSeed, index).angle;
-  if (v.angle === 'random') return (random * 360 + (token % 360)) % 360;
+  if (v.angle === 'random') return (random * 360 + (DIRECTION_DEGREES[from]!==undefined?DIRECTION_DEGREES[from]-fallback:token%360) + 360) % 360;
   if (from === 'random' || from.startsWith('random:')) {
     const values = Object.values(DIRECTION_DEGREES);
     // The token is an incrementing reshuffle counter, so every click advances
@@ -116,6 +119,11 @@ function cardScale(cardSize: number, ctx: TransformCtx) {
   const worldSize = Math.max(0.01, cardSize / 100);
   return (worldSize * ctx.height / (2 * CAMERA_HALF_Y)) / BASE;
 }
+export function stickerMetrics(cardSize:number,ctx:TransformCtx) {
+  const aspect=typeof ctx.cardAspect==='number'&&Number.isFinite(ctx.cardAspect)&&ctx.cardAspect>0?ctx.cardAspect:1;
+  const longEdge=Math.max(.01,cardSize/100);
+  return {width:longEdge*Math.min(1,aspect),height:longEdge*Math.min(1,1/aspect),unit:ctx.height/(2*CAMERA_HALF_Y)};
+}
 
 type Schedule = {
   order: Record<number, number>;
@@ -124,7 +132,9 @@ type Schedule = {
   duration: number;
 };
 
-function schedule(count: number, travel: 'in' | 'out', seed: number, loopDuration: number): Schedule {
+const scheduleCache=new Map<string,Schedule>();
+export function stickerSchedule(count: number, travel: 'in' | 'out', seed: number): Schedule {
+  const key=`${count}:${travel}:${seed}`,cached=scheduleCache.get(key);if(cached)return cached;
   const cards = Array.from({ length: Math.max(1, count) }, (_, index) => index)
     .filter((index) => index !== 0);
   cards.sort((a, b) => travel === 'out' ? b - a : a - b);
@@ -133,7 +143,10 @@ function schedule(count: number, travel: 'in' | 'out', seed: number, loopDuratio
 
   // Sticker 01 is a two-position boomerang. With 17 cards, 36 seconds and a
   // one-second stagger, the shared motion model resolves a two-second action.
-  const baseAction = Math.max(0.01, loopDuration / 2 - (Math.max(1, count) - 1));
+  // Author the pacing once, then map the complete schedule into the clip.
+  // Deriving action length from a short clip made 17-card actions collapse
+  // to 0.01s (often less than a frame), so stickers popped instead of rolling.
+  const baseAction = 2;
   const starts: number[] = [];
   const actions: number[] = [];
   let duration = 0.001;
@@ -143,14 +156,16 @@ function schedule(count: number, travel: 'in' | 'out', seed: number, loopDuratio
     starts[slot] = slot === 0 ? 0 : starts[slot - 1] + (0.35 + 1.3 * random.pace);
     duration = Math.max(duration, starts[slot] + actions[slot]);
   }
-  return { order, starts, actions, duration };
+  const result={ order, starts, actions, duration };
+  if(scheduleCache.size>=32)scheduleCache.delete(scheduleCache.keys().next().value!);
+  scheduleCache.set(key,result);return result;
 }
 
 function transitionPose(frame: number, index: number, count: number, v: Record<string, any>, ctx: TransformCtx) {
   const firstSeed = 1;
   const secondSeed = (firstSeed ^ 2654435769) >>> 0;
-  const incoming = schedule(count, 'in', firstSeed, ctx.duration);
-  const outgoing = schedule(count, 'out', secondSeed, ctx.duration);
+  const incoming = stickerSchedule(count, 'in', firstSeed);
+  const outgoing = stickerSchedule(count, 'out', secondSeed);
   const sceneDuration = incoming.duration + outgoing.duration;
   const clock = (frame / Math.max(1, ctx.totalFrames)) * sceneDuration;
   const second = clock >= incoming.duration;
@@ -161,12 +176,12 @@ function transitionPose(frame: number, index: number, count: number, v: Record<s
   const authored = STICKER_01_POSITIONS[index % STICKER_01_POSITIONS.length];
   const pos = screenPosition(authored, Number(v.spread ?? 42), 42, ctx);
   const random = rng(firstSeed, index);
-  const worldSize = Math.max(0.01, Number(v.cardSize ?? 50) / 100);
+  const metrics=stickerMetrics(Number(v.cardSize??50),ctx);
   const peelDirection = direction(v, index, activeSeed, 0);
   const radians = peelDirection * DEG;
   const dx = Math.cos(radians);
   const dy = Math.sin(radians);
-  const maxProjection = worldSize * (Math.abs(dx) + Math.abs(dy)) / 2;
+  const maxProjection = (metrics.width*Math.abs(dx)+metrics.height*Math.abs(dy))/2;
   const curlWorld = Math.max(0.0001, Number(v.curl ?? 15) / 100);
   let motion = 0;
 
@@ -186,11 +201,11 @@ function transitionPose(frame: number, index: number, count: number, v: Record<s
   return {
     x: pos.x,
     y: pos.y,
-    z: index * 0.0025,
+    z: index * 0.0025 * metrics.unit,
     rotation: (2 * random.roll - 1) * Number(v.roll ?? 90) * DEG,
     direction: peelDirection,
-    front: frontWorld / worldSize,
-    radius: curlWorld / worldSize,
+    front: frontWorld / metrics.width,
+    radius: curlWorld / metrics.width,
     scale: cardScale(Number(v.cardSize ?? 50), ctx),
   };
 }
@@ -200,15 +215,14 @@ function idlePose(frame: number, index: number, v: Record<string, any>, ctx: Tra
   const phase = frame / Math.max(1, ctx.totalFrames);
   const pulse = triangle(phase, 'smooth');
   const cardSize = Number(v.cardSize ?? 100);
-  const worldSize = Math.max(0.01, cardSize / 100);
+  const metrics=stickerMetrics(cardSize,ctx);
   const peelDirection = direction(v, index, 1, 50);
   const radians = peelDirection * DEG;
-  const maxProjection = worldSize
-    * (Math.abs(Math.cos(radians)) + Math.abs(Math.sin(radians))) / 2;
+  const maxProjection = (metrics.width*Math.abs(Math.cos(radians))+metrics.height*Math.abs(Math.sin(radians)))/2;
   const curlWorld = Math.max(0.0001, Number(v.curl ?? 15) / 100);
   const fixedAmount = Math.max(0, Number(v.peelAmount ?? 30) / 100);
   const amount = v.amount === 'random'
-    ? 0.15 + (Math.max(0.15, fixedAmount) - 0.15) * Math.pow(random.amount, 0.35)
+    ? fixedAmount*(0.5+0.5*Math.pow(random.amount,0.35))
     : fixedAmount;
   const frontWorld = maxProjection
     + (-maxProjection - Math.PI * curlWorld - maxProjection) * amount * pulse;
@@ -219,11 +233,11 @@ function idlePose(frame: number, index: number, v: Record<string, any>, ctx: Tra
   return {
     x: pos.x,
     y: pos.y,
-    z: index * 0.0025,
+    z: index * 0.0025 * metrics.unit,
     rotation: (2 * random.roll - 1) * Number(v.roll ?? 0) * DEG,
     direction: peelDirection,
-    front: frontWorld / worldSize,
-    radius: curlWorld / worldSize,
+    front: frontWorld / metrics.width,
+    radius: curlWorld / metrics.width,
     scale: cardScale(cardSize, ctx),
   };
 }
@@ -246,6 +260,7 @@ const sharedControls: Template['controls'] = [
 ];
 
 const sticker01: Template = {
+  camera:stickerCamera,
   meta: {
     id: 'stickers-01', name: 'Stickers 01', group: 'Stickers', repeatAssets: true,
     engine: 'webgl', cardAspect: 1, isNew: true,
@@ -277,6 +292,7 @@ const sticker01: Template = {
 };
 
 const sticker02: Template = {
+  camera:stickerCamera,
   meta: {
     id: 'stickers-02', name: 'Stickers 02', group: 'Stickers', repeatAssets: true,
     engine: 'webgl', cardAspect: 1, isNew: true, defaultEasing: { id: 'smooth' },
