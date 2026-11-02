@@ -1,6 +1,6 @@
 {
   "name": "rp-motionstudio",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "RP MotionStudio — editor local de composição e animação, baseado em Motion Studio.",
   "main": "index.js",
   "scripts": {
