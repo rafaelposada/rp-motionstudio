@@ -11,5 +11,12 @@ contextBridge.exposeInMainWorld('rpDesktop', Object.freeze({
   respond(id, result) { ipcRenderer.send('rp:response', {id, result}); },
   chooseFolder() { return ipcRenderer.invoke('rp:choose-folder'); },
   openProject() { return ipcRenderer.invoke('rp:open-project'); },
+  prepareUpdate() { return ipcRenderer.invoke('rp:update-prepare'); },
+  applyUpdate() { return ipcRenderer.invoke('rp:update-apply'); },
+  onUpdateProgress(callback) {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on('rp:update-progress', listener);
+    return () => ipcRenderer.removeListener('rp:update-progress', listener);
+  },
   appearance(theme) { if (theme === 'light' || theme === 'dark') ipcRenderer.send('rp:appearance', theme); },
 }));

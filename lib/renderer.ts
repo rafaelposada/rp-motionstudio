@@ -2,6 +2,7 @@
 import * as PIXI from 'pixi.js';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
+import { pixiBlend, registerPixiBlendModes } from './pixiBlendModes';
 import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
 import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
@@ -99,6 +100,7 @@ export class SceneRenderer {
     // Pixi's statically implemented shader/uniform synchronizers avoid runtime
     // code generation. Keep the desktop CSP's eval restriction intact.
     if (desktopAPI()) await import('pixi.js/unsafe-eval');
+    await registerPixiBlendModes();
     const { width, height } = useSceneStore.getState();
     const resolution = previewResolution();
     await this.app.init({
@@ -113,6 +115,7 @@ export class SceneRenderer {
       resolution,
       autoDensity: true,
       preserveDrawingBuffer: true, // so toDataURL reads real pixels during export
+      useBackBuffer: true,         // advanced layer blend modes read the backdrop
     });
 
     // Keep this explicit as well as in init options: Pixi can reuse the canvas
@@ -532,7 +535,7 @@ export class SceneRenderer {
 
       rt.container.visible = true;
       rt.container.alpha = clamp(track.opacity, 0, 1) * time.envelope;
-      rt.container.blendMode = track.blend;
+      rt.container.blendMode = pixiBlend(track.blend);
       // Track-level transform, on top of whatever the template poses.
       const path = modelPathOffset(track, frame, s.fps, s.width, s.height);
       rt.container.position.set(track.transform.x + path.x, track.transform.y + path.y);
@@ -712,7 +715,7 @@ export class SceneRenderer {
         rt.texture.source.resize(canvas.width, canvas.height);
         rt.texture.frame.width = canvas.width; rt.texture.frame.height = canvas.height; rt.texture.update(); rt.texture.source.update();
       }
-      rt.sprite.width = s.width; rt.sprite.height = s.height; rt.sprite.position.set(-s.width / 2, -s.height / 2); rt.sprite.zIndex = item.z;
+      rt.sprite.width = s.width; rt.sprite.height = s.height; rt.sprite.position.set(-s.width / 2, -s.height / 2); rt.sprite.zIndex = item.z; rt.sprite.blendMode = pixiBlend(layer.blend);
       rt.sprite.visible = layer.visible && (this.exportingImages || !isCanvasEditing(layer.id)) && frame / s.fps >= layer.start && frame / s.fps < layer.end;
     }
     this.app.renderer.render(this.app.stage);

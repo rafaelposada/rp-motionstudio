@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { makeBentPlaneGeometry, makeCurlPlaneGeometry, makeStickerRollGeometry, makeCornerPeelGeometry } from '@/three3d/cardMesh';
 import { previewMatrix } from './templatePreviewGeometry';
+import { BLEND_GLSL, blendIndex } from './blendModes';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { getTemplate, layerCountFor } from '@/templates';
 import { getEffect } from '@/effects';
@@ -282,6 +283,7 @@ export class SceneRenderer3D implements IRenderer {
         uniform float backdropBlur;
         uniform vec2 sceneSize;
         varying vec2 vUv;
+        ${BLEND_GLSL}
         void main(){
           vec4 base = texture2D(baseMap, vUv);
           // Read the accumulator BEFORE this layer. Blur only the rounded
@@ -293,10 +295,7 @@ export class SceneRenderer3D implements IRenderer {
           vec4 layer = texture2D(layerMap, vUv);
           float a = clamp(layer.a * opacity, 0.0, 1.0);
           vec3 straight = layer.a > 0.00001 ? layer.rgb / layer.a : vec3(0.0);
-          vec3 blend = straight;
-          if (blendMode == 1) blend = min(vec3(1.0), base.rgb + straight);
-          else if (blendMode == 2) blend = vec3(1.0) - (vec3(1.0) - base.rgb) * (vec3(1.0) - straight);
-          else if (blendMode == 3) blend = base.rgb * straight;
+          vec3 blend = clamp(rpBlend(blendMode, base.rgb, clamp(straight, 0.0, 1.0)), 0.0, 1.0);
           gl_FragColor = vec4(mix(base.rgb, blend, a), 1.0);
         }
       `,
@@ -1247,7 +1246,7 @@ export class SceneRenderer3D implements IRenderer {
     compositionOrder(s.tracks, s.textLayers).forEach((item) => {
       composeMaterial.uniforms.backdropBlur.value=0;
       composeMaterial.uniforms.sceneSize.value.set(s.width,s.height);
-      let texture: THREE.Texture, opacity = 1, blend = 'normal';
+      let texture: THREE.Texture, opacity = 1, blend: string = 'normal';
       if (item.kind === 'motion') {
         const rt = this.trackRTs.get(item.id); if (!rt?.active) return;
         this.renderer.setRenderTarget(rt.target); this.renderer.setClearColor(0x000000, 0);
@@ -1271,13 +1270,13 @@ export class SceneRenderer3D implements IRenderer {
           composeMaterial.uniforms.backdropBlur.value=clamp(layer.backdropBlur??0,0,40);
           composeMaterial.uniforms.blurredMap.value=this.backdropTexture(read.texture,composeMaterial.uniforms.backdropBlur.value);
         }else if(rt.mask){rt.mask.dispose();rt.mask=undefined;}
-        texture = rt.texture;
+        texture = rt.texture; blend = layer.blend ?? 'normal';
       }
       composeMaterial.uniforms.baseMap.value = read.texture;
       composeMaterial.uniforms.layerMap.value = texture;
       if(composeMaterial.uniforms.backdropBlur.value===0){composeMaterial.uniforms.backdropMap.value=texture;composeMaterial.uniforms.blurredMap.value=texture;}
       composeMaterial.uniforms.opacity.value = opacity;
-      composeMaterial.uniforms.blendMode.value = blend === 'add' ? 1 : blend === 'screen' ? 2 : blend === 'multiply' ? 3 : 0;
+      composeMaterial.uniforms.blendMode.value = blendIndex(blend);
       this.renderer.setRenderTarget(write);
       this.renderer.clear(true, false, false);
       this.renderer.render(this.composeScene, this.composeCam);

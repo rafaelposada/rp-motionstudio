@@ -1,7 +1,7 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { catalogTemplateList, getTemplate, defaultsFor } from '@/templates';
 import { ControlRow, controlVisible } from './Controls';
@@ -19,10 +19,7 @@ export default function ScenePanel() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [closed, setClosed] = useState<string[]>([]);
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [copied, setCopied] = useState<Record<string, unknown> | null>(null);
-  useEffect(() => { try { setFavorites(JSON.parse(localStorage.getItem('motion-favorite-controls') ?? '[]')); } catch { /* empty */ } }, []);
   const activeTemplateId = useSceneStore((s) => s.activeTemplateId);
   const values = useSceneStore((s) => s.values);
   const setValue = useSceneStore((s) => s.setValue);
@@ -35,7 +32,7 @@ export default function ScenePanel() {
   );
 
   const template = getTemplate(activeTemplateId);
-  const visibleControls = template.controls.filter((def) => controlVisible(def, values) && (!favoritesOnly || favorites.includes(def.key)) && `${label(def.label)} ${def.label}`.toLowerCase().includes(query.toLowerCase()));
+  const visibleControls = template.controls.filter((def) => controlVisible(def, values) && `${label(def.label)} ${def.label}`.toLowerCase().includes(query.toLowerCase()));
   const primaryControls = visibleControls.filter((def) => !def.advanced);
   const advancedControls = visibleControls.filter((def) => def.advanced);
   const sections = ['Layout', 'Motion', 'Depth', 'Finish'] as const;
@@ -65,7 +62,7 @@ export default function ScenePanel() {
         <label className="image-lighting-option"><input type="checkbox" checked={values._autoTransparency===true} onChange={e=>setValue('_autoTransparency',e.target.checked)}/><span>{locale==='pt'?'Transparência de profundidade':'Depth transparency'}<small>{locale==='pt'?'Desligado remove a transparência usada para simular distância. Entradas/saídas, transparência do arquivo e opacidade manual continuam ativas.':'Off removes transparency used to suggest distance. Entrance/exit fades, source alpha and manual opacity remain active.'}</small></span></label>
         {template.meta.engine === 'webgl' && <label className="image-lighting-option"><input type="checkbox" checked={values._imageLighting === true} onChange={(e)=>setValue('_imageLighting',e.target.checked)}/><span>{locale==='pt'?'Iluminação e brilho nas imagens':'Image lighting and highlights'}<small>{locale==='pt'?'Desligado preserva as cores da mídia. A perspectiva e o movimento continuam ativos.':'Off preserves media colors. Perspective and motion remain active.'}</small></span></label>}
         <input className="field" aria-label={locale === 'pt' ? 'Buscar controles' : 'Search controls'} placeholder={locale === 'pt' ? 'Buscar controles…' : 'Search controls…'} value={query} onChange={(e) => setQuery(e.target.value)} />
-        <div className="inspector-actions"><button className="link-btn" onClick={() => setFavoritesOnly((v) => !v)}>{favoritesOnly ? (locale === 'pt' ? 'Todos' : 'All') : '★'}</button><button className="link-btn" onClick={() => setCopied(structuredClone(values))}>{locale === 'pt' ? 'Copiar ajustes' : 'Copy settings'}</button><button className="link-btn" disabled={!copied} onClick={() => { if (copied) for (const def of template.controls) { const value = copied[def.key]; if (value === undefined) continue; if (def.type === 'slider' && typeof value === 'number') setValue(def.key, Math.max(def.min ?? -Infinity, Math.min(def.max ?? Infinity, value))); else if (def.type === 'xypad' && value && typeof value === 'object' && 'x' in value && 'y' in value) setValue(def.key, value); else if (typeof value === typeof def.default && (!def.options || def.options.includes(String(value)))) setValue(def.key, value); } }}>{locale === 'pt' ? 'Colar' : 'Paste'}</button></div>
+        <div className="inspector-actions"><button className="link-btn" onClick={() => setCopied(structuredClone(values))}>{locale === 'pt' ? 'Copiar ajustes' : 'Copy settings'}</button><button className="link-btn" disabled={!copied} onClick={() => { if (copied) for (const def of template.controls) { const value = copied[def.key]; if (value === undefined) continue; if (def.type === 'slider' && typeof value === 'number') setValue(def.key, Math.max(def.min ?? -Infinity, Math.min(def.max ?? Infinity, value))); else if (def.type === 'xypad' && value && typeof value === 'object' && 'x' in value && 'y' in value) setValue(def.key, value); else if (typeof value === typeof def.default && (!def.options || def.options.includes(String(value)))) setValue(def.key, value); } }}>{locale === 'pt' ? 'Colar' : 'Paste'}</button></div>
         {/* With more than one layer, make it explicit that these controls edit
             the SELECTED layer's motion, not the whole scene's. */}
         {trackCount > 1 && (
@@ -76,7 +73,7 @@ export default function ScenePanel() {
           if (!controls.length) return null;
           return <div className="ctl-section" key={section}>
             <div className="ctl-section-title inspector-section-head"><button className="link-btn" aria-expanded={!closed.includes(section)} onClick={() => setClosed((list) => list.includes(section) ? list.filter((item) => item !== section) : [...list, section])}>{label(section)} {closed.includes(section) ? '+' : '−'}</button><button className="link-btn" onClick={() => { const defaults = defaultsFor(activeTemplateId); for (const def of controls) setValue(def.key, defaults[def.key]); }}>{locale === 'pt' ? 'Redefinir' : 'Reset'}</button></div>
-            {!closed.includes(section) && controls.map((def) => <div className="inspector-control" key={def.key}><ControlRow def={def} value={values[def.key]} onChange={(val) => setValue(def.key, val)} /><button className={`control-favorite ${favorites.includes(def.key) ? 'selected' : ''}`} aria-label={`${locale === 'pt' ? 'Favoritar' : 'Favorite'} ${label(def.label)}`} onClick={() => { const next = favorites.includes(def.key) ? favorites.filter((key) => key !== def.key) : [...favorites, def.key]; setFavorites(next); localStorage.setItem('motion-favorite-controls', JSON.stringify(next)); }}>{favorites.includes(def.key) ? '★' : '☆'}</button></div>)}
+            {!closed.includes(section) && controls.map((def) => <div className="inspector-control" key={def.key}><ControlRow def={def} value={values[def.key]} onChange={(val) => setValue(def.key, val)} /></div>)}
           </div>;
         })}
         {advancedControls.length > 0 && (

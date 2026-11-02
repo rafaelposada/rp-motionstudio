@@ -3,6 +3,7 @@ const {app, BrowserWindow, Menu, dialog, ipcMain, protocol, net, shell, utilityP
 const fs = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto'), nodeNet = require('node:net');
 const {APP_ORIGIN, trustedURL, externalURL, closeCoordinator} = require('./policy.cjs');
 const {prepareRuntime}=require('./runtime.cjs');
+const {createUpdater}=require('./updater.cjs');
 const {execFile}=require('node:child_process');
 const exec= require('node:util').promisify(execFile);
 protocol.registerSchemesAsPrivileged([{scheme:'rp-motion',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,codeCache:true}}]);
@@ -18,12 +19,12 @@ let win, server, serverOrigin, closing = false, exiting = false, ready = false;
 const requests = new Map();
 const validSender = event => !!win && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame && trustedURL(event.senderFrame?.url || '');
 ipcMain.on('rp:ready',event=>{if(validSender(event))ready=true;});
-function request(action, timeout = 120000) {
+function request(action, timeout = 120000, payload) {
   if (!ready || !win || win.isDestroyed()) return Promise.reject(Error('O editor ainda está carregando. Tente fechar novamente quando abrir.'));
   const id = crypto.randomUUID();
   return new Promise((resolve,reject) => {
     const timer = setTimeout(() => {requests.delete(id);reject(Error('O editor não respondeu. A janela foi mantida para proteger seu trabalho.'));},timeout);
-    requests.set(id,{resolve,reject,timer});win.webContents.send('rp:request',{id,action});
+    requests.set(id,{resolve,reject,timer});win.webContents.send('rp:request',{id,action,payload});
   });
 }
 ipcMain.on('rp:response',(event,message) => {
@@ -50,6 +51,15 @@ ipcMain.handle('rp:open-project',async event => {
   const file = result.filePaths[0], stat = await fs.stat(file);
   if (!stat.isFile() || stat.size > 512*1024*1024) throw Error('Escolha um pacote de até 512 MB.');
   return {name:path.basename(file),bytes:new Uint8Array(await fs.readFile(file))};
+});
+let updater;
+const updates=()=>updater??=createUpdater({net,app,root:path.join(app.getPath('userData'),'Updates'),onProgress:progress=>{if(win&&!win.isDestroyed())win.webContents.send('rp:update-progress',progress);}});
+ipcMain.handle('rp:update-prepare',async event=>{if(!validSender(event))throw Error('Origem inválida.');return updates().prepare();});
+ipcMain.handle('rp:update-apply',async event=>{
+  if(!validSender(event))throw Error('Origem inválida.');
+  await request('save-local').catch(()=>{});
+  await updates().apply();
+  await win.webContents.session.flushStorageData();closing=true;app.quit();return true;
 });
 async function freePort() {
   return new Promise((resolve,reject) => {const socket=nodeNet.createServer();socket.once('error',reject);socket.listen(0,'127.0.0.1',()=>{const port=socket.address().port;socket.close(error=>error?reject(error):resolve(port));});});
@@ -109,8 +119,11 @@ async function createWindow() {
   win.webContents.setWindowOpenHandler(({url})=>{if(externalURL(url))void shell.openExternal(url);return {action:'deny'};});
   win.webContents.on('will-navigate',(event,url)=>{if(!trustedURL(url)){event.preventDefault();if(externalURL(url))void shell.openExternal(url);}});
   win.webContents.on('will-attach-webview',event=>event.preventDefault());
-  const close=closeCoordinator({request,confirm:async copy=>(await dialog.showMessageBox(win,{type:'question',...copy,defaultId:0,cancelId:2,noLink:true})).response,
-    showError:async message=>dialog.showMessageBox(win,{type:'error',title:'O aplicativo foi mantido aberto',message,buttons:['Voltar ao editor']}),
+  // The editor draws these choices in its own UI. The native sheet is only a
+  // fallback when the page cannot answer (still loading or unresponsive).
+  const choice=async(copy,native)=>{try{const index=await request('choice',24*60*60*1000,copy);if(Number.isInteger(index))return index;}catch{}return (await dialog.showMessageBox(win,native)).response;};
+  const close=closeCoordinator({request,confirm:copy=>choice({...copy,defaultIndex:0,cancelIndex:2},{type:'question',...copy,defaultId:0,cancelId:2,noLink:true}),
+    showError:message=>choice({title:'RP MotionStudio',message:'O aplicativo foi mantido aberto',detail:message,buttons:['Voltar ao editor'],defaultIndex:0,cancelIndex:0,tone:'error'},{type:'error',title:'O aplicativo foi mantido aberto',message,buttons:['Voltar ao editor']}),
     finish:async()=>{await win.webContents.session.flushStorageData();closing=true;win.close();},
   });
   win.on('close',event=>{if(closing)return;event.preventDefault();void close();});

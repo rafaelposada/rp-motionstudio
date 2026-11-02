@@ -23,11 +23,9 @@
 import type { EasingSpec } from './easing';
 import { clamp } from './motion';
 
-// Only the blend modes PixiJS v8 supports natively. The advanced set (overlay,
-// hard-light, hue…) needs the separate 'pixi.js/advanced-blend-modes' import
-// and a render-group per layer, which isn't worth the cost here.
-export const BLEND_MODES = ['normal', 'add', 'screen', 'multiply'] as const;
-export type BlendMode = (typeof BLEND_MODES)[number];
+// The full Framer-style set lives in blendModes.ts, shared with text layers.
+import type { BlendMode } from './blendModes';
+export { BLEND_MODES, type BlendMode } from './blendModes';
 
 export interface TrackTransform {
   x: number;         // px offset applied on top of the template's pose

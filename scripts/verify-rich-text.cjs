@@ -30,9 +30,17 @@ const calls=[],stack=[];
 const ctx=new Proxy({globalAlpha:1,font:'',fillStyle:'',textAlign:'left',save(){stack.push({globalAlpha:this.globalAlpha,font:this.font,fillStyle:this.fillStyle,textAlign:this.textAlign});},restore(){Object.assign(this,stack.pop());},measureText(text){return{width:[...text].length*(this.font.includes('Georgia')?30:20)};},fillText(text,x,y){calls.push({text,font:this.font,color:this.fillStyle,alpha:this.globalAlpha,x,y});}}, {get:(o,k)=>k in o?o[k]:()=>{},set:(o,k,v)=>(o[k]=v,true)});
 assert.equal(richTextLines(ctx,layer)[0].width,8*20+13*30);
 assert.equal(richTextLines(ctx,multi).length,2);
+{const {layoutText}=require('../lib/textLayout'),plain={...layer,runs:[],text:'um dois tres quatro cinco seis sete oito nove dez'};
+  const auto=layoutText(ctx,plain);assert.equal(auto.lines.length,1,'auto width never wraps');
+  const W=auto.width/3,wrapped=layoutText(ctx,{...plain,boxWidth:W});assert.ok(wrapped.lines.length>=3&&wrapped.lines.every(l=>l.width<=W+1e-6),'fixed box wraps inside its width');
+  const justified=layoutText(ctx,{...plain,boxWidth:W,align:'justify'});assert.ok(justified.lines.slice(0,-1).every(l=>Math.abs(l.width-W)<1e-6)&&justified.lines.at(-1).width<=W,'justify fills every line but the last');
+  const balanced=layoutText(ctx,{...plain,boxWidth:W,wrap:'balance'}),spread=lay=>Math.max(...lay.lines.map(l=>l.width))-Math.min(...lay.lines.map(l=>l.width));
+  assert.equal(balanced.lines.length,wrapped.lines.length);assert.ok(spread(balanced)<=spread(wrapped)+1e-6,'balance evens line lengths');
+  const pretty=layoutText(ctx,{...plain,text:plain.text+' fim',boxWidth:W,wrap:'pretty'});assert.ok(pretty.lines.at(-1).segments.filter(x=>x.text.trim()).length>1||pretty.lines.length===1,'pretty avoids an orphan word');}
 global.document={fonts:{check:()=>true},createElement:()=>({width:1000,height:1000,style:{setProperty(){},removeProperty(){}},getContext:()=>ctx,remove(){}})};
 new TextCompositor().render(document.createElement('canvas'),[layer],1000,1000,1,false,null,true);
-assert.ok(calls.some(c=>c.text==='Direito '&&c.font.includes('Arial')&&c.color==='#ffffff'&&c.alpha===.5));
+// Words and spaces are laid out as separate tokens so lines can wrap and justify.
+assert.ok(calls.some(c=>c.text==='Direito'&&c.font.includes('Arial')&&c.color==='#ffffff'&&c.alpha===.5));
 assert.ok(calls.filter(c=>c.font.includes('Georgia')).every(c=>c.color==='#ff0000'&&Math.abs(c.alpha-.2)<1e-10));
 assert.ok(calls.some(c=>c.font.startsWith('700 ')&&c.color==='#ff0000'));
 const s=useSceneStore.getState();s.resetScene();s.addTextLayer();const id=useSceneStore.getState().textLayers[0].id;

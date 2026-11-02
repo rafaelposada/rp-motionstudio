@@ -261,7 +261,7 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
 .tpl-strip { align-items: center; padding-top: 12px; }
 .app-tpl-collapsed { --templates-col: 40px; }
 .tabs {
-  display: flex; background: var(--card-inset); border-radius: var(--r-ctrl);
+  display: flex; flex-wrap: wrap; gap: 2px; background: var(--card-inset); border-radius: var(--r-ctrl);
   padding: var(--seg-pad); width: 100%;
 }
 .tab {
@@ -325,6 +325,7 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
 .tpl-name { flex: 1; }
 .tpl-chevron { width: 12px; height: 12px; color: var(--fg-faint); display: grid; place-items: center; }
 .tpl-accordion { width: 100%; }
+.tpl-empty { margin: 4px 0 14px; padding: 10px 13px; border-radius: var(--r-ctrl); background: var(--card-inset); color: var(--fg-muted); font-size: 12px; line-height: 1.45; text-wrap: pretty; }
 .tpl-accordion-chevron {
   width: 12px; height: 12px; color: var(--fg-faint); display: grid; place-items: center;
   transition: transform 180ms ease, color var(--t-fast);
@@ -589,16 +590,28 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
 
 /* segmented — one #232323 track, p3; active thumb #2d2d2d r6 */
 .segmented {
-  display: flex; background: var(--card-inset); border-radius: var(--r-ctrl);
+  display: flex; flex-wrap: wrap; gap: 2px; background: var(--card-inset); border-radius: var(--r-ctrl);
   padding: var(--seg-pad); width: 100%;
 }
 .seg {
-  flex: 1; min-width: 1px; padding: 5px 8px; border-radius: var(--r-seg);
+  /* Grow to share the track, never shrink below the label: long words such as
+     "Esquerda" keep their padding and narrow panels wrap to a second row. */
+  flex: 1 0 auto; padding: 5px 10px; border-radius: var(--r-seg);
   color: var(--fg-faint); font-size: var(--fs-ui); line-height: var(--lh-ui);
   text-align: center; text-transform: capitalize; white-space: nowrap;
   transition: background var(--t-fast), color var(--t-fast);
 }
 .seg:hover:not(.active) { color: var(--fg-muted); }
+/* Framer-style icon segments: alignment, box width mode. */
+.icon-segmented { display: flex; gap: 2px; padding: var(--seg-pad); border-radius: var(--r-ctrl); background: var(--card-inset); margin-top: 6px; }
+.icon-seg { flex: 1 0 auto; min-height: 28px; padding: 4px 10px; display: grid; place-items: center; border-radius: var(--r-seg); color: var(--fg-faint); font-size: var(--fs-ui); transition: background var(--t-fast), color var(--t-fast); }
+.icon-seg:hover:not(.active) { color: var(--fg-muted); }
+.icon-seg.active { background: var(--seg-active-bg); color: var(--seg-active-fg); }
+.icon-seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.icon-segmented.compact { margin-top: 0; flex: 0 0 auto; }
+.icon-segmented.font-provider { margin: 8px 0 10px; }
+.text-box-width { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.text-box-width .field { flex: 1; min-width: 0; }
 .seg.active { background: var(--seg-active-bg); color: var(--seg-active-fg); }
 
 /* pills — same segmented skin, used for short option rows (logo corner etc.) */
@@ -870,6 +883,14 @@ select.field { padding-right: 26px; }
 .layer-confirm::backdrop { background: #0008; backdrop-filter: blur(3px); }
 .layer-confirm p { font-size: 14px; line-height: 1.6; margin: 0 0 22px; }
 .layer-confirm > div { display: flex; justify-content: flex-end; gap: 10px; }
+.app-dialog { color: var(--fg-body); background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px 26px 22px; width: min(460px, calc(100vw - 40px)); box-shadow: 0 24px 70px #0006; }
+.app-dialog::backdrop { background: #0008; backdrop-filter: blur(4px); }
+.app-dialog-eyebrow { display: block; margin-bottom: 8px; color: var(--fg-faint); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.app-dialog h2 { margin: 0; color: var(--fg); font-size: 17px; line-height: 1.35; font-weight: 600; text-wrap: balance; }
+.app-dialog p { margin: 10px 0 0; color: var(--fg-muted); font-size: 13px; line-height: 1.6; text-wrap: pretty; }
+.app-dialog.error h2 { color: var(--fg); }
+.app-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+.app-dialog-actions .btn { min-height: 34px; padding: 0 14px; }
 .composition-panel summary { cursor: pointer; color: var(--fg-label); font-size: 11px; font-weight: 600; margin-bottom: 12px; }
 .composition-list, .font-browser-results { max-height: 220px; overflow-y: auto; margin: 10px 0; }
 .composition-row { display: flex; align-items: center; gap: 6px; min-height: 36px; border-radius: 6px; }
@@ -980,9 +1001,7 @@ select.field { padding-right: 26px; }
 }
 .text-panel { gap: 16px; }
 .inspector-actions, .inspector-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.inspector-control { position: relative; padding-right: 16px; }
-.control-favorite { position: absolute; right: -2px; top: 0; color: var(--fg-faint); opacity: .25; font-size: 12px; }
-.inspector-control:hover .control-favorite, .control-favorite.selected, .control-favorite:focus-visible { opacity: 1; }
+.inspector-control { position: relative; }
 .export-log { max-height: 200px; overflow: auto; font-size: 10px; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
 .project-tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .home-shell { height: 100dvh; display: grid; grid-template-columns: 224px minmax(0, 1fr); grid-template-rows: 76px minmax(0, 1fr); grid-template-areas: 'header header' 'sidebar main'; background: var(--stage); color: var(--fg-body); font-size: 14px; line-height: 1.5; -webkit-user-select: none; user-select: none; overflow: hidden; }

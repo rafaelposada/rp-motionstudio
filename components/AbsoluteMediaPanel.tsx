@@ -5,6 +5,7 @@ import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
 import { idbPut, idbDelete } from '@/lib/assetDb';
 import { ControlRow } from './Controls';
+import { BlendRow } from './BlendSelect';
 import LayerAnimationControls from './LayerAnimationControls';
 export default function AbsoluteMediaPanel() {
   const layers = useSceneStore((s) => s.textLayers);
@@ -50,6 +51,7 @@ export default function AbsoluteMediaPanel() {
     {mediaLayer?.media && <><strong>{pt ? 'Imagem estática selecionada' : 'Selected static image'}</strong>{(['width', 'height'] as const).map((axis) => <ControlRow key={axis} def={{ key: axis, label: axis === 'width' ? (pt ? 'Largura da imagem' : 'Image width') : (pt ? 'Altura da imagem' : 'Image height'), type: 'slider', min: 1, max: 4000, step: 1, default: 200 }} value={mediaLayer.media![axis]} onChange={(value) => useSceneStore.getState().patchTextLayer(mediaLayer.id, { media: { ...mediaLayer.media!, [axis]: value } })} />)}
     {(['x', 'y', 'rotation'] as const).map((key) => <ControlRow key={key} def={{ key, label:key==='rotation'?(pt?'Rotação':'Rotation'):`${pt?'Posição':'Position'} ${key.toUpperCase()}`, type:'slider',min:-4000,max:4000,step:1,default:0 }} value={mediaLayer[key]} onChange={value=>useSceneStore.getState().patchTextLayer(mediaLayer.id,{[key]:Number(value)})}/>)}
     <ControlRow def={{key:'opacity',label:pt?'Opacidade':'Opacity',type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={mediaLayer.opacity*100} onChange={value=>useSceneStore.getState().patchTextLayer(mediaLayer.id,{opacity:Number(value)/100})}/>
+    <BlendRow value={mediaLayer.blend} onChange={blend=>useSceneStore.getState().patchTextLayer(mediaLayer.id,{blend})}/>
     <ControlRow def={{key:'imageCorners',label:pt?'Arredondar todos os cantos':'Round all corners',type:'slider',min:0,max:Math.min(mediaLayer.media.width,mediaLayer.media.height)/2,step:1,unit:'px',default:0}} value={mediaLayer.media.cornerRadii?.[0]??0} onChange={value=>{const r=Number(value);useSceneStore.getState().patchTextLayer(mediaLayer.id,{media:{...mediaLayer.media!,cornerRadii:[r,r,r,r]}});}}/>
     <LayerAnimationControls layer={mediaLayer} pt={pt}/>
     <p className="ctl-hint">{pt?'Arraste os círculos internos na tela para arredondar. Alt ajusta somente o canto arrastado.':'Drag the inner circles to round corners. Alt changes only the dragged corner.'}</p>

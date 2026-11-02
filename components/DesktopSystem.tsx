@@ -12,6 +12,7 @@ import {pendingAssetTransactions} from '@/lib/assetDb';
 import {useHistoryStore} from '@/store/useHistoryStore';
 import {compositionOrder} from '@/lib/composition';
 import {arrangeCompositionLayers} from '@/lib/compositionActions';
+import {appChoice,type AppChoice} from '@/lib/appDialog';
 
 export default function DesktopSystem() {
   const [desktop,setDesktop]=useState(false),[message,setMessage]=useState('');
@@ -21,7 +22,7 @@ export default function DesktopSystem() {
     let alive=true,working=false;
     const appearance=()=>api.appearance(useUIStore.getState().theme);appearance();
     const stopTheme=useUIStore.subscribe((next,previous)=>{if(next.theme!==previous.theme)appearance();});
-    const stop=api.onRequest(async({id,action}:DesktopRequest)=>{
+    const stop=api.onRequest(async({id,action,payload}:DesktopRequest)=>{
       const pt=useUIStore.getState().locale==='pt';
       let ownsWork=false;
       try {
@@ -33,6 +34,9 @@ export default function DesktopSystem() {
           if(!busy&&useUIStore.getState().autosaveEnabled)flushScene();
           api.respond(id,{ok:true,value:{pt,busy,hasProject:!!project&&useUIStore.getState().nav!=='home',name:listProjects().find(p=>p.id===project)?.name??'Projeto',unsaved:getSaveState().status!=='saved'}});return;
         }
+        // Close confirmation and error notices are drawn by the app itself, not
+        // as macOS/Windows sheets, so they share the editor's design.
+        if(action==='choice'){api.respond(id,{ok:true,value:await appChoice(payload as AppChoice)});return;}
         if(working||desktopBusy()||pendingAssetTransactions()>0)throw Error(pt?'Aguarde a operação em andamento.':'Wait for the current operation to finish.');
         working=true;ownsWork=true;
         if(action==='undo'||action==='redo'){

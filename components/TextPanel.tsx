@@ -7,6 +7,8 @@ import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { useI18n } from '@/lib/useI18n';
 import { ensureFont, type TextLayer } from '@/lib/textLayers';
 import { ControlRow } from './Controls';
+import { BlendRow } from './BlendSelect';
+import TextLayoutControls from './TextLayoutControls';
 import { useUIStore } from '@/store/useUIStore';
 import FontBrowser from './FontBrowser';
 import ColorField from './ColorField';
@@ -93,7 +95,7 @@ export default function TextPanel() {
       <label className="text-edit-label">{pt ? 'Peso' : 'Weight'}<select className="field" disabled={!font?.mixed&&String(font?.value).startsWith('Local ')} value={weight?.mixed?'mixed':Number(weight?.value)} onChange={(e) => void changeWeight(Number(e.target.value))}>{weight?.mixed&&<option value="mixed" disabled>{pt?'Misto':'Mixed'}</option>}{[300, 400, 500, 600, 700, 800, 900].map((weight) => <option key={weight} value={weight}>{weight}</option>)}</select></label>
       {layer.font.startsWith('Local ') && <p className="ctl-hint">{pt ? 'Fonte local: importe outro arquivo para usar um peso diferente.' : 'Local font: import another file to use a different weight.'}</p>}
       {numberControl('size', pt ? 'Tamanho do texto' : 'Text size', 8, 400)}
-      <label className="text-edit-label">{pt ? 'Alinhamento' : 'Alignment'}<select className="field" value={layer.align} onChange={(e) => patch(layer.id, { align: e.target.value as CanvasTextAlign })}><option value="left">{pt ? 'Esquerda' : 'Left'}</option><option value="center">{pt ? 'Centro' : 'Center'}</option><option value="right">{pt ? 'Direita' : 'Right'}</option></select></label>
+      <TextLayoutControls layer={layer} pt={pt} patch={patch}/>
       {numberControl('letterSpacing', pt ? 'Espaçamento entre letras' : 'Letter spacing', -10, 80, 0.1)}
       {numberControl('lineHeight', pt ? 'Entrelinha' : 'Line height', 0.5, 3, 0.01)}
       <h3 className="text-section-title">{pt ? 'Transformação' : 'Transform'}</h3>
@@ -106,6 +108,7 @@ export default function TextPanel() {
       <h3 className="text-section-title">{pt ? 'Aparência' : 'Appearance'}</h3>
       <ColorField pt={pt} label={pt?'Cor do texto':'Text fill'} color={String(fill?.value??layer.color)} opacity={Number(fillAlpha?.value??1)} mixed={fill?.mixed} mixedOpacity={fillAlpha?.mixed} onChange={(color,fillOpacity,changed)=>styleText(changed==='opacity'?{fillOpacity}:{color})}/>
       <ControlRow def={{key:'opacity',label:pt?'Opacidade da camada':'Layer opacity',type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={layer.opacity*100} onChange={(value)=>patch(layer.id,{opacity:Number(value)/100})}/>
+      <BlendRow value={layer.blend} onChange={blend=>patch(layer.id,{blend})}/>
       <p className="ctl-hint">{pt?'A opacidade da camada afeta o conjunto. A opacidade da cor afeta apenas o preenchimento do texto.':'Layer opacity affects the whole layer. Fill opacity affects only the text fill.'}</p>
       <label className="text-edit-label"><span><input type="checkbox" checked={!!layer.stroke} onChange={(e) => patch(layer.id, { stroke: e.target.checked ? '#000000' : undefined, strokeWidth: layer.strokeWidth ?? 3 })} /> {pt ? 'Contorno' : 'Stroke'}</span></label>
       {layer.stroke && <><ColorField pt={pt} label={pt?'Cor do contorno':'Stroke color'} color={layer.stroke} opacity={layer.strokeOpacity??1} onChange={(stroke,strokeOpacity)=>patch(layer.id,{stroke,strokeOpacity})}/>{numberControl('strokeWidth', pt ? 'Espessura do contorno' : 'Stroke width', 0, 30, 0.1)}</>}

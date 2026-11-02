@@ -4,8 +4,13 @@ import { drawTextShadow, type TextShadowSettings } from './textShadow';
 import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
 import { normalizedRadii, bounded, type CornerRadii } from './transformGeometry';
 import {textBackdropBox,type TextPadding} from './textPadding';
-import {richTextLines,textFontVariants,type TextRun} from './richText';
+import {textFontVariants,type TextRun} from './richText';
+import {layoutText,boxLeft,lineOffset,canvasAlign,anchorAlign} from './textLayout';
+import type { BlendMode } from './blendModes';
+import { fontshareFamily, fontshareFileUrl } from './fontshare';
 
+export type TextAlign = 'left'|'center'|'right'|'justify';
+export type TextWrap = 'auto'|'balance'|'pretty';
 export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
 
 export interface TextLayer {
@@ -16,7 +21,8 @@ export interface TextLayer {
   backdropColor?: string; backdropOpacity?: number; backdropBlur?: number;
   backdropPadding?: TextPadding;
   backdropStroke?: string; backdropStrokeOpacity?: number; backdropStrokeWidth?: number;
-  align: CanvasTextAlign; lineHeight: number; visible: boolean;
+  align: TextAlign; lineHeight: number; visible: boolean;
+  boxWidth?: number; wrap?: TextWrap; // fixed text box width (px); unset = grows with the text
   start: number; end: number;
   locked?: boolean; stroke?: string;
   strokeWidth?: number; fillOpacity?: number; letterSpacing?: number;
@@ -24,7 +30,7 @@ export interface TextLayer {
   arc?: number; shadowColor?: string; shadowBlur?: number;
   shadowX?: number; shadowY?: number; shadowOpacity?: number;
   shadowSpread?: number; shadowType?: 'box'|'realistic'; shadowPosition?: 'outside'|'inside';
-  z?: number;
+  z?: number; blend?: BlendMode;
   media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
   animation?: 'none' | 'fade' | 'rise' | 'typewriter';
   animationDuration?: number; backdrop?: boolean;
@@ -94,12 +100,17 @@ export function ensureFont(family: string, weight: number): Promise<void> {
     const cacheKey = `font:${key}`;
     let blob = await idbGet(cacheKey);
     if (!blob) {
-      // No project text or personal data is sent to Google; only family/weight.
-      const response = await fetch(`https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}&display=swap`, { signal: AbortSignal.timeout(15000) });
-      if (!response.ok) throw new Error('Fonte indisponível no Google Fonts.');
-      const css = await response.text();
-      const urls = [...css.matchAll(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g)];
-      const url = urls.at(-1)?.[1]; // Latin subset includes Portuguese characters.
+      const share = await fontshareFamily(family);
+      let url: string | undefined;
+      if (share) url = await fontshareFileUrl(share, weight);
+      else {
+        // No project text or personal data is sent to Google; only family/weight.
+        const response = await fetch(`https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}&display=swap`, { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw new Error('Fonte indisponível no Google Fonts.');
+        const css = await response.text();
+        const urls = [...css.matchAll(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g)];
+        url = urls.at(-1)?.[1]; // Latin subset includes Portuguese characters.
+      }
       if (!url) throw new Error('Arquivo da fonte não encontrado.');
       const fontResponse = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!fontResponse.ok) throw new Error('Falha ao baixar a fonte.');
@@ -171,19 +182,18 @@ export class TextCompositor {
         ctx.restore(); continue;
       }
       ctx.fillStyle = layer.color;
-      ctx.textAlign = layer.align;
+      ctx.textAlign = canvasAlign(layer.align);
       ctx.textBaseline = 'middle';
       ctx.font = `${layer.weight} ${layer.size}px "${layer.font}", sans-serif`;
       let drawSize = layer.size;
       if (layer.backdrop) {
-        const longest = layer.runs?.length?Math.max(0,...richTextLines(ctx,layer).map(line=>line.width)):Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
-        drawSize = captionFontSize(layer.size, longest, width);
+        drawSize = captionFontSize(layer.size, layoutText(ctx,layer).width, width);
         ctx.font = `${layer.weight} ${drawSize}px "${layer.font}", sans-serif`;
       }
-      const lines = motion.text.split('\n');
+      const layout = layoutText(ctx, layer, drawSize), lineCount = layout.lines.length, lineStep = drawSize * layer.lineHeight;
+      const textWidth = layout.width, left = boxLeft(layer, textWidth), visible = motion.text.length;
       if (layer.backdrop && motion.text) {
-        const textWidth = layer.runs?.length?Math.max(0,...richTextLines(ctx,layer,layer.text,drawSize).map(line=>line.width)):Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
-        const box = textBackdropBox(textWidth,layer.text.split('\n').length * drawSize * layer.lineHeight,layer.align,layer.backdropPadding);
+        const box = textBackdropBox(textWidth,lineCount * lineStep,anchorAlign(layer),layer.backdropPadding);
         const alpha = ctx.globalAlpha;
         ctx.beginPath(); ctx.roundRect(box.x, box.y, box.width, box.height, bounded(layer.backdropRadius ?? 12, 0, Math.min(box.width,box.height) / 2));
         ctx.fillStyle = maskOnly?'#ffffff':layer.backdropColor ?? '#101114'; ctx.globalAlpha = alpha * (maskOnly?1:bounded(layer.backdropOpacity ?? .8,0,1)); ctx.fill();
@@ -196,26 +206,24 @@ export class TextCompositor {
       }
       if(maskOnly){ctx.restore();continue;}
       ctx.shadowColor = 'transparent';
-      const richLines=layer.runs?.length?richTextLines(ctx,layer,motion.text,drawSize):null;
+      // The layout always covers the full text, so a typewriter entrance or
+      // exit reveals characters in place instead of reflowing the lines.
       const glyphs=(g:CanvasRenderingContext2D,paint:(text:string,x:number,y:number,color?:string,opacity?:number)=>void)=>{
-        if(richLines){g.save();g.textAlign='left';richLines.forEach((line,index)=>{
-          const origin=layer.align==='left'?0:layer.align==='right'?-line.width:-line.width/2;
-          for(const segment of line.segments){g.font=segment.font;paint(segment.text,origin+segment.x,(index-(lines.length-1)/2)*drawSize*layer.lineHeight,segment.style.color,segment.style.fillOpacity);}
-        });g.restore();return;}
-        lines.forEach((line,index)=>{
-          const y=(index-(lines.length-1)/2)*drawSize*layer.lineHeight,chars=[...line],spacing=layer.letterSpacing??0;
-          if(!spacing){paint(line,0,y);return;}
-          const widths=chars.map(char=>g.measureText(char).width),total=widths.reduce((a,b)=>a+b,0)+Math.max(0,chars.length-1)*spacing;
-          let cursor=0;g.save();g.textAlign='center';const origin=layer.align==='left'?total/2:layer.align==='right'?-total/2:0;
-          chars.forEach((char,i)=>{paint(char,origin+cursor+widths[i]/2-total/2,y);cursor+=widths[i]+spacing;});g.restore();
+        g.save();g.textAlign='left';
+        layout.lines.forEach((line,index)=>{
+          const y=(index-(lineCount-1)/2)*lineStep,origin=left+lineOffset(layer.align,textWidth,line.width);
+          for(const segment of line.segments){
+            if(segment.start>=visible||!segment.text.trim())continue;
+            g.font=segment.font;paint(segment.text.slice(0,visible-segment.start),origin+segment.x,y,segment.style.color,segment.style.fillOpacity);
+          }
         });
+        g.restore();
       };
       const shadow:TextShadowSettings|undefined=layer.shadowColor?{color:layer.shadowColor,opacity:layer.shadowOpacity??.5,x:layer.shadowX??0,y:layer.shadowY??0,blur:layer.shadowBlur??12,spread:layer.shadowSpread??0,type:layer.shadowType??'box',position:layer.shadowPosition??'outside'}:undefined;
-      const textWidth=richLines?Math.max(0,...richLines.map(line=>line.width)):Math.max(0,...lines.map(line=>ctx.measureText(line).width+Math.max(0,[...line].length-1)*(layer.letterSpacing??0)));
       const inkPad=drawSize*.5+(layer.strokeWidth??0);
-      const shadowBounds={x:(layer.align==='left'?0:layer.align==='right'?-textWidth:-textWidth/2)-inkPad,y:-(lines.length-1)/2*drawSize*layer.lineHeight-drawSize,width:textWidth+2*inkPad,height:(lines.length-1)*drawSize*layer.lineHeight+2*drawSize};
+      const shadowBounds={x:left-inkPad,y:-(lineCount-1)/2*lineStep-drawSize,width:textWidth+2*inkPad,height:(lineCount-1)*lineStep+2*drawSize};
       const drawShadow=()=>{if(!shadow)return;drawTextShadow(ctx,output.width,output.height,output.width/width,shadow,(g,spread)=>{
-        g.font=ctx.font;g.textAlign=layer.align;g.textBaseline='middle';g.fillStyle='#fff';g.strokeStyle='#fff';g.lineJoin='round';
+        g.font=ctx.font;g.textBaseline='middle';g.fillStyle='#fff';g.strokeStyle='#fff';g.lineJoin='round';
         const baseWidth=layer.stroke?(layer.strokeWidth??3):0;
         glyphs(g,(text,x,y)=>{g.fillText(text,x,y);if(baseWidth+2*Math.max(0,spread)>0){g.lineWidth=baseWidth+2*Math.max(0,spread);g.strokeText(text,x,y);}});
         if(spread<0){g.globalCompositeOperation='destination-out';g.lineWidth=-2*spread;glyphs(g,(text,x,y)=>g.strokeText(text,x,y));g.globalCompositeOperation='source-over';}

@@ -2,8 +2,9 @@
 'use client';
 
 import { useSceneStore } from '@/store/useSceneStore';
-import { BLEND_MODES, trackWindow, type BlendMode } from '@/lib/tracks';
+import { trackWindow } from '@/lib/tracks';
 import { ControlRow } from './Controls';
+import { BlendRow } from './BlendSelect';
 import { useUIStore } from '@/store/useUIStore';
 import { layerDisplayName } from '@/lib/compositionActions';
 
@@ -52,11 +53,7 @@ export default function TrackInspector() {
           value={Number((track.opacity * 100).toFixed(10))}
           onChange={(v) => patch({ opacity: Math.max(0, Math.min(100, Number(v))) / 100 })}
         />
-        <ControlRow
-          def={{ key: '_blend', label: 'Blend', type: 'select', options: [...BLEND_MODES], default: 'normal' }}
-          value={track.blend}
-          onChange={(v) => patch({ blend: v as BlendMode })}
-        />
+        <BlendRow value={track.blend} onChange={(blend) => patch({ blend })} />
         <ControlRow
           def={{ key: '_ts', label: 'Speed', type: 'slider', min: 0.25, max: 4, step: 0.05, default: 1 }}
           value={track.timeScale}

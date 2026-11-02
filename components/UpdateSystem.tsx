@@ -5,9 +5,11 @@ import {useUpdateStore,refreshUpdates,updateRunning} from '@/store/useUpdateStor
 import {useUIStore} from '@/store/useUIStore';
 import {APP_VERSION} from '@/lib/appVersion';
 import {flushScene,getSaveState} from '@/lib/scenePersist';
+import {canInstallInApp,installDesktopUpdate,useDesktopUpdate} from '@/lib/desktopUpdate';
 export default function UpdateSystem(){
   const info=useUpdateStore(s=>s.info),armed=useUpdateStore(s=>s.armed),auto=useUpdateStore(s=>s.auto),pt=useUIStore(s=>s.locale)==='pt',dialog=useRef<HTMLDialogElement>(null),[dismissed,setDismissed]=useState('');
-  const busy=updateRunning(info),settingsOpen=useUIStore(s=>s.settingsOpen);
+  const busy=updateRunning(info),settingsOpen=useUIStore(s=>s.settingsOpen),desktopUpdate=useDesktopUpdate(),[inApp,setInApp]=useState(false);
+  useEffect(()=>setInApp(canInstallInApp()),[]);
   const failed=armed&&!!info?.job&&['error','rolledBack'].includes(info.job.phase);
   const closeFailure=()=>{useUpdateStore.setState({armed:false});dialog.current?.close();};
   useEffect(()=>{if(failed)dialog.current?.showModal();},[failed]);
@@ -20,7 +22,16 @@ export default function UpdateSystem(){
     if(current.armed&&current.error){try{const r=await fetch('/api/diagnostics',{signal:AbortSignal.timeout(3000)}),d=await r.json();if(d.version&&d.version!==`${APP_VERSION}-local`){flushScene();if(getSaveState().status!=='error')window.location.reload();}}catch{}}
   };const timer=setInterval(()=>void poll(),2000);return()=>{clearInterval(timer);dialog.current?.close();};},[busy,failed]);
   useEffect(()=>{document.body.dataset.updateAvailable=info?.available?'true':'false';return()=>{delete document.body.dataset.updateAvailable;};},[info?.available]);
-  return <>{info?.available&&auto&&dismissed!==info.latest?.sha&&!settingsOpen&&!busy&&<div className="update-notice" role="status"><button onClick={()=>useUIStore.getState().setSettingsOpen(true,'updates')}>{pt?'Nova versão disponível':'Update available'} · {info.latest?.version}</button><button aria-label={pt?'Dispensar aviso de atualização':'Dismiss update notice'} onClick={()=>setDismissed(info.latest?.sha??'')}>×</button></div>}
+  return <>{info?.available&&auto&&dismissed!==info.latest?.sha&&!settingsOpen&&!busy&&<div className="update-popup" role="dialog" aria-labelledby="update-popup-title">
+      <span className="update-popup-dot" aria-hidden="true"/>
+      <div className="update-popup-body"><strong id="update-popup-title">{pt?`Nova versão ${info.latest?.version} disponível`:`Version ${info.latest?.version} is available`}</strong>
+        {desktopUpdate.phase==='downloading'||desktopUpdate.phase==='installing'?<><span>{desktopUpdate.phase==='installing'?(pt?'Conferindo o pacote…':'Verifying the package…'):(pt?'Baixando atualização…':'Downloading update…')}{desktopUpdate.total?` ${Math.round(desktopUpdate.received/desktopUpdate.total*100)}%`:''}</span><progress max={desktopUpdate.total||undefined} value={desktopUpdate.total?desktopUpdate.received:undefined}/></>
+        :<span>{desktopUpdate.phase==='error'?desktopUpdate.error:(pt?'Melhorias e correções prontas para instalar. Seus projetos são mantidos.':'Improvements and fixes ready to install. Your projects are kept.')}</span>}
+        <div className="update-popup-actions"><button className="btn" onClick={()=>setDismissed(info.latest?.sha??'')}>{pt?'Depois':'Later'}</button>
+          {inApp?<button className="btn primary" disabled={['downloading','installing','applying'].includes(desktopUpdate.phase)} onClick={()=>void installDesktopUpdate(pt)}>{desktopUpdate.phase==='ready'?(pt?'Reiniciar e instalar':'Restart and install'):(pt?'Atualizar agora':'Update now')}</button>
+          :<button className="btn primary" onClick={()=>useUIStore.getState().setSettingsOpen(true,'updates')}>{pt?'Ver atualização':'View update'}</button>}</div>
+      </div>
+    </div>}
     <dialog className="update-progress-dialog" ref={dialog} onCancel={e=>{e.preventDefault();if(!busy)closeFailure();}} aria-labelledby="update-progress-title"><span className="eyebrow">RP MotionStudio</span><h2 id="update-progress-title">{failed?(pt?'Atualização não concluída':'Update did not complete'):(pt?'Atualizando o aplicativo':'Updating application')}</h2>{failed?<><p className="settings-description" role="alert">{pt?'A versão instalada e seus projetos foram mantidos. Você pode continuar trabalhando.':'The installed version and your projects were retained. You can continue working.'}</p><details className="update-error-details"><summary>{pt?'Detalhes técnicos':'Technical details'}</summary><pre>{info?.job?.message}</pre></details><button className="btn primary" onClick={closeFailure}>{pt?'Voltar ao aplicativo':'Back to application'}</button></>:<><p role="status" aria-live="polite">{info?.job?.message}</p><progress aria-label={pt?'Progresso da atualização':'Update progress'}/><p className="settings-description">{pt?'Mantenha o app e o computador abertos. O projeto foi salvo; a janela será recarregada quando a nova versão estiver pronta.':'Keep the application and computer running. Your project is saved; this window reloads when the new version is ready.'}</p></>}</dialog>
   </>;
 }

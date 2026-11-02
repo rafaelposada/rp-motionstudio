@@ -6,5 +6,5 @@ export function textPadding(value?:TextPadding):[number,number,number,number]{
 }
 export function textBackdropBox(textWidth:number,inkHeight:number,align:string,padding?:TextPadding){
   const [top,right,bottom,left]=textPadding(padding);
-  return {x:(align==='left'?0:align==='right'?-textWidth:-textWidth/2)-left,y:-inkHeight/2-top,width:textWidth+left+right,height:inkHeight+top+bottom};
+  return {x:(align==='left'||align==='justify'?0:align==='right'?-textWidth:-textWidth/2)-left,y:-inkHeight/2-top,width:textWidth+left+right,height:inkHeight+top+bottom};
 }
