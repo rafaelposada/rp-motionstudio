@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode, type PointerEvent, type KeyboardEven
 import { useUIStore } from '@/store/useUIStore';
 import { DEFAULT_PANELS, PANEL_LIMITS, type PanelId, type PanelAxis } from '@/lib/panelLayout';
 import { useI18n } from '@/lib/useI18n';
+import PanelVisibility, {workspacePanelName} from './PanelVisibility';
 
 export function panelName(panel: PanelId, pt: boolean) {
   return (pt ? { rail: 'Navegação', library: 'Biblioteca / Projetos', inspector: 'Inspetor', timeline: 'Linha do tempo' } : { rail: 'Navigation', library: 'Library / Projects', inspector: 'Inspector', timeline: 'Timeline' })[panel];
@@ -38,8 +39,10 @@ function ResizeHandle({ panel, axis }: { panel: PanelId; axis: PanelAxis }) {
   return <div className={`panel-resizer resize-${axis} ${reverse ? 'resize-reverse' : ''}`} role="separator" tabIndex={0} aria-label={label} aria-orientation={axis === 'width' ? 'vertical' : 'horizontal'} aria-valuemin={value ? min : 0} aria-valuemax={max} aria-valuenow={value} aria-valuetext={value ? `${value}px` : pt ? 'Automático' : 'Automatic'} title={`${label}. ${pt ? 'Arraste ou use as setas. Clique duas vezes para restaurar.' : 'Drag or use arrow keys. Double-click to reset.'}`} onPointerDown={down} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish} onKeyDown={key} onDoubleClick={() => setSize(DEFAULT_PANELS[panel][axis])} />;
 }
 export default function PanelDock({ panel, children, collapsed = false, strip = false }: { panel: PanelId; children: ReactNode; collapsed?: boolean; strip?: boolean }) {
+  const pt=useI18n().locale==='pt';
   const height = useUIStore((state) => state.panels[panel].height); const width = useUIStore((state) => state.panels[panel].width);
-  return <div className={`dock-frame dock-${panel} ${collapsed ? 'dock-collapsed' : ''}`} style={{ height: panel === 'timeline' || !height ? '100%' : `min(100%, ${height}px)`, ...(panel === 'timeline' && width ? { width: `min(100%, ${width}px)` } : {}) }} aria-hidden={collapsed || undefined}>
-    {children}{!collapsed && !strip && <><ResizeHandle panel={panel} axis="width" /><ResizeHandle panel={panel} axis="height" /></>}
+  return <div id={panel==='rail'?undefined:`workspace-panel-${panel}`} className={`dock-frame dock-${panel} ${collapsed ? 'dock-collapsed' : ''}`} style={{ height: panel === 'timeline' || !height ? '100%' : `min(100%, ${height}px)`, ...(panel === 'timeline' && width ? { width: `min(100%, ${width}px)` } : {}) }} aria-hidden={collapsed || undefined} inert={collapsed || undefined}>
+    {panel!=='rail'&&!strip&&<div className="dock-heading"><span>{workspacePanelName(panel,pt)}</span><PanelVisibility panel={panel}/></div>}
+    <div className="dock-content">{children}</div>{!collapsed && !strip && <><ResizeHandle panel={panel} axis="width" /><ResizeHandle panel={panel} axis="height" /></>}
   </div>;
 }

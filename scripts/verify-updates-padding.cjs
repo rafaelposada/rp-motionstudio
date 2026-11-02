@@ -42,6 +42,13 @@ async function main(){
     const oldFetch=global.fetch;global.fetch=async url=>new Response(JSON.stringify(String(url).includes('raw.githubusercontent')?{name:'rp-motionstudio',version:'9.0.0'}:[{sha:'a'.repeat(40),commit:{message:'Versão de teste\nCorpo omitido'}}]),{status:200,headers:{'Content-Type':'application/json'}});
     server.state.lastAttempt=0;await server.checkRemote(true);assert.equal(server.state.latest.version,'9.0.0');assert.deepEqual(server.state.latest.notes,['Versão de teste']);
     global.fetch=async()=>{throw Error('offline');};server.state.lastAttempt=0;await server.checkRemote(true);assert.equal(server.state.latest.version,'9.0.0');assert.ok(server.state.error);global.fetch=oldFetch;
+    const desktopEnv=process.env.RP_MOTION_DESKTOP;process.env.RP_MOTION_DESKTOP='1';
+    const tag='9.0.1',name=`RP-MotionStudio-${tag}-macOS-Apple-Silicon.dmg`,releaseURL=`https://github.com/rafaelposada/rp-motionstudio/releases/tag/v${tag}`,downloadURL=`https://github.com/rafaelposada/rp-motionstudio/releases/download/v${tag}/${name}`;
+    global.fetch=async url=>{assert.match(String(url),/\/releases\/latest$/);return new Response(JSON.stringify({id:12,tag_name:`v${tag}`,html_url:releaseURL,name:'Release de teste',draft:false,prerelease:false,assets:[{name,browser_download_url:downloadURL}]}));};
+    if(process.platform==='darwin'&&process.arch==='arm64'){server.state.lastAttempt=0;await server.checkRemote(true);assert.equal(server.state.latest.downloadUrl,downloadURL);assert.equal(server.state.latest.version,tag);}
+    if(desktopEnv===undefined)delete process.env.RP_MOTION_DESKTOP;else process.env.RP_MOTION_DESKTOP=desktopEnv;global.fetch=oldFetch;
+    const updateUI=await fs.readFile(path.join(project,'components/UpdateSettings.tsx'),'utf8');assert.match(updateUI,/<UpdateConfirmation/);assert.doesNotMatch(updateUI,/className="update-confirm" role="group"/);
+    const worker=await fs.readFile(path.join(project,'scripts/update-worker.cjs'),'utf8');assert.match(worker,/'--webpack'/,'Updates use a root-stable compilation path');
     const request=(url,body,origin='http://127.0.0.1:3002')=>new NextRequest(url,{method:body?'POST':'GET',headers:{host:new URL(url).host,origin,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
     assert.equal((await route.GET(request('http://evil.example/api/updates'))).status,403);
     assert.equal((await route.POST(request('http://127.0.0.1:3002/api/updates',{confirm:true,token:server.state.token},'https://evil.example'))).status,403);

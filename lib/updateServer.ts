@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import {APP_VERSION} from './appVersion';
 const shared=globalThis as typeof globalThis&{rpUpdater?:{token:string;latest?:Latest;checkedAt:number;checking?:Promise<void>;lastAttempt:number;error?:string};motionUpdating?:boolean;motionExports?:Map<string,{cancelled?:boolean;completed?:boolean}>};
 export const state=shared.rpUpdater??={token:crypto.randomBytes(32).toString('hex'),checkedAt:0,lastAttempt:0};
-export interface Latest {version:string;sha:string;notes:string[];url:string}
+export interface Latest {version:string;sha:string;notes:string[];url:string;downloadUrl?:string}
 export const SHA=/^[a-f0-9]{40}$/;
 export const VERSION=/^\d+\.\d+\.\d+$/;
 export const installRoot=process.env.RP_MOTION_INSTALL_ROOT||'';
@@ -33,6 +33,17 @@ export async function checkRemote(force=false){
   if(Date.now()-state.lastAttempt<60000)return;
   state.lastAttempt=Date.now();
   state.checking=(async()=>{try{
+    if(process.env.RP_MOTION_DESKTOP==='1'){
+      const release=await publicJson('https://api.github.com/repos/rafaelposada/rp-motionstudio/releases/latest');
+      const version=String(release.tag_name??'').replace(/^v/,'');
+      const suffix=process.platform==='darwin'&&process.arch==='arm64'?'macOS-Apple-Silicon.dmg':process.platform==='win32'&&process.arch==='x64'?'Windows-x64-Setup-Preview.exe':null;
+      if(!VERSION.test(version)||release.draft||release.prerelease||!suffix)throw Error('Nenhum instalador estável compatível foi publicado para este sistema.');
+      const name=`RP-MotionStudio-${version}-${suffix}`,asset=release.assets?.find((a:{name:string})=>a.name===name);
+      const url=`https://github.com/rafaelposada/rp-motionstudio/releases/tag/v${version}`,downloadUrl=`https://github.com/rafaelposada/rp-motionstudio/releases/download/v${version}/${name}`;
+      if(!asset||asset.browser_download_url!==downloadUrl||release.html_url!==url)throw Error('O instalador publicado ainda não está disponível para este sistema.');
+      state.latest={version,sha:`release:${release.id}`,notes:[String(release.name??`RP MotionStudio ${version}`).slice(0,250),'Consulta automática; instalação assistida pelo instalador oficial.'],url,downloadUrl};
+      state.checkedAt=Date.now();state.error=undefined;return;
+    }
     const commits=await publicJson('https://api.github.com/repos/rafaelposada/rp-motionstudio/commits?sha=main&per_page=5');
     const sha=commits?.[0]?.sha;if(!SHA.test(sha))throw Error('Resposta de versão inválida.');
     const pkg=await publicJson(`https://raw.githubusercontent.com/rafaelposada/rp-motionstudio/${sha}/package.json`);

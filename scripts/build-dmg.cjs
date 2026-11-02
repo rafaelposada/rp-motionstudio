@@ -11,7 +11,7 @@ async function main(){
   execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',source],{stdio:'inherit'});
   const plist=path.join(source,'Contents/Info.plist');
   const version=execFileSync('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',plist],{encoding:'utf8'}).trim();
-  if(version!=='1.4.2')throw Error('Atualize o guia de instalação para a versão deste aplicativo.');
+  if(version!=='1.4.3')throw Error('Atualize o guia de instalação para a versão deste aplicativo.');
   const executable=execFileSync('/usr/libexec/PlistBuddy',['-c','Print :CFBundleExecutable',plist],{encoding:'utf8'}).trim();
   const architectures=execFileSync('/usr/bin/lipo',['-archs',path.join(source,'Contents/MacOS',executable)],{encoding:'utf8'}).trim();
   if(architectures!=='arm64')throw Error('Este guia corresponde somente ao pacote Apple Silicon.');

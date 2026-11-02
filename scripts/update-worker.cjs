@@ -16,7 +16,9 @@ async function prepare(root,id){
     const head=(await c.command('git',['rev-parse','HEAD'],staging)).trim();if(head!==job.sha)throw Error('A revisão baixada não corresponde à confirmação.');
     const pkg=await c.readJson(c.path.join(staging,'package.json'));if(pkg?.name!=='rp-motionstudio'||pkg.version!==job.version)throw Error('Versão baixada não confere.');
     await progress('dependencies','Preparando dependências…');await c.npm(['ci','--include=dev','--no-audit','--no-fund'],staging);
-    await progress('building','Compilando e verificando a nova versão…');await c.npm(['run','build'],staging);
+    // Build in a canonical staging path using Webpack. Turbopack can infer a
+    // different root under Application Support/symlinked temporary folders.
+    await progress('building','Compilando e verificando a nova versão…');await c.npm(['run','build','--','--webpack'],await c.fs.realpath(staging));
     await progress('testing','Executando verificações…');await c.npm(['test'],staging);
     await c.copyApp(staging,release);await c.validRelease(root,{dir:release,version:job.version});
     await progress('ready','Nova versão preparada. Reiniciando…');

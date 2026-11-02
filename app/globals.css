@@ -88,14 +88,22 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
 
 /* Resizable desktop docks. Geometry belongs to UI preferences, not projects. */
 .resizable-app { transition: none; }
-.dock-frame { min-width: 0; min-height: 0; max-height: 100%; position: relative; display: flex; align-self: start; }
-.dock-frame > .card { width: 100%; height: 100%; flex: 1; min-width: 0; }
+.dock-frame { min-width: 0; min-height: 0; max-height: 100%; position: relative; display: flex; flex-direction: column; align-self: start; }
+.dock-content { display: flex; flex: 1; min-width: 0; min-height: 0; width: 100%; }
+.dock-content > .card, .dock-content > .inspector-stack { width: 100%; height: 100%; flex: 1; min-width: 0; min-height: 0; }
+.dock-heading { flex: 0 0 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px 0 12px; color: var(--fg-muted); font-size: 10px; line-height: 1; }
+.dock-heading > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dock-hide { display: grid; place-items: center; flex: 0 0 26px; height: 24px; border-radius: 5px; color: var(--fg-muted); }
+.dock-hide:hover { background: var(--card-inset); color: var(--fg); }
+.dock-hide:focus-visible, .rail-panel-toggle:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 1px; }
 .dock-rail { grid-area: rail; }
 .dock-library { grid-area: templates; }
 .dock-inspector { grid-area: right; }
 .dock-timeline { grid-area: bottom; max-width: 100%; }
-.dock-collapsed { visibility: hidden; pointer-events: none; }
-.dock-rail > .rail { overflow-y: auto; }
+.dock-collapsed { visibility: hidden; pointer-events: none; overflow: hidden; }
+.dock-collapsed > .dock-content, .dock-collapsed > .dock-heading { display: none; }
+.dock-rail .rail { overflow-y: auto; }
+.app.timeline-hidden { row-gap: 0; }
 .dock-timeline .timeline-shell { height: 100%; min-height: 0; }
 .dock-timeline .tl-lanes { max-height: none; min-height: 0; flex: 1; overflow-y: auto; }
 .panel-resizer { position: absolute; z-index: 65; touch-action: none; border-radius: 4px; outline-offset: -2px; }
@@ -238,6 +246,11 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
   color: var(--fg-label); font-size: 9px; font-weight: 700; letter-spacing: .08em;
 }
 .rail-bottom { padding: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: stretch; }
+.rail-panels { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin: 12px 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.rail-panels-label { margin-bottom: 4px; text-align: center; font-size: 8px; color: var(--fg-faint); }
+.rail-panel-toggle { display: grid; place-items: center; width: 100%; min-height: 34px; border-radius: 7px; color: var(--fg-faint); }
+.rail-panel-toggle:hover { background: var(--card-inset); color: var(--fg); }
+.rail-panel-toggle[aria-pressed='true'] { color: var(--accent-text); background: var(--accent-soft); }
 .rail-settings { width: 100%; min-width: 0; flex-shrink: 0; margin: 0; }
 .rail-theme { width: 100%; margin: 0; }
 
@@ -541,13 +554,15 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
   background: var(--card-inset); cursor: ew-resize; user-select: none; overflow: hidden;
 }
 .sfill {
-  position: absolute; inset: 0 auto 0 0; background: var(--card);
-  border: 1px solid var(--handle); border-radius: var(--r-ctrl); pointer-events: none;
+  position: absolute; inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--fg-muted) 13%, transparent);
+  border: 0; border-radius: var(--r-ctrl) 0 0 var(--r-ctrl); pointer-events: none;
 }
 .shandle {
   position: absolute; top: 50%; transform: translate(-50%, -50%);
-  width: 2px; height: 16px; border-radius: 1px; background: var(--handle); pointer-events: none;
+  width: 2px; height: 12px; border-radius: 1px; background: var(--fg-muted); opacity: .65; pointer-events: none;
 }
+.strack:hover .shandle, .strack:focus-visible .shandle { opacity: 1; background: var(--accent-text); }
 .calc-field {
   height: var(--ctl-h); min-width: 0; display: grid;
   grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center;

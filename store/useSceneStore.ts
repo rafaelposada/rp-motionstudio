@@ -1,6 +1,7 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { create } from 'zustand';
 import type { TextLayer } from '@/lib/textLayers';
+import {remapTextRuns} from '@/lib/richText';
 import { audioSettings, DEFAULT_AUDIO, type AudioSettings } from '@/lib/audioEnvelope';
 import type { BackgroundGradient } from '@/lib/backgroundGradient';
 import { defaultsFor, easingFor, templates } from '@/templates';
@@ -317,7 +318,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     color: '#ffffff', x: s.width / 2, y: s.height / 2, rotation: 0,
     opacity: 1, fillOpacity: 1, arc: 0, letterSpacing: 0, align: 'center', lineHeight: 1.2, visible: true, start: 0, end: s.duration,
   }] })),
-  patchTextLayer: (id, patch) => set((s) => ({ textLayers: s.textLayers.map((layer) => layer.id === id ? { ...layer, ...patch, id: layer.id } : layer) })),
+  patchTextLayer: (id, patch) => set((s) => ({ textLayers: s.textLayers.map((layer) => layer.id === id ? { ...layer, ...(typeof patch.text==='string'&&!('runs' in patch)?{runs:remapTextRuns(layer,patch.text)}:{}), ...patch, id: layer.id } : layer) })),
   removeTextLayer: (id) => set((s) => ({ textLayers: s.textLayers.filter((layer) => layer.id !== id) })),
 
   setValue: (key, val) =>

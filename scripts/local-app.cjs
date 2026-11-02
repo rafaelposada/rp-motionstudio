@@ -75,7 +75,7 @@ async function bootstrap(root,source){
   const existing=await c.readJson(c.path.join(root,'installation.json'));if(existing)return;
   const pkg=await c.readJson(c.path.join(source,'package.json'));if(pkg?.name!=='rp-motionstudio')throw Error('Execute dentro da pasta RP MotionStudio.');
   if(Number(process.versions.node.split('.')[0])<24)throw Error('Instale Node.js 24 ou mais recente.');
-  console.log('Preparando a instalação local atualizável…');await c.npm(['run','build'],source,text=>process.stdout.write(text.slice(-1000)));
+  console.log('Preparando a instalação local atualizável…');await c.npm(['run','build','--','--webpack'],await c.fs.realpath(source),text=>process.stdout.write(text.slice(-1000)));
   const sha='000000000000',dir=c.path.join(root,'releases',`${pkg.version}-${sha}-${c.crypto.randomUUID().slice(0,8)}`);
   await c.copyApp(source,dir);await c.atomic(c.path.join(root,'installation.json'),{schema:1,active:{dir,version:pkg.version}});
   await c.fs.mkdir(c.path.join(root,'Launcher'),{recursive:true});

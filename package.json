@@ -1,10 +1,10 @@
 {
   "name": "rp-motionstudio",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "RP MotionStudio — editor local de composição e animação, baseado em Motion Studio.",
   "main": "index.js",
   "scripts": {
-    "test": "node scripts/verify-tilt.cjs && node scripts/verify-catalogue.cjs && node scripts/verify-contexts.cjs && node scripts/verify-reference.cjs && node scripts/verify-editor.cjs && node scripts/verify-settings.cjs && node scripts/verify-performance.cjs && node scripts/verify-animation.cjs && node scripts/verify-transforms.cjs && node scripts/verify-home.cjs && node scripts/verify-workflow.cjs && node scripts/verify-workspace.cjs && node scripts/verify-finishing.cjs && node scripts/verify-text-spinner.cjs && node scripts/verify-runway-backdrop.cjs && node scripts/verify-updates-padding.cjs && node scripts/verify-composition-rotation.cjs && node scripts/verify-stickers-text.cjs && node scripts/verify-desktop.cjs",
+    "test": "node scripts/verify-tilt.cjs && node scripts/verify-catalogue.cjs && node scripts/verify-contexts.cjs && node scripts/verify-reference.cjs && node scripts/verify-editor.cjs && node scripts/verify-settings.cjs && node scripts/verify-performance.cjs && node scripts/verify-animation.cjs && node scripts/verify-transforms.cjs && node scripts/verify-home.cjs && node scripts/verify-workflow.cjs && node scripts/verify-workspace.cjs && node scripts/verify-finishing.cjs && node scripts/verify-text-spinner.cjs && node scripts/verify-runway-backdrop.cjs && node scripts/verify-updates-padding.cjs && node scripts/verify-composition-rotation.cjs && node scripts/verify-stickers-text.cjs && node scripts/verify-rich-text.cjs && node scripts/verify-desktop.cjs",
     "app": "node scripts/local-app.cjs",
     "dev": "next dev",
     "dev:network": "next dev -H 0.0.0.0",

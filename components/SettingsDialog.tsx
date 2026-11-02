@@ -66,6 +66,7 @@ export default function SettingsDialog() {
   const { locale } = useI18n(); const pt = locale === 'pt';
   const appearance = useUIStore((s) => s.appearance); const grid = useUIStore((s) => s.showStageGrid);
   const leftHidden = useUIStore((s) => s.leftCollapsed); const rightHidden = useUIStore((s) => s.rightCollapsed);
+  const timelineHidden = useUIStore(s=>s.timelineHidden);
   const preferencesError = useUIStore((s) => s.preferencesError);
   const dialog = useRef<HTMLDialogElement>(null);
   const [tab, setTab] = useState(useUIStore.getState().settingsSection);
@@ -109,7 +110,7 @@ export default function SettingsDialog() {
           <div className="settings-size-grid"><div className="settings-size-heading"><span>{pt ? 'Painel' : 'Panel'}</span><span>{pt ? 'Largura' : 'Width'}</span><span>{pt ? 'Altura' : 'Height'}</span><span /></div>
             {(Object.keys(DEFAULT_PANELS) as PanelId[]).map((panel) => <div className="settings-size-row" key={panel}><strong>{panelName(panel, pt)}</strong><DimensionField panel={panel} axis="width" pt={pt} /><DimensionField panel={panel} axis="height" pt={pt} /><button className="settings-reset-one" aria-label={`${pt ? 'Restaurar' : 'Reset'} — ${panelName(panel, pt)}`} onClick={() => { const store = useUIStore.getState(); store.setPanelDimension(panel, 'width', DEFAULT_PANELS[panel].width); store.setPanelDimension(panel, 'height', 0); }}>↺</button></div>)}
           </div>
-          <div className="settings-visibility"><label><input type="checkbox" checked={!leftHidden} onChange={() => useUIStore.getState().toggleLeftPanel()} /> {pt ? 'Mostrar biblioteca' : 'Show library'}</label><label><input type="checkbox" checked={!rightHidden} onChange={() => useUIStore.getState().toggleRightPanel()} /> {pt ? 'Mostrar inspetor' : 'Show inspector'}</label></div>
+          <div className="settings-visibility"><label><input type="checkbox" checked={!leftHidden} onChange={() => useUIStore.getState().toggleLeftPanel()} /> {pt ? 'Mostrar biblioteca' : 'Show library'}</label><label><input type="checkbox" checked={!rightHidden} onChange={() => useUIStore.getState().toggleRightPanel()} /> {pt ? 'Mostrar propriedades' : 'Show properties'}</label><label><input type="checkbox" checked={!timelineHidden} onChange={() => useUIStore.getState().toggleTimelinePanel()} /> {pt ? 'Mostrar linha do tempo' : 'Show timeline'}</label></div>
           <p className="settings-description">{pt ? 'Alças: setas ajustam 10px; Shift + seta ajusta 1px. Duplo clique ou Home restaura a dimensão.' : 'Handles: arrows adjust 10px; Shift + arrow adjusts 1px. Double-click or Home resets a dimension.'}</p>
           <button className="btn" onClick={() => { useUIStore.getState().resetPanelLayout(); setMessage(pt ? 'Layout original restaurado. Projetos preservados.' : 'Default layout restored. Projects preserved.'); }}>{pt ? 'Restaurar layout original' : 'Restore default layout'}</button>
         </>}

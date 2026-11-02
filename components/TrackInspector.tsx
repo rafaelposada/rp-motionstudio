@@ -49,7 +49,7 @@ export default function TrackInspector() {
       <div className="section-body">
         <ControlRow
           def={{ key: '_op', label: 'Opacity', type: 'slider', min: 0, max: 100, step: 1, default: 100 }}
-          value={Math.round(track.opacity * 100)}
+          value={Number((track.opacity * 100).toFixed(10))}
           onChange={(v) => patch({ opacity: Math.max(0, Math.min(100, Number(v))) / 100 })}
         />
         <ControlRow

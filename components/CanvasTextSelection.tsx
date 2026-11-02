@@ -17,6 +17,7 @@ import { modelPathOffset } from '@/lib/modelMotionPath';
 import CanvasInlineTextEditor from './CanvasInlineTextEditor';
 import {textBackdropBox} from '@/lib/textPadding';
 import {addCompositionText,textToolShortcut} from '@/lib/textActions';
+import {richTextLines} from '@/lib/richText';
 
 let measureContext: CanvasRenderingContext2D | null = null;
 interface LocalBounds { width: number; height: number; left: number; top?:number }
@@ -30,9 +31,10 @@ function bounds(layer: TextLayer, canvasWidth: number): LocalBounds {
   ctx.font = font(layer.size);
   const lines = layer.text.split('\n'), spacing = layer.letterSpacing ?? 0;
   const lineWidth = (line: string) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * spacing;
-  const size = layer.backdrop ? captionFontSize(layer.size, Math.max(0, ...lines.map(lineWidth)), canvasWidth) : layer.size;
+  const naturalWidth=layer.runs?.length?Math.max(0,...richTextLines(ctx,layer).map(l=>l.width)):Math.max(0,...lines.map(lineWidth));
+  const size = layer.backdrop ? captionFontSize(layer.size, naturalWidth, canvasWidth) : layer.size;
   ctx.font = font(size);
-  const w = Math.max(20, ...lines.map(lineWidth)),inkHeight=lines.length*size*layer.lineHeight;
+  const w = layer.runs?.length?Math.max(20,...richTextLines(ctx,layer,layer.text,size).map(l=>l.width)):Math.max(20,...lines.map(lineWidth)),inkHeight=lines.length*size*layer.lineHeight;
   const padded=textBackdropBox(w,inkHeight,layer.align,layer.backdropPadding);
   const box = layer.backdrop?{width:padded.width,height:padded.height,left:padded.x,top:padded.y}:{width:w,height:inkHeight,left:layer.align==='left'?0:layer.align==='right'?-w:-w/2,top:-inkHeight/2};
   measuredBounds.set(layer, { revision, canvasWidth, box }); return box;

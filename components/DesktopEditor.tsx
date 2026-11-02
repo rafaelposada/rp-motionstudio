@@ -38,6 +38,7 @@ export default function DesktopEditor() {
   const nav = useUIStore((s) => s.nav);
   const leftCollapsed = useUIStore((s) => s.leftCollapsed);
   const rightCollapsed = useUIStore((s) => s.rightCollapsed);
+  const timelineHidden = useUIStore((s) => s.timelineHidden);
   const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const tplCollapsed = useUIStore((s) => s.tplCollapsed);
@@ -54,7 +55,7 @@ export default function DesktopEditor() {
     window.addEventListener('keydown', keys);
     return () => { window.removeEventListener('resize', sync); window.removeEventListener('keydown', keys); };
   }, []);
-  const layout = fitPanelLayout(panels, viewport.width, viewport.height, leftCollapsed, rightCollapsed, tplCollapsed, expanded, panelWidthPriority);
+  const layout = fitPanelLayout(panels, viewport.width, viewport.height, leftCollapsed, rightCollapsed, tplCollapsed, expanded, panelWidthPriority, timelineHidden);
   const layoutStyle = { '--rail-w': `${layout.rail}px`, '--templates-col': `${layout.library}px`, '--right-col': `${layout.inspector}px`, gridTemplateRows: `minmax(0, 1fr) ${layout.timelineHeight}px` } as CSSProperties;
   const isProjects = nav === 'projects';
   const [inspectorTab, setInspectorTab] = useState<'motion' | 'canvas' | 'media' | 'text' | 'layers'>('motion');
@@ -64,7 +65,7 @@ export default function DesktopEditor() {
   useEffect(() => { if (selectedTextId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : useSceneStore.getState().textLayers.find(l => l.id === selectedTextId)?.media ? 'media' : 'text'); }, [selectedTextId]);
 
   return (
-    <div className={`app resizable-app ${previewExpanded ? 'preview-expanded-app' : ''} ${showGrid ? '' : 'stage-grid-off'} ${tplCollapsed ? 'app-tpl-collapsed' : ''} ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`} style={layoutStyle}>
+    <div className={`app resizable-app ${previewExpanded ? 'preview-expanded-app' : ''} ${timelineHidden?'timeline-hidden':''} ${showGrid ? '' : 'stage-grid-off'} ${tplCollapsed ? 'app-tpl-collapsed' : ''} ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`} style={layoutStyle}>
       <PanelDock panel="rail"><IconRail /></PanelDock>
 
       <PanelDock panel="library" collapsed={leftCollapsed} strip={tplCollapsed}>{tplCollapsed ? <CollapsedStrip /> : isProjects ? <ProjectsPanel onProjectOpen={() => useUIStore.getState().setNav('library')} /> : <TemplatesCard />}</PanelDock>
@@ -125,7 +126,7 @@ export default function DesktopEditor() {
         </div>
       </section></div></PanelDock>
 
-      <PanelDock panel="timeline"><footer className="card bottom">
+      <PanelDock panel="timeline" collapsed={timelineHidden}><footer className="card bottom">
         <Timeline />
       </footer></PanelDock>
       {settingsOpen && <SettingsDialog />}

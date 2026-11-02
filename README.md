@@ -187,7 +187,7 @@ npm run desktop:package
 A saída fica em `dist-desktop/packages`, para o sistema e arquitetura que executam
 o comando. No Windows, gere e valide o pacote em uma máquina Windows. O projeto
 não declara que um pacote Windows foi testado apenas porque compilou no macOS.
-Os pacotes desktop 1.4.2 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
+Os pacotes desktop 1.4.3 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
 para o sistema e arquitetura. A exportação usa esses executáveis por caminho
 absoluto; não depende de Homebrew ou FFmpeg instalado no computador do usuário.
 Os programas de mídia são agregados separados: FFmpeg/x264 mantêm GPL versão 2
@@ -217,6 +217,12 @@ vetorial fica em `desktop/installer/mac-background.svg`; `scripts/dmg-settings.p
 define a posição dos ícones e a janela, sem alterar preferências globais do Finder.
 O NSIS usa arte de boas-vindas, ícones RP e controles nativos para teclado e DPI.
 Os guias estão em `docs/INSTALAR-*.md`.
+O desktop consulta somente Releases publicadas com instalador compatível; commits
+novos na branch main não são tratados como um novo pacote desktop. A consulta é
+automática, enquanto a troca do aplicativo pelo DMG/EXE é assistida. A edição
+local de navegador possui outro mecanismo, com preparação, testes e recuperação
+da versão anterior; usa compilação Webpack em pasta canônica para evitar falhas
+de raiz do Turbopack. Confirmação, progresso e falhas aparecem em pop-ups centrais.
 O primeiro instalador Windows é uma distribuição de teste até sua execução real
 ser validada nesse sistema; gerar um PE/NSIS no Mac não comprova esse funcionamento.
 
@@ -231,6 +237,19 @@ Nos campos numéricos, ↑/↓ ajusta o passo normal; Shift+↑/↓ usa um passo
 vezes menor; ⌘/Ctrl+Shift+↑/↓ usa um passo cem vezes menor. Contagens, quadros
 e dimensões inteiras preservam valores válidos. Os decimais finos são mantidos
 ao sair do campo, salvar e exportar.
+
+Biblioteca/Projetos, Propriedades e Linha do tempo podem ser ocultados pelo
+cabeçalho de cada painel. Os três ícones da seção Painéis, na barra lateral,
+permitem mostrar e ocultar cada um sem perder suas dimensões. A visibilidade é
+lembrada entre sessões; clicar em Projetos ou Biblioteca também reabre o painel
+correspondente. Ocultar a linha do tempo mantém a reprodução e a composição.
+
+Selecione letras ou palavras no campo Conteúdo, ou durante a edição na tela,
+para aplicar fonte, peso, cor e opacidade do preenchimento somente ao trecho.
+Fonte, Peso e Cor mostram “Misto” quando a seleção contém estilos diferentes.
+“Texto inteiro” volta a aplicar essas propriedades à camada completa. Os trechos
+são preservados em desfazer/refazer, rascunhos, templates e exportações, incluindo
+os arquivos das fontes nos pacotes portáteis.
 
 O menu Arquivo oferece Abrir rascunho/template (⌘/Ctrl+O), Salvar composição
 (⌘/Ctrl+S) e Salvar rascunho (⌘/Ctrl+Shift+S). Fechar por ⌘W, ⌘Q ou pelos

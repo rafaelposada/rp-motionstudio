@@ -4,11 +4,13 @@ import { drawTextShadow, type TextShadowSettings } from './textShadow';
 import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
 import { normalizedRadii, bounded, type CornerRadii } from './transformGeometry';
 import {textBackdropBox,type TextPadding} from './textPadding';
+import {richTextLines,textFontVariants,type TextRun} from './richText';
 
 export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
 
 export interface TextLayer {
   id: string; text: string; font: string; weight: number; size: number;
+  runs?: TextRun[];
   color: string; x: number; y: number; rotation: number; opacity: number;
   scaleX?: number; scaleY?: number; backdropRadius?: number;
   backdropColor?: string; backdropOpacity?: number; backdropBlur?: number;
@@ -116,7 +118,7 @@ export function ensureFont(family: string, weight: number): Promise<void> {
 export async function prepareTextFonts(layers: TextLayer[], originals=false) {
   await Promise.all(layers.filter((layer) => layer.visible).map(async (layer) => {
     if (layer.media) { if (!layer.media.url) throw new Error(`Imagem indisponível: ${layer.text}. Reabra o projeto ou importe novamente.`); if(originals)await overlayImage(layer.media.url).decode();else if(!await loadPreviewImage(layer.media.url))throw new Error(`Imagem indisponível: ${layer.text}`);return; }
-    await ensureFont(layer.font, layer.weight);
+    await Promise.all(textFontVariants(layer).map(style=>ensureFont(style.font,style.weight)));
   }));
 }
 
@@ -174,13 +176,13 @@ export class TextCompositor {
       ctx.font = `${layer.weight} ${layer.size}px "${layer.font}", sans-serif`;
       let drawSize = layer.size;
       if (layer.backdrop) {
-        const longest = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
+        const longest = layer.runs?.length?Math.max(0,...richTextLines(ctx,layer).map(line=>line.width)):Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
         drawSize = captionFontSize(layer.size, longest, width);
         ctx.font = `${layer.weight} ${drawSize}px "${layer.font}", sans-serif`;
       }
       const lines = motion.text.split('\n');
       if (layer.backdrop && motion.text) {
-        const textWidth = Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
+        const textWidth = layer.runs?.length?Math.max(0,...richTextLines(ctx,layer,layer.text,drawSize).map(line=>line.width)):Math.max(...layer.text.split('\n').map((line) => ctx.measureText(line).width + Math.max(0, [...line].length - 1) * (layer.letterSpacing ?? 0)));
         const box = textBackdropBox(textWidth,layer.text.split('\n').length * drawSize * layer.lineHeight,layer.align,layer.backdropPadding);
         const alpha = ctx.globalAlpha;
         ctx.beginPath(); ctx.roundRect(box.x, box.y, box.width, box.height, bounded(layer.backdropRadius ?? 12, 0, Math.min(box.width,box.height) / 2));
@@ -194,7 +196,12 @@ export class TextCompositor {
       }
       if(maskOnly){ctx.restore();continue;}
       ctx.shadowColor = 'transparent';
-      const glyphs=(g:CanvasRenderingContext2D,paint:(text:string,x:number,y:number)=>void)=>{
+      const richLines=layer.runs?.length?richTextLines(ctx,layer,motion.text,drawSize):null;
+      const glyphs=(g:CanvasRenderingContext2D,paint:(text:string,x:number,y:number,color?:string,opacity?:number)=>void)=>{
+        if(richLines){g.save();g.textAlign='left';richLines.forEach((line,index)=>{
+          const origin=layer.align==='left'?0:layer.align==='right'?-line.width:-line.width/2;
+          for(const segment of line.segments){g.font=segment.font;paint(segment.text,origin+segment.x,(index-(lines.length-1)/2)*drawSize*layer.lineHeight,segment.style.color,segment.style.fillOpacity);}
+        });g.restore();return;}
         lines.forEach((line,index)=>{
           const y=(index-(lines.length-1)/2)*drawSize*layer.lineHeight,chars=[...line],spacing=layer.letterSpacing??0;
           if(!spacing){paint(line,0,y);return;}
@@ -204,7 +211,7 @@ export class TextCompositor {
         });
       };
       const shadow:TextShadowSettings|undefined=layer.shadowColor?{color:layer.shadowColor,opacity:layer.shadowOpacity??.5,x:layer.shadowX??0,y:layer.shadowY??0,blur:layer.shadowBlur??12,spread:layer.shadowSpread??0,type:layer.shadowType??'box',position:layer.shadowPosition??'outside'}:undefined;
-      const textWidth=Math.max(0,...lines.map(line=>ctx.measureText(line).width+Math.max(0,[...line].length-1)*(layer.letterSpacing??0)));
+      const textWidth=richLines?Math.max(0,...richLines.map(line=>line.width)):Math.max(0,...lines.map(line=>ctx.measureText(line).width+Math.max(0,[...line].length-1)*(layer.letterSpacing??0)));
       const inkPad=drawSize*.5+(layer.strokeWidth??0);
       const shadowBounds={x:(layer.align==='left'?0:layer.align==='right'?-textWidth:-textWidth/2)-inkPad,y:-(lines.length-1)/2*drawSize*layer.lineHeight-drawSize,width:textWidth+2*inkPad,height:(lines.length-1)*drawSize*layer.lineHeight+2*drawSize};
       const drawShadow=()=>{if(!shadow)return;drawTextShadow(ctx,output.width,output.height,output.width/width,shadow,(g,spread)=>{
@@ -214,12 +221,12 @@ export class TextCompositor {
         if(spread<0){g.globalCompositeOperation='destination-out';g.lineWidth=-2*spread;glyphs(g,(text,x,y)=>g.strokeText(text,x,y));g.globalCompositeOperation='source-over';}
       },shadowBounds);};
       if(shadow?.position==='outside')drawShadow();
-      const paint = (text: string, x: number, y: number) => {
+      const paint = (text: string, x: number, y: number, color=layer.color, opacity=layer.fillOpacity??1) => {
         if (layer.stroke && (layer.strokeWidth ?? 3) > 0) { const alpha=ctx.globalAlpha;ctx.globalAlpha*=layer.strokeOpacity??1;ctx.strokeStyle = layer.stroke; ctx.lineWidth = layer.strokeWidth ?? 3; ctx.lineJoin = 'round'; ctx.strokeText(text, x, y);ctx.globalAlpha=alpha; }
-        const alpha = ctx.globalAlpha; ctx.globalAlpha *= layer.fillOpacity ?? 1;
+        const alpha = ctx.globalAlpha; ctx.globalAlpha *= opacity; ctx.fillStyle=color;
         ctx.fillText(text, x, y); ctx.globalAlpha = alpha;
       };
-      glyphs(ctx,(text,x,y)=>paint(text,x,y));
+      glyphs(ctx,paint);
       if(shadow?.position==='inside')drawShadow();
       ctx.restore();
     }
