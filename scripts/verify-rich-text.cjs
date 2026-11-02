@@ -45,4 +45,10 @@ const persisted=JSON.parse(JSON.stringify(buildScenePartial(useSceneStore.getSta
 assert.deepEqual(useSceneStore.getState().textLayers[0].runs,persisted.textLayers[0].runs);
 assert.ok(textFontVariants(useSceneStore.getState().textLayers[0]).some(v=>v.font==='Georgia'&&v.weight===700));
 stop();history.reset();
-console.log('Rich text checks passed: overlapping styles, Mixed state, independent fill alpha, font variants, text insertion/deletion, Unicode lines, raster fonts/colors/opacity, undo/redo and persistent reopen.');
+const fs=require('node:fs'),inline=fs.readFileSync(path.join(root,'components/CanvasInlineTextEditor.tsx'),'utf8');
+assert.ok(inline.includes('contentEditable')&&!inline.includes('<textarea'),'Inline editing must display rich spans rather than a plain textarea');
+for(const contract of ['resolvedTextSpans(layer)','node.textContent=span.text','span.style.font','span.style.weight','span.style.color','span.style.fillOpacity','remapTextRuns(current,text)',"layer.text.endsWith('\\n')",'rp-rich-text-history'])assert.ok(inline.includes(contract),`Inline editing contract: ${contract}`);
+assert.ok(!inline.includes('innerHTML'),'Pasted text must not introduce executable markup');
+const desktop=fs.readFileSync(path.join(root,'components/DesktopSystem.tsx'),'utf8');
+assert.ok(desktop.includes('[data-rich-editor=true]')&&desktop.includes('rp-rich-text-history'),'Native undo/redo must use the rich editor history');
+console.log('Rich text checks passed: overlapping styles, Mixed state, independent fill alpha, font variants, text insertion/deletion, Unicode lines, raster fonts/colors/opacity, undo/redo, persistent reopen and inline editing contracts.');

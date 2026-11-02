@@ -24,8 +24,9 @@ um navegador separado na máquina de quem instala.
 Pacotes sem certificado comercial podem exibir avisos do sistema. Confira a
 origem e os guias de [Mac](docs/INSTALAR-macOS.md) e [Windows](docs/INSTALAR-Windows.md).
 Projetos e mídias pessoais não acompanham os instaladores. A atualização do
-pacote desktop é manual; o atualizador descrito adiante pertence à instalação
-gerenciada por `npm run app`.
+pacote desktop pode consultar novas versões automaticamente e abrir os instaladores
+oficiais após sua confirmação. A substituição do aplicativo desktop é manual;
+o atualizador descrito adiante pertence à instalação gerenciada por `npm run app`.
 
 ## Apoio, contato e feedback
 

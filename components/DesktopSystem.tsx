@@ -37,7 +37,8 @@ export default function DesktopSystem() {
         working=true;ownsWork=true;
         if(action==='undo'||action==='redo'){
           const active=document.activeElement;
-          if(active instanceof HTMLElement&&active.closest('input,textarea,[contenteditable=true]'))document.execCommand(action);
+          if(active instanceof HTMLElement&&active.closest('[data-rich-editor=true]'))active.closest('[data-rich-editor=true]')!.dispatchEvent(new CustomEvent('rp-rich-text-history',{detail:action}));
+          else if(active instanceof HTMLElement&&active.closest('input,textarea,[contenteditable=true]'))document.execCommand(action);
           else useHistoryStore.getState()[action]();
         }else if(action==='select-all'){
           const active=document.activeElement;
