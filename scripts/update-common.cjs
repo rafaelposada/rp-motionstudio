@@ -15,7 +15,12 @@ async function validRelease(root,release){
   await fs.access(path.join(real,'server.js'));return release;
 }
 function command(cmd,args,cwd,onLog=()=>{},timeout=900000){return new Promise((resolve,reject)=>{
-  const child=spawn(cmd,args,{cwd,env:{...process.env,GIT_TERMINAL_PROMPT:'0',NEXT_TELEMETRY_DISABLED:'1'},windowsHide:true,shell:false});let tail='';
+  // The standalone server injects its old project root/config and bundler into
+  // process.env. Forwarding either makes a new checkout build against the old
+  // runtime (distDirRoot panic) or selects two bundlers at once.
+  const env={...process.env,GIT_TERMINAL_PROMPT:'0',NEXT_TELEMETRY_DISABLED:'1'};
+  delete env.__NEXT_PRIVATE_STANDALONE_CONFIG;delete env.TURBOPACK;
+  const child=spawn(cmd,args,{cwd,env,windowsHide:true,shell:false});let tail='';
   const timer=setTimeout(()=>{child.kill();reject(Error('A preparação excedeu o tempo limite.'));},timeout);
   const log=d=>{tail=(tail+d.toString()).slice(-4000);onLog(tail);};child.stdout?.on('data',log);child.stderr?.on('data',log);
   child.once('error',e=>{clearTimeout(timer);reject(e);});child.once('exit',code=>{clearTimeout(timer);code===0?resolve(tail):reject(Error(`${cmd} não concluiu a etapa (${code}). ${tail.slice(-800)}`));});

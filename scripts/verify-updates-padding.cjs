@@ -6,6 +6,8 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function waitFor(check,ms=15000){const end=Date.now()+ms;while(Date.now()<end){const result=await check();if(result)return result;await delay(100);}throw Error('Timeout da verificação.');}
 async function freePort(){const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;await new Promise(r=>server.close(r));return port;}
 async function main(){
+  const inherited={TURBOPACK:process.env.TURBOPACK,__NEXT_PRIVATE_STANDALONE_CONFIG:process.env.__NEXT_PRIVATE_STANDALONE_CONFIG};
+  try{process.env.TURBOPACK='1';process.env.__NEXT_PRIVATE_STANDALONE_CONFIG='{"distDir":"/old-installation/.next"}';const clean=JSON.parse(await common.command(process.execPath,['-e','console.log(JSON.stringify({turbo:!!process.env.TURBOPACK,config:!!process.env.__NEXT_PRIVATE_STANDALONE_CONFIG}))'],project));assert.deepEqual(clean,{turbo:false,config:false},'Update builds do not inherit the running standalone configuration');}finally{for(const key of Object.keys(inherited)){if(inherited[key]===undefined)delete process.env[key];else process.env[key]=inherited[key];}}
   assert.deepEqual(textPadding(),[15,18,15,18]);assert.deepEqual(textPadding(0),[0,0,0,0]);assert.deepEqual(textPadding(20),[20,20,20,20]);assert.deepEqual(textPadding([-4,800,NaN,7]),[0,400,0,7]);
   assert.deepEqual(textBackdropBox(100,40,'center',[10,20,30,40]),{x:-90,y:-30,width:160,height:80});
   assert.equal(textBackdropBox(100,40,'left',0).x,0);assert.equal(textBackdropBox(100,40,'right',0).x,-100);
