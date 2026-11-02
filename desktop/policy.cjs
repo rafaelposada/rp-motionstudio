@@ -7,6 +7,11 @@ function externalURL(value) {
   try { const u = new URL(value); return ['https:', 'mailto:'].includes(u.protocol) && !u.username && !u.password; } catch { return false; }
 }
 function closeCopy(pt, state) {
+  if (state.locale === 'es') return {
+    title: '¿Cerrar la composición?', message: `¿Guardar un borrador de “${state.name}” antes de cerrar?`,
+    detail: state.unsaved ? 'Hay cambios sin guardar. El borrador incluye la composición y sus medios. Salir sin guardar mantiene solo el último guardado local.' : 'La composición está guardada en los datos locales de la aplicación. Un borrador .motion.zip es una copia independiente, con los medios, en la carpeta elegida.',
+    buttons: ['Guardar borrador y cerrar', state.unsaved ? 'Salir sin guardar' : 'Cerrar sin crear borrador', 'Cancelar'],
+  };
   return pt ? {
     title: 'Fechar composição?', message: `Salvar um rascunho de “${state.name}” antes de fechar?`,
     detail: state.unsaved ? 'Há alterações ainda não salvas. O rascunho inclui a composição e suas mídias. Sair sem salvar mantém apenas o último salvamento local.' : 'A composição está salva nos dados locais do aplicativo. Um rascunho .motion.zip é uma cópia independente, com as mídias, na pasta escolhida.',

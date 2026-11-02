@@ -24,7 +24,7 @@ export default function CompositionLayers() {
             <LayerDragHandle id={item.id} name={name}/>
             <button className="composition-name" {...layerDragProps(item.id)} aria-pressed={selectedIds.includes(item.id)} title={name}
               onClick={e => overlay ? selectOverlayForEditing(item.id, e.shiftKey, false, 'layers') : selectModelForEditing(item.id, e.shiftKey, false, 'layers')}>
-              <span className="layer-kind" aria-hidden="true">{overlay ? (overlay.media ? '▧' : 'T') : '▥'}</span><span>{name}</span>
+              <span className="layer-kind" aria-hidden="true">{overlay ? (overlay.media ? '▧' : overlay.shape ? '◇' : 'T') : '▥'}</span><span>{name}</span>
             </button>
             <div className="composition-actions">
               <button title={tx(pt, 'Mostrar / ocultar', 'Show / hide')} aria-label={`${tx(pt, 'Visibilidade', 'Visibility')}: ${name}`} onClick={() => overlay ? useSceneStore.getState().patchTextLayer(item.id, { visible: !visible }) : useSceneStore.getState().patchTrack(item.id, { visible: !visible })}>{visible ? '◉' : '○'}</button>

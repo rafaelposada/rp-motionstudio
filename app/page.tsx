@@ -11,6 +11,7 @@ import { useHistoryStore } from '@/store/useHistoryStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useUIStore } from '@/store/useUIStore';
 import { historyShortcut } from '@/lib/historyShortcuts';
+import CommandPalette from '@/components/CommandPalette';
 const UpdateSystem=dynamic(()=>import('@/components/UpdateSystem'),{ssr:false});
 const DesktopSystem=dynamic(()=>import('@/components/DesktopSystem'),{ssr:false});
 
@@ -96,6 +97,7 @@ export default function Home() {
       <ThemeFavicon />
       <DesktopSystem />
       <UpdateSystem />
+      <CommandPalette />
       {nav === 'home' ? <HomeDashboard /> : mode === 'mobile' ? <MobileEditor /> : <DesktopEditor />}
       <WelcomeDialog />
     </>

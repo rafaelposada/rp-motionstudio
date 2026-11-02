@@ -6,7 +6,6 @@ import { useI18n } from '@/lib/useI18n';
 import { DEFAULT_PANELS, PANEL_LIMITS, type PanelAxis, type PanelId } from '@/lib/panelLayout';
 import { parseNumericExpression } from '@/lib/numericExpression';
 import {numericKeyValue} from '@/lib/numericKeyboard';
-import { getPreviewQuality, setPreviewQuality, type PreviewQuality } from '@/lib/previewResolution';
 import { panelName } from './PanelDock';
 import { storageReport } from '@/lib/projectPackage';
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '@/lib/accentColor';
@@ -16,6 +15,8 @@ import SupportPanel from './SupportPanel';
 import PhantomSupplyPanel from './PhantomSupplyPanel';
 import UpdateSettings from './UpdateSettings';
 import { tx } from '@/lib/tx';
+import PreviewQualityControl from './PreviewQuality';
+import { BrandKitSettings } from './BrandKitPanel';
 
 function AutosaveSettings({ pt }: { pt: boolean }) {
   const enabled = useUIStore(s => s.autosaveEnabled), delay = useUIStore(s => s.autosaveDelay);
@@ -71,7 +72,6 @@ export default function SettingsDialog() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [tab, setTab] = useState(useUIStore.getState().settingsSection);
   useEffect(() => { dialog.current?.querySelector('.settings-body')?.scrollTo({top:0}); }, [tab]);
-  const [quality, setQuality] = useState<PreviewQuality>('high');
   const [message, setMessage] = useState('');
   const [storage, setStorage] = useState('');
   const [diagnostics, setDiagnostics] = useState<{ version: string; ffmpeg: string } | null>(null);
@@ -79,18 +79,17 @@ export default function SettingsDialog() {
   useEffect(() => {
     const element = dialog.current; const prior = document.activeElement as HTMLElement | null;
     element?.showModal();
-    const sync = () => setQuality(getPreviewQuality()); sync();
-    window.addEventListener('motion-preview-quality', sync);
     const controller = new AbortController();
     fetch('/api/diagnostics', { signal: controller.signal }).then((r) => r.json()).then(setDiagnostics).catch(() => {});
-    return () => { controller.abort(); window.removeEventListener('motion-preview-quality', sync); element?.close(); prior?.focus(); };
+    return () => { controller.abort(); element?.close(); prior?.focus(); };
   }, []);
   useEffect(() => {
     if (tab !== 'files') return; let active = true;
     storageReport().then((report) => { if (active) setStorage(`${(report.total / 1048576).toFixed(1)} MB · ${report.count} ${tx(pt, 'arquivos de mídia locais', 'local media files')}`); }).catch(() => { if (active) setStorage(tx(pt, 'Armazenamento indisponível.', 'Storage unavailable.')); });
     return () => { active = false; };
   }, [tab, pt]);
-  const tabs = pt ? [['interface', 'Interface'], ['panels', 'Painéis'], ['preview', 'Prévia'], ['saving', 'Salvamento'], ['files', 'Arquivos'], ['updates','Atualizações'], ['shortcuts', 'Atalhos'], ['support', 'Apoio e contato'], ['phantom', 'Phantom Supply']] : [['interface', 'Interface'], ['panels', 'Panels'], ['preview', 'Preview'], ['saving', 'Saving'], ['files', 'Files'], ['updates','Updates'], ['shortcuts', 'Shortcuts'], ['support', 'Support & contact'], ['phantom', 'Phantom Supply']];
+  const ptTabs = [['interface', 'Interface'], ['panels', 'Painéis'], ['preview', 'Prévia'], ['saving', 'Salvamento'], ['files', 'Arquivos'], ['updates','Atualizações'], ['brand', 'Kit de marca'], ['shortcuts', 'Atalhos'], ['support', 'Apoio e contato'], ['phantom', 'Phantom Supply']], enTabs = [['interface', 'Interface'], ['panels', 'Panels'], ['preview', 'Preview'], ['saving', 'Saving'], ['files', 'Files'], ['updates','Updates'], ['brand', 'Brand kit'], ['shortcuts', 'Shortcuts'], ['support', 'Support & contact'], ['phantom', 'Phantom Supply']];
+  const tabs = ptTabs.map(([id, label], i) => [id, tx(pt, label, enTabs[i][1])]);
   return <dialog className="settings-dialog" ref={dialog} aria-labelledby="settings-title" onCancel={(event) => { event.preventDefault(); close(); }} onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
     <div className="settings-surface"><header className="settings-header"><div><span className="eyebrow">RP MotionStudio</span><h2 id="settings-title">{tx(pt, 'Configurações', 'Settings')}</h2></div><button className="settings-close" aria-label={tx(pt, 'Fechar configurações', 'Close settings')} onClick={close} autoFocus>×</button></header>
       <nav className="settings-tabs" role="tablist" aria-label={tx(pt, 'Seções de configurações', 'Settings sections')} onKeyDown={(event) => {
@@ -114,7 +113,7 @@ export default function SettingsDialog() {
           <p className="settings-description">{tx(pt, 'Alças: setas ajustam 10px; Shift + seta ajusta 1px. Duplo clique ou Home restaura a dimensão.', 'Handles: arrows adjust 10px; Shift + arrow adjusts 1px. Double-click or Home resets a dimension.')}</p>
           <button className="btn" onClick={() => { useUIStore.getState().resetPanelLayout(); setMessage(tx(pt, 'Layout original restaurado. Projetos preservados.', 'Default layout restored. Projects preserved.')); }}>{tx(pt, 'Restaurar layout original', 'Restore default layout')}</button>
         </>}
-        {tab === 'preview' && <><h3>{tx(pt, 'Qualidade e desempenho', 'Quality and performance')}</h3><p className="settings-description">{tx(pt, 'A qualidade abaixo afeta somente a visualização. O vídeo usa a resolução escolhida ao exportar.', 'This quality affects preview only. Video uses the resolution selected when exporting.')}</p><label className="settings-row"><strong>{tx(pt, 'Qualidade da prévia', 'Preview quality')}</strong><select className="field" value={quality} onChange={(event) => { try { setPreviewQuality(event.target.value as PreviewQuality); setMessage(tx(pt, 'Qualidade aplicada.', 'Quality applied.')); } catch { setMessage(tx(pt, 'Não foi possível salvar a qualidade.', 'Could not save the quality.')); } }}><option value="fast">{tx(pt, 'Rápida · menor uso de GPU', 'Fast · lower GPU usage')}</option><option value="balanced">{tx(pt, 'Equilibrada', 'Balanced')}</option><option value="high">{tx(pt, 'Alta · maior nitidez', 'High · sharper preview')}</option></select></label><p className="settings-description">{tx(pt, 'Pausar a reprodução reduz o trabalho da prévia. Projetos com muitos vídeos e modelos 3D exigem mais memória.', 'Pausing playback reduces preview work. Many videos and 3D models use more memory.')}</p></>}
+        {tab === 'preview' && <><h3>{tx(pt, 'Qualidade e desempenho', 'Quality and performance')}</h3><p className="settings-description">{tx(pt, 'A qualidade abaixo afeta somente a visualização. O vídeo usa a resolução escolhida ao exportar.', 'This quality affects preview only. Video uses the resolution selected when exporting.')}</p><PreviewQualityControl pt={pt}/><p className="settings-description">{tx(pt, 'Pausar a reprodução reduz o trabalho da prévia. Projetos com muitos vídeos e modelos 3D exigem mais memória.', 'Pausing playback reduces preview work. Many videos and 3D models use more memory.')}</p></>}
         {tab === 'saving' && <AutosaveSettings pt={pt}/>}
         {tab === 'updates' && <UpdateSettings pt={pt}/>}
         {tab === 'files' && <><h3>{tx(pt, 'Arquivos neste Mac', 'Files on this Mac')}</h3><p className="settings-description">{storage || (tx(pt, 'Verificando armazenamento…', 'Checking storage…'))}</p><DestinationFolder kind="exports"/><DestinationFolder kind="drafts"/><DestinationFolder kind="templates"/><p className="settings-description">{tx(pt, 'Rascunhos e templates portáteis incluem as mídias. Os projetos em edição usam os dados locais do aplicativo; veja a aba Salvamento.', 'Portable drafts and templates include media. Working projects use local application data; see Saving.')}</p><p className="settings-description">{tx(pt, 'Exportação local', 'Local export')}: {diagnostics?.ffmpeg ?? '…'}</p></>}
@@ -147,6 +146,7 @@ export default function SettingsDialog() {
  [tx(pt, 'Cancelar transformação / fechar menu', 'Cancel transform / close dialog'), 'Esc']].map(([name, shortcut]) => <div key={name}><dt>{name}</dt><dd><kbd>{shortcut}</kbd></dd></div>)}</dl><p className="settings-description">{tx(pt, 'Os atalhos da composição ficam suspensos enquanto você digita ou usa este menu.', 'Composition shortcuts are suspended while typing or using this menu.')}</p></>}
         {tab === 'support' && <SupportPanel pt={pt}/>}
         {tab === 'phantom' && <PhantomSupplyPanel pt={pt}/>}
+        {tab === 'brand' && <BrandKitSettings pt={pt}/>}
       </div>
       <footer className="settings-footer"><span role="status">{preferencesError ? (tx(pt, 'Não foi possível salvar as preferências neste dispositivo.', 'Could not save preferences on this device.')) : message || (tx(pt, 'Alterações salvas automaticamente neste Mac.', 'Changes saved automatically on this Mac.'))}</span><small>RP MotionStudio · {diagnostics?.version ?? '…'}</small></footer>
     </div>

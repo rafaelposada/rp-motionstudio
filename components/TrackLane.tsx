@@ -154,7 +154,7 @@ export default function TrackLane({
         </button>
       </div>
 
-      <div className="tl-lane-bars" ref={barsRef}>
+      <div className="tl-lane-bars"><div className="tl-zoom" ref={barsRef}>
         <div
           className="tl-bar"
           style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
@@ -180,7 +180,7 @@ export default function TrackLane({
           <span className="tl-bar-edge in" onPointerDown={onPointerDown('in')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={tx(pt, 'Aparar início', 'Trim in')} />
           <span className="tl-bar-edge out" onPointerDown={onPointerDown('out')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={tx(pt, 'Aparar fim', 'Trim out')} />
         </div>
-      </div>
+      </div></div>
     </div>
   );
 }

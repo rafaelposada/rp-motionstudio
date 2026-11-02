@@ -14,7 +14,9 @@ export interface IRenderer {
   // Realize + draw a frame (preview loop and export both use this).
   renderFrame(frame: number): void;
   // Deterministic capture: realize frame, render, read pixels as PNG data URL.
-  captureFrame(frame: number): string;
+  captureFrame(frame: number, mime?: 'image/jpeg' | 'image/png'): string;
+  // Transparent background for alpha exports (2D engine only).
+  setTransparentBackground?(on: boolean): void;
   // Multiply the backing-store resolution for export capture (logical size
   // unchanged, so template layout is untouched).
   setCaptureScale(k: number): void;

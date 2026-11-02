@@ -7,9 +7,14 @@ import {textBackdropBox,type TextPadding} from './textPadding';
 import {textFontVariants,type TextRun} from './richText';
 import {layoutText,boxLeft,lineOffset,canvasAlign,anchorAlign} from './textLayout';
 import type { BlendMode } from './blendModes';
+import { animatedLayer, type Keyframes } from './keyframes';
+import { hasTilt, projector, warpCanvas } from './perspectiveWarp';
+import { layerFrame } from './layerBounds';
 import { fontshareFamily, fontshareFileUrl } from './fontshare';
 
 export type TextAlign = 'left'|'center'|'right'|'justify';
+export interface ShapeSpec { kind: 'rect'|'ellipse'|'line'; width: number; height: number; fill?: string; fillOpacity?: number; stroke?: string; strokeWidth?: number; strokeOpacity?: number; radius?: number }
+export const isTextLayer = (layer: Pick<TextLayer,'media'|'shape'>) => !layer.media && !layer.shape;
 export type TextWrap = 'auto'|'balance'|'pretty';
 export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
 
@@ -30,7 +35,10 @@ export interface TextLayer {
   arc?: number; shadowColor?: string; shadowBlur?: number;
   shadowX?: number; shadowY?: number; shadowOpacity?: number;
   shadowSpread?: number; shadowType?: 'box'|'realistic'; shadowPosition?: 'outside'|'inside';
-  z?: number; blend?: BlendMode;
+  z?: number; blend?: BlendMode; keyframes?: Keyframes;
+  shape?: ShapeSpec;
+  tiltX?: number; tiltY?: number; fov?: number; // 3D rotation (degrees) with perspective
+  maskId?: string; maskInvert?: boolean; // clip to another layer's alpha (shape, text or image)
   media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
   animation?: 'none' | 'fade' | 'rise' | 'typewriter';
   animationDuration?: number; backdrop?: boolean;
@@ -156,7 +164,8 @@ export class TextCompositor {
     ctx.clearRect(0, 0, output.width, output.height);
     if(!transparentSource)ctx.drawImage(source, 0, 0);
     ctx.scale(output.width / width, output.height / height);
-    for (const layer of layers) {
+    for (const keyedLayer of layers) {
+      const layer = animatedLayer(keyedLayer, seconds);
       if (!layer.visible || seconds < layer.start || seconds >= layer.end) continue;
       ctx.save();
       const motion = textMotion(layer, seconds);
@@ -164,6 +173,17 @@ export class TextCompositor {
       ctx.rotate((layer.rotation+motion.rotation) * Math.PI / 180);
       ctx.scale(bounded(layer.scaleX ?? 1, .05, 20)*motion.scale, bounded(layer.scaleY ?? 1, .05, 20)*motion.scale);
       ctx.globalAlpha = layer.opacity * motion.opacity;
+      if (layer.shape) {
+        const { kind, width: w, height: h } = layer.shape, alpha = ctx.globalAlpha;
+        ctx.beginPath();
+        if (kind === 'ellipse') ctx.ellipse(0, 0, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2);
+        else if (kind === 'line') { ctx.moveTo(-w / 2, 0); ctx.lineTo(w / 2, 0); }
+        else { const r = bounded(layer.shape.radius ?? 0, 0, Math.min(Math.abs(w), Math.abs(h)) / 2); if (r > 0) ctx.roundRect(-w / 2, -h / 2, w, h, r); else ctx.rect(-w / 2, -h / 2, w, h); }
+        if (kind !== 'line' && layer.shape.fill) { ctx.globalAlpha = alpha * bounded(layer.shape.fillOpacity ?? 1, 0, 1); ctx.fillStyle = maskOnly ? '#fff' : layer.shape.fill; ctx.fill(); }
+        const sw = kind === 'line' ? Math.max(1, layer.shape.strokeWidth ?? Math.max(2, h)) : layer.shape.strokeWidth ?? 0;
+        if ((layer.shape.stroke || kind === 'line') && sw > 0) { ctx.globalAlpha = alpha * bounded(layer.shape.strokeOpacity ?? 1, 0, 1); ctx.strokeStyle = maskOnly ? '#fff' : layer.shape.stroke ?? layer.shape.fill ?? '#ffffff'; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); }
+        ctx.restore(); continue;
+      }
       if (layer.media) {
         if (layer.media.url) {
           const image = originals?overlayImage(layer.media.url):mediaPreview??peekPreviewImage(layer.media.url);
@@ -255,7 +275,10 @@ export class OverlayRaster {
   private mediaPreview:RenderImage|null=null;
   private mediaPending=false;
   canvas: HTMLCanvasElement = this.source;
-  update(layer: TextLayer, width: number, height: number, scale: number, seconds: number, originals=false) {
+  private maskSource = document.createElement('canvas');
+  private warpCanvas: HTMLCanvasElement|null=null;
+  private maskLayerCompositor: TextCompositor|null=null;
+  update(layer: TextLayer, width: number, height: number, scale: number, seconds: number, originals=false, mask?: TextLayer) {
     const url=layer.media?.url??'';
     if(url!==this.mediaUrl){this.mediaUrl=url;this.mediaPreview=null;this.mediaPending=false;}
     if(url&&!originals&&!this.mediaPreview){this.mediaPreview=peekPreviewImage(url);if(!this.mediaPreview&&!this.mediaPending){this.mediaPending=true;void loadPreviewImage(url).then(image=>{if(this.mediaUrl===url){this.mediaPreview=image;this.mediaPending=false;}});}}
@@ -265,17 +288,36 @@ export class OverlayRaster {
     const motion=active?textMotion(layer,seconds):null;
     // Cache the actual appearance, not the clock. A settled entrance animation
     // must reuse the raster until its exit starts or its properties change.
-    const signature = JSON.stringify([layer, width, height, scale, ready, active, motion, originals, fontRevision]);
+    // Keyed properties resolve to the values at this instant, so a still
+    // stretch of the curve reuses the raster and a moving one redraws.
+    const maskState = mask ? [animatedLayer(mask, seconds), mask.visible && seconds >= mask.start && seconds < mask.end ? textMotion(mask, seconds) : null, layer.maskInvert, mask.media ? !!peekPreviewImage(mask.media.url) : document.fonts.check(`${mask.weight} ${mask.size}px "${mask.font}"`)] : null;
+    const signature = JSON.stringify([animatedLayer(layer, seconds), width, height, scale, ready, active, motion, originals, fontRevision, maskState]);
     if (signature === this.signature) return false;
     this.signature = signature;
     const rw=Math.max(1,Math.round(width*scale)),rh=Math.max(1,Math.round(height*scale));
     if(this.source.width!==rw)this.source.width=rw;if(this.source.height!==rh)this.source.height=rh;
     this.canvas = this.compositor.render(this.source, [layer], width, height, seconds, originals, this.mediaPreview,true);
+    if (mask) {
+      // Keep only the pixels inside the mask layer's alpha (or outside, inverted).
+      if (this.maskSource.width !== rw) this.maskSource.width = rw; if (this.maskSource.height !== rh) this.maskSource.height = rh;
+      this.maskLayerCompositor ??= new TextCompositor();
+      const matte = this.maskLayerCompositor.render(this.maskSource, [{ ...mask, maskId: undefined, blend: undefined }], width, height, seconds, originals, null, true);
+      const g = this.canvas.getContext('2d')!;
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = layer.maskInvert ? 'destination-out' : 'destination-in'; g.drawImage(matte, 0, 0); g.restore();
+    } else { this.maskLayerCompositor?.destroy(); this.maskLayerCompositor = null; }
+    const tilted = animatedLayer(layer, seconds);
+    if (hasTilt(tilted)) {
+      // Warp only the layer's footprint (with room for stroke and shadow).
+      const frame = layerFrame(layer, width, seconds), reach = Math.hypot(frame.width, frame.height) * .75 + 80;
+      const box = { x: frame.cx - reach, y: frame.cy - reach, width: reach * 2, height: reach * 2 };
+      this.warpCanvas ??= document.createElement('canvas');
+      this.canvas = warpCanvas(this.canvas, this.warpCanvas, rw / width, box, projector(tilted.x + (active ? textMotion(tilted, seconds).x : 0), tilted.y + (active ? textMotion(tilted, seconds).y : 0), height, { tiltX: tilted.tiltX ?? 0, tiltY: tilted.tiltY ?? 0, fov: tilted.fov ?? 40 }));
+    }
     if(layer.backdrop && !layer.media && (layer.backdropBlur??0)>0){
       this.maskCompositor??=new TextCompositor();
       this.maskCanvas=this.maskCompositor.render(this.source,[layer],width,height,seconds,originals,null,true,true);
     }else{this.maskCompositor?.destroy();this.maskCompositor=null;this.maskCanvas=null;}
     return true;
   }
-  destroy() { this.mediaUrl='';this.mediaPreview=null;this.compositor.destroy();this.maskCompositor?.destroy();this.maskCanvas=null; this.source.width = this.source.height = 1; }
+  destroy() { this.mediaUrl='';this.mediaPreview=null;this.compositor.destroy();this.maskLayerCompositor?.destroy();this.maskLayerCompositor=null;this.maskCompositor?.destroy();this.maskCanvas=null; this.source.width = this.source.height = 1; }
 }

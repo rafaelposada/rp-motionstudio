@@ -25,6 +25,7 @@ export default function IconRail() {
   const openSettings = useUIStore((s) => s.setSettingsOpen);
   const createProject = useProjectStore((s) => s.create);
   const projectCount = useProjectStore((s) => s.projects.length);
+  const canvasTools = useUIStore((s) => s.showCanvasTools), arrangeTools = useUIStore((s) => s.showArrangeTools);
   const openLibrary=(nav:string)=>{
     const ui=useUIStore.getState();
     if(ui.leftCollapsed)ui.toggleLeftPanel();
@@ -59,6 +60,20 @@ export default function IconRail() {
         ))}
       </div>
       <div className="rail-bottom">
+        <button className={`rail-item rail-toggle ${canvasTools ? 'active' : ''}`} aria-pressed={canvasTools}
+          onClick={() => useUIStore.getState().setAlignmentOption('showCanvasTools', !canvasTools)}
+          title={tx(locale === 'pt', 'Mostrar ou ocultar a barra de réguas, guias, encaixe e BBox', 'Show or hide the rulers, guides, snap and BBox bar')}
+          aria-label={tx(locale === 'pt', 'Barra de réguas e guias', 'Rulers and guides bar')}>
+          <span className="rail-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.5 6.5h17v4h-17zM6.5 6.5v2M9.5 6.5v1.4M12.5 6.5v2M15.5 6.5v1.4M18.5 6.5v2M3.5 14.5h17M3.5 18.5h17" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="0" /></svg></span>
+          <span className="rail-label">{tx(locale === 'pt', 'Réguas', 'Rulers')}</span>
+        </button>
+        <button className={`rail-item rail-toggle ${arrangeTools ? 'active' : ''}`} aria-pressed={arrangeTools}
+          onClick={() => useUIStore.getState().setAlignmentOption('showArrangeTools', !arrangeTools)}
+          title={tx(locale === 'pt', 'Mostrar ou ocultar a barra de alinhar e distribuir', 'Show or hide the align and distribute bar')}
+          aria-label={tx(locale === 'pt', 'Barra de alinhar e distribuir', 'Align and distribute bar')}>
+          <span className="rail-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 3.5v17" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><rect x="7" y="6" width="12" height="4.5" rx="1.4" stroke="currentColor" strokeWidth="1.4" /><rect x="7" y="13.5" width="7.5" height="4.5" rx="1.4" stroke="currentColor" strokeWidth="1.4" /></svg></span>
+          <span className="rail-label">{tx(locale === 'pt', 'Alinhar', 'Align')}</span>
+        </button>
         <button
           className="rail-item rail-settings"
           onClick={() => openSettings(true)}

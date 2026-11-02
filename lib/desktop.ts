@@ -7,6 +7,7 @@ export interface DesktopAPI {
   chooseFolder():Promise<string|null>;
   openProject():Promise<{name:string;bytes:Uint8Array}|null>;
   appearance(theme:'light'|'dark'):void;
+  locale?(value:'pt'|'en'|'es'):void;
   prepareUpdate?():Promise<{version:string}>;
   applyUpdate?():Promise<boolean>;
   onUpdateProgress?(callback:(progress:{phase:string;received?:number;total?:number;version?:string})=>void):()=>void;

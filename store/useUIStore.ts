@@ -41,7 +41,12 @@ export interface UIState {
   showRulers: boolean;
   smartGuides: boolean;
   snapEnabled: boolean;
-  setAlignmentOption: (key: 'showRulers' | 'smartGuides' | 'snapEnabled', value: boolean) => void;
+  showCanvasTools: boolean;   // floating Rulers/Guides/Snap/BBox bar
+  timelineZoom: { zoom: number; start: number }; // zoom ≥ 1; start = visible start as a fraction of the clip
+  setTimelineZoom: (zoom: number, anchor?: number) => void;
+  panTimeline: (deltaFraction: number) => void;
+  showArrangeTools: boolean;  // floating align/distribute bar
+  setAlignmentOption: (key: 'showRulers' | 'smartGuides' | 'snapEnabled' | 'showCanvasTools' | 'showArrangeTools', value: boolean) => void;
   selectText: (id: string | null) => void;
   setShowSelectionBox: (show: boolean) => void;
   showStageGrid: boolean;
@@ -71,7 +76,7 @@ export interface UIState {
 
 const PREFS_KEY = 'motion-ui-preferences';
 
-type UIPreferences = Pick<UIState, 'theme' | 'appearance' | 'autosaveEnabled' | 'autosaveDelay' | 'showSelectionBox' | 'locale' | 'accentColor' | 'leftCollapsed' | 'rightCollapsed' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled'>;
+type UIPreferences = Pick<UIState, 'theme' | 'appearance' | 'autosaveEnabled' | 'autosaveDelay' | 'showSelectionBox' | 'locale' | 'accentColor' | 'leftCollapsed' | 'rightCollapsed' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled' | 'showCanvasTools' | 'showArrangeTools'>;
 
 function savePreferences(prefs: UIPreferences) {
   if (typeof window === 'undefined') return;
@@ -92,6 +97,7 @@ function savePreferences(prefs: UIPreferences) {
     timelineExpanded: prefs.timelineExpanded,
     showStageGrid: prefs.showStageGrid,
     showRulers: prefs.showRulers, smartGuides: prefs.smartGuides, snapEnabled: prefs.snapEnabled,
+    showCanvasTools: prefs.showCanvasTools, showArrangeTools: prefs.showArrangeTools,
   })); } catch { saved = false; }
   document.documentElement.dataset.theme = prefs.theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', prefs.theme === 'dark' ? '#0c0d0f' : '#eef1f5');
@@ -143,7 +149,15 @@ export const useUIStore = create<UIState>((set, get) => ({
   }),
   setLayerSelection: (selectedLayerIds, primaryId, kind = 'overlay') => set({ selectedLayerIds: [...new Set(selectedLayerIds)], selectedTextId: primaryId && kind === 'overlay' ? primaryId : null, selectedMotionId: primaryId && kind === 'motion' ? primaryId : null }),
   showSelectionBox: true,
-  showRulers: false, smartGuides: true, snapEnabled: true,
+  showRulers: false, smartGuides: true, snapEnabled: true, showCanvasTools: true, showArrangeTools: true,
+  timelineZoom: { zoom: 1, start: 0 },
+  // Zoom around `anchor` (a clip fraction, default the view centre) so the time under it stays put.
+  setTimelineZoom: (value, anchor) => set((state) => {
+    const zoom = Math.max(1, Math.min(32, value)), { zoom: z0, start: s0 } = state.timelineZoom;
+    const a = anchor ?? s0 + .5 / z0, start = Math.max(0, Math.min(1 - 1 / zoom, a - (a - s0) * z0 / zoom));
+    return { timelineZoom: { zoom, start: zoom === 1 ? 0 : start } };
+  }),
+  panTimeline: (delta) => set((state) => ({ timelineZoom: { ...state.timelineZoom, start: Math.max(0, Math.min(1 - 1 / state.timelineZoom.zoom, state.timelineZoom.start + delta)) } })),
   setAlignmentOption: (key,value) => set((state)=>{savePreferences({...state,[key]:value});return {[key]:value};}),
   selectText: (selectedTextId) => set({ selectedTextId, selectedMotionId: null, selectedLayerIds: selectedTextId ? [selectedTextId] : [], selectionOrigin: 'inspector' }),
   setShowSelectionBox: (showSelectionBox) => set(state => { savePreferences({ ...state, showSelectionBox }); return { showSelectionBox }; }),
@@ -227,6 +241,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       timelineExpanded: saved.timelineExpanded === true,
       showStageGrid: saved.showStageGrid !== false,
       showRulers: saved.showRulers === true, smartGuides: saved.smartGuides !== false, snapEnabled: saved.snapEnabled !== false,
+      showCanvasTools: saved.showCanvasTools !== false, showArrangeTools: saved.showArrangeTools !== false,
     };
     savePreferences({ ...state, ...next });
     return next;

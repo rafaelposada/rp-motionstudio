@@ -24,6 +24,7 @@ import { useSceneStore } from '@/store/useSceneStore';
 import { fitPanelLayout } from '@/lib/panelLayout';
 import {desktopAPI} from '@/lib/desktop';
 import { tx } from '@/lib/tx';
+import ShapePanel from './ShapePanel';
 
 const PreviewStage = dynamic(() => import('@/components/PreviewStage'), { ssr: false });
 const SettingsDialog = dynamic(() => import('@/components/SettingsDialog'), { ssr: false });
@@ -63,7 +64,7 @@ export default function DesktopEditor() {
   const selectedTextId = useUIStore((s) => s.selectedTextId);
   const selectedMotionId = useUIStore((s) => s.selectedMotionId);
   useEffect(() => { if (selectedMotionId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : 'motion'); }, [selectedMotionId]);
-  useEffect(() => { if (selectedTextId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : useSceneStore.getState().textLayers.find(l => l.id === selectedTextId)?.media ? 'media' : 'text'); }, [selectedTextId]);
+  useEffect(() => { if (selectedTextId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : (() => { const l = useSceneStore.getState().textLayers.find(l => l.id === selectedTextId); return l?.media || l?.shape ? 'media' : 'text'; })()); }, [selectedTextId]);
 
   return (
     <div className={`app resizable-app ${previewExpanded ? 'preview-expanded-app' : ''} ${showGrid ? '' : 'stage-grid-off'} ${tplCollapsed ? 'app-tpl-collapsed' : ''} ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`} style={layoutStyle}>
@@ -121,7 +122,7 @@ export default function DesktopEditor() {
         <div className="inspector-content" id="inspector-content" role="tabpanel" aria-labelledby={`inspector-tab-${inspectorTab}`}>
           {inspectorTab === 'motion' && <><ScenePanel /><div className="hairline" /><EffectsPanel /></>}
           {inspectorTab === 'canvas' && <CanvasPanel />}
-          {inspectorTab === 'media' && <><AbsoluteMediaPanel /><div className="hairline" /><AssetsPanel /></>}
+          {inspectorTab === 'media' && <><AbsoluteMediaPanel /><div className="hairline" /><ShapePanel /><div className="hairline" /><AssetsPanel /></>}
           {inspectorTab === 'text' && <TextPanel />}
           {inspectorTab === 'layers' && <CompositionLayers />}
         </div>

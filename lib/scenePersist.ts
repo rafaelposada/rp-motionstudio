@@ -27,6 +27,8 @@ export function buildScenePartial(s: SceneState) {
     tracks: s.tracks,
     textLayers: s.textLayers.map((layer) => layer.media ? { ...layer, media: { ...layer.media, url: '' } } : layer),
     compositeMode: s.compositeMode,
+    guides: s.guides,
+    markers: s.markers,
     activeTrackId: s.activeTrackId,
     activeTemplateId: s.activeTemplateId,
     values: s.values,

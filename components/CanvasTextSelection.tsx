@@ -19,26 +19,11 @@ import {textBackdropBox} from '@/lib/textPadding';
 import {addCompositionText,textToolShortcut} from '@/lib/textActions';
 import {layoutText,boxLeft,anchorAlign} from '@/lib/textLayout';
 import { tx } from '@/lib/tx';
+import EditorRulers from './EditorRulers';
+import { animatedLayer, keyedPatch } from '@/lib/keyframes';
+import { isTextLayer } from '@/lib/textLayers';
+import { layerBounds as bounds, layerFrame } from '@/lib/layerBounds';
 
-let measureContext: CanvasRenderingContext2D | null = null;
-interface LocalBounds { width: number; height: number; left: number; top?:number }
-const measuredBounds = new WeakMap<TextLayer, { revision: number; canvasWidth: number; box: LocalBounds }>();
-function bounds(layer: TextLayer, canvasWidth: number): LocalBounds {
-  if (layer.media) return { width: layer.media.width, height: layer.media.height, left: -layer.media.width / 2 };
-  const revision = textFontRevision(), cached = measuredBounds.get(layer);
-  if (cached?.revision === revision && cached.canvasWidth === canvasWidth) return cached.box;
-  const ctx = measureContext ??= document.createElement('canvas').getContext('2d')!;
-  const size = layer.backdrop ? captionFontSize(layer.size, layoutText(ctx, layer).width, canvasWidth) : layer.size;
-  const layout = layoutText(ctx, layer, size), w = Math.max(20, layout.width), inkHeight = layout.lines.length * size * layer.lineHeight;
-  const padded=textBackdropBox(w,inkHeight,anchorAlign(layer),layer.backdropPadding);
-  const box = layer.backdrop?{width:padded.width,height:padded.height,left:padded.x,top:padded.y}:{width:w,height:inkHeight,left:boxLeft(layer,w),top:-inkHeight/2};
-  measuredBounds.set(layer, { revision, canvasWidth, box }); return box;
-}
-function layerFrame(layer: TextLayer, width: number, seconds: number): TransformFrame {
-  const b = bounds(layer, width), motion=textMotion(layer,seconds), sx = bounded(layer.scaleX ?? 1, .05, 20)*motion.scale, sy = bounded(layer.scaleY ?? 1, .05, 20)*motion.scale;
-  const c = rotatePoint({ x: (b.left + b.width / 2) * sx, y: ((b.top??-b.height/2)+b.height/2)*sy }, layer.rotation+motion.rotation);
-  return { cx: layer.x + motion.x + c.x, cy: layer.y + motion.y + c.y, width: b.width * sx, height: b.height * sy, rotation: layer.rotation+motion.rotation };
-}
 function modelFrame(id: string): TransformFrame | null {
   const renderer = getRendererInstance(), oriented = renderer?.selectionFrame?.(id);
   if (oriented) return oriented;
@@ -109,7 +94,7 @@ function arrangeSelection(kind: ArrangeKind) {
   const history = useHistoryStore.getState(); history.beginGesture();
   for (const item of items) {
     const o = offsets.get(item.id); if (!o || (Math.abs(o.dx) < .01 && Math.abs(o.dy) < .01)) continue;
-    if (item.overlay) s.patchTextLayer(item.id, { x: item.overlay.x + o.dx, y: item.overlay.y + o.dy });
+    if (item.overlay) { const now = animatedLayer(item.overlay, seconds); s.patchTextLayer(item.id, keyedPatch(item.overlay, { x: now.x + o.dx, y: now.y + o.dy }, seconds)); }
     else if (item.track) s.patchTrack(item.id, { transform: { ...item.track.transform, x: item.track.transform.x + o.dx, y: item.track.transform.y + o.dy } });
   }
   history.endGesture();
@@ -120,6 +105,7 @@ export default function CanvasTextSelection() {
   const width = useSceneStore(s => s.width), height = useSceneStore(s => s.height), frame = useSceneStore(s => s.frame), fps = useSceneStore(s => s.fps);
   const selected = useUIStore(s => s.selectedTextId), selectedMotion = useUIStore(s => s.selectedMotionId), show = useUIStore(s => s.showSelectionBox);
   const selectedIds = useUIStore(s => s.selectedLayerIds);
+  const canvasTools = useUIStore(s => s.showCanvasTools), arrangeTools = useUIStore(s => s.showArrangeTools);
   const rulers = useUIStore(s => s.showRulers), guides = useUIStore(s => s.smartGuides), snap = useUIStore(s => s.snapEnabled), pt = useUIStore(s => s.locale) === 'pt';
   const [editingId, setEditingId] = useState<string | null>(null);
   const [textTool,setTextTool]=useState(false),textToolRef=useRef(false);
@@ -211,7 +197,7 @@ export default function CanvasTextSelection() {
     const overlay = s.textLayers.find(l => l.id === (id ?? ui.selectedTextId)), model = s.tracks.find(t => t.id === (id ?? ui.selectedMotionId));
     if (overlay?.locked) return null;
     const box = overlay ? layerFrame(overlay, s.width, s.frame / s.fps) : model ? modelFrame(model.id) : null;
-    return box && box.width > 0 && box.height > 0 ? { id: overlay?.id ?? model!.id, kind, start, frame: box, overlay, track: overlay ? undefined : model } : null;
+    return box && box.width > 0 && box.height > 0 ? { id: overlay?.id ?? model!.id, kind, start, frame: box, overlay: overlay && animatedLayer(overlay, s.frame / s.fps), track: overlay ? undefined : model } : null;
   };
   const snapshot = (kind: Operation, start: TransformPoint, id?: string): Gesture | null => {
     const ids = useUIStore.getState().selectedLayerIds;
@@ -232,8 +218,10 @@ export default function CanvasTextSelection() {
       const l = d.overlay, sx = bounded(l.scaleX ?? 1, .05, 20), sy = bounded(l.scaleY ?? 1, .05, 20);
       const patch: Partial<TextLayer> = { x: p.x-motion.x, y: p.y - motionY, rotation: next.rotation-motion.rotation };
       if (l.media) patch.media = { ...l.media, width: next.width / sx / motion.scale, height: next.height / sy / motion.scale };
+      else if (l.shape) patch.shape = { ...l.shape, width: next.width / sx / motion.scale, height: l.shape.kind === 'line' ? l.shape.height : next.height / sy / motion.scale };
       else { patch.scaleX = sx * next.width / d.frame.width; patch.scaleY = sy * next.height / d.frame.height; }
-      s.patchTextLayer(d.id, patch);
+      const stored = s.textLayers.find(l => l.id === d.id);
+      s.patchTextLayer(d.id, stored ? keyedPatch(stored, patch, s.frame / s.fps) : patch);
     } else {
       const t = d.track!;
       s.patchTrack(d.id, { transform: { ...t.transform, x: p.x - width / 2 - path.x, y: p.y - height / 2 - path.y, scale: t.transform.scale * next.width / d.frame.width, rotation: normalizedAngle(t.transform.rotation + next.rotation - d.frame.rotation) } });
@@ -264,7 +252,7 @@ export default function CanvasTextSelection() {
     const excluded = (d.members ?? [d]).map(m => m.id);
     const targets: AlignBox[] = [{ x: 0, y: 0, width, height }, ...s.textLayers.filter(l => !excluded.includes(l.id) && l.visible && seconds >= l.start && seconds < l.end).map(l => frameAABB(layerFrame(l, width, seconds))), ...s.tracks.filter(t => !excluded.includes(t.id) && t.visible).map(t => getRendererInstance()?.selectionBounds?.(t.id)).filter((b): b is AlignBox => !!b)];
     const box = frameAABB(d.frame);
-    const match = snapAlignment(d.kind === 'move' ? { ...box, x: box.x + delta.x, y: box.y + delta.y } : { x: p.x, y: p.y, width: 0, height: 0 }, targets, 6 / Math.max(.01, ratio));
+    const match = snapAlignment(d.kind === 'move' ? { ...box, x: box.x + delta.x, y: box.y + delta.y } : { x: p.x, y: p.y, width: 0, height: 0 }, targets, 6 / Math.max(.01, ratio), s.guides);
     if (snap && !alt && !snapOff) { delta.x += match.dx; delta.y += match.dy; }
     setGuide(guides && !alt && !snapOff ? { x: match.x, y: match.y } : { x: null, y: null });
     if (d.kind === 'move') {
@@ -278,7 +266,7 @@ export default function CanvasTextSelection() {
       patchFrame(d, resizeFrame(d.frame, delta, d.anchor!, { minWidth: d.frame.width * minScale, minHeight: d.frame.height * minScale, maxWidth: d.frame.width * maxScale, maxHeight: d.frame.height * maxScale, proportional: true, centered: alt })); return;
     }
     const limits = t ? { minWidth: d.frame.width * .1 / t.transform.scale, minHeight: d.frame.height * .1 / t.transform.scale, maxWidth: d.frame.width * 3 / t.transform.scale, maxHeight: d.frame.height * 3 / t.transform.scale }
-      : l!.media ? { minWidth: 1, minHeight: 1, maxWidth: 4000, maxHeight: 4000 }
+      : l!.media || l!.shape ? { minWidth: 1, minHeight: 1, maxWidth: 8000, maxHeight: 8000 }
       : { minWidth: bounds(l!, width).width * .05, minHeight: bounds(l!, width).height * .05, maxWidth: bounds(l!, width).width * 20, maxHeight: bounds(l!, width).height * 20 };
     patchFrame(d, resizeFrame(d.frame, delta, d.anchor!, { ...limits, proportional: !!t || shift, centered: alt }));
   };
@@ -310,9 +298,9 @@ export default function CanvasTextSelection() {
   const names: Record<ResizeAnchor, string> = pt ? { nw: 'canto superior esquerdo', n: 'borda superior', ne: 'canto superior direito', e: 'borda direita', se: 'canto inferior direito', s: 'borda inferior', sw: 'canto inferior esquerdo', w: 'borda esquerda' } : { nw: 'top left corner', n: 'top edge', ne: 'top right corner', e: 'right edge', se: 'bottom right corner', s: 'bottom edge', sw: 'bottom left corner', w: 'left edge' };
   const radiusEnabled = selectedIds.length === 1 && !!(active?.media || active?.backdrop || track && !active);
   const cornerValue = (i: number) => active ? active.media ? normalizedRadii(active.media.width, active.media.height, active.media.cornerRadii)[i] : active.backdropRadius ?? 12 : Number(track?.values.cornerRadius ?? 0);
-  const editingLayer = layers.find(l => l.id === editingId && !l.media);
+  const editingLayer = layers.find(l => l.id === editingId && isTextLayer(l));
   const editFrame = editingLayer ? layerFrame(editingLayer,width,seconds) : null;
-  return <div ref={root} className={`canvas-selection${textTool?' canvas-text-tool':''}`} tabIndex={-1} onPointerDown={e => {
+  return <div ref={root} className={`canvas-selection${textTool?' canvas-text-tool':''}${rulers?' rulers-on':''}`} tabIndex={-1} onPointerDown={e => {
     if (e.button !== 0 || !rect.width || drag.current || (e.target as HTMLElement).closest('.canvas-inline-text')) return;
     const p = point(e), s = useSceneStore.getState(), order = compositionOrder(tracks, layers);
     const hit = [...order].reverse().filter(l => l.kind === 'overlay').map(item => layers.find(l => l.id === item.id)!).find(l => {
@@ -323,7 +311,7 @@ export default function CanvasTextSelection() {
     const modelId = getRendererInstance()?.hitTest?.(p.x, p.y), id = modelId && (!hit || order.findIndex(l => l.id === modelId) > order.findIndex(l => l.id === hit.id)) ? modelId : hit?.id;
     if(textToolRef.current){
       e.preventDefault();e.stopPropagation();
-      const existing=hit&&hit.id===id&&!hit.media&&!hit.locked?hit:null;
+      const existing=hit&&hit.id===id&&isTextLayer(hit)&&!hit.locked?hit:null;
       const textId=existing?.id??addCompositionText(p);
       if(textId){s.setPlaying(false);useUIStore.getState().selectText(textId);textToolRef.current=false;setTextTool(false);setEditingId(textId);}return;
     }
@@ -348,7 +336,7 @@ export default function CanvasTextSelection() {
       return Math.abs(local.x)<=f.width/2 && Math.abs(local.y)<=f.height/2;
     });
     const model=getRendererInstance()?.hitTest?.(p.x,p.y);
-    if(!hit || hit.media || hit.locked || model && order.findIndex(l=>l.id===model)>order.findIndex(l=>l.id===hit.id))return;
+    if(!hit || !isTextLayer(hit) || hit.locked || model && order.findIndex(l=>l.id===model)>order.findIndex(l=>l.id===hit.id))return;
     e.preventDefault(); finish(); useSceneStore.getState().setPlaying(false); useUIStore.getState().selectText(hit.id); setEditingId(hit.id);
   }} onPointerMove={e => {
     let d = drag.current; if (!d) return;
@@ -369,9 +357,9 @@ export default function CanvasTextSelection() {
     }
     apply(d, p, e.shiftKey, e.altKey);
   }} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} onLostPointerCapture={() => finish()}>
-    <div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',tx(pt, 'Réguas', 'Rulers'),tx(pt, 'Exibe réguas em pixels nas bordas da composição.', 'Show pixel rulers at the edges of the composition.')],['smartGuides',tx(pt, 'Guias', 'Guides'),tx(pt, 'Mostra linhas de alinhamento ao mover ou redimensionar elementos.', 'Show alignment guides while moving or resizing elements.')],['snapEnabled',tx(pt, 'Encaixar', 'Snap'),tx(pt, 'Encaixa elementos nas bordas e centros próximos. Alt suspende o encaixe durante o arraste.', 'Snap elements to nearby edges and centers. Alt temporarily disables snapping.')]] as const).map(([key,label,help])=><button key={key} title={help} aria-label={`${label}: ${help}`} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}<button title={tx(pt, 'Mostra ou oculta a caixa delimitadora e as alças de transformação da seleção.', 'Show or hide the selection bounding box and transform handles.')} aria-label="BBox" aria-pressed={show} onClick={()=>useUIStore.getState().setShowSelectionBox(!show)}>BBox</button></div>
-    {selectedIds.length>0&&<div className="arrange-toolbar" role="toolbar" aria-label={tx(pt,'Alinhar e distribuir','Align and distribute')} onPointerDown={e=>e.stopPropagation()}>{ARRANGE.map((item,index)=><span key={item.kind} className="arrange-slot">{index===6&&<span className="alignment-sep" aria-hidden="true"/>}<button className="arrange-btn" disabled={item.kind.startsWith('distribute')&&selectedIds.length<3} title={tx(pt,item.pt,item.en)} aria-label={tx(pt,item.pt,item.en)} onClick={()=>arrangeSelection(item.kind)}><ArrangeIcon kind={item.kind}/></button></span>)}</div>}
-    {rulers&&rect.width>0&&<svg className="editor-rulers" aria-label={tx(pt, 'Réguas em pixels da composição', 'Composition pixel rulers')}><rect x={rect.x} y={Math.max(0,rect.y-20)} width={rect.width} height="20"/><rect x={Math.max(0,rect.x-28)} y={rect.y} width="28" height={rect.height}/>{Array.from({length:11},(_,i)=>{const x=rect.x+rect.width*i/10,y=rect.y+rect.height*i/10;return <g key={i}><text x={x+2} y={Math.max(10,rect.y-7)}>{Math.round(width*i/10)}</text><path d={`M${x} ${rect.y-4}v4`}/><text x={Math.max(1,rect.x-26)} y={y+10}>{Math.round(height*i/10)}</text><path d={`M${rect.x-4} ${y}h4`}/></g>;})}</svg>}
+    {canvasTools&&<div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',tx(pt, 'Réguas', 'Rulers'),tx(pt, 'Exibe réguas em pixels nas bordas da composição.', 'Show pixel rulers at the edges of the composition.')],['smartGuides',tx(pt, 'Guias', 'Guides'),tx(pt, 'Mostra linhas de alinhamento ao mover ou redimensionar elementos.', 'Show alignment guides while moving or resizing elements.')],['snapEnabled',tx(pt, 'Encaixar', 'Snap'),tx(pt, 'Encaixa elementos nas bordas e centros próximos. Alt suspende o encaixe durante o arraste.', 'Snap elements to nearby edges and centers. Alt temporarily disables snapping.')]] as const).map(([key,label,help])=><button key={key} title={help} aria-label={`${label}: ${help}`} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}<button title={tx(pt, 'Mostra ou oculta a caixa delimitadora e as alças de transformação da seleção.', 'Show or hide the selection bounding box and transform handles.')} aria-label="BBox" aria-pressed={show} onClick={()=>useUIStore.getState().setShowSelectionBox(!show)}>BBox</button></div>}
+    {arrangeTools&&selectedIds.length>0&&<div className={`arrange-toolbar ${canvasTools?'':'solo'}`} role="toolbar" aria-label={tx(pt,'Alinhar e distribuir','Align and distribute')} onPointerDown={e=>e.stopPropagation()}>{ARRANGE.map((item,index)=><span key={item.kind} className="arrange-slot">{index===6&&<span className="alignment-sep" aria-hidden="true"/>}<button className="arrange-btn" disabled={item.kind.startsWith('distribute')&&selectedIds.length<3} title={tx(pt,item.pt,item.en)} aria-label={tx(pt,item.pt,item.en)} onClick={()=>arrangeSelection(item.kind)}><ArrangeIcon kind={item.kind}/></button></span>)}</div>}
+    <EditorRulers root={root} rect={rect} width={width} height={height} rulers={rulers} pt={pt}/>
     {(guide.x!==null||guide.y!==null)&&<svg className="editor-guides">{guide.x!==null&&<line x1={rect.x+guide.x/width*rect.width} x2={rect.x+guide.x/width*rect.width} y1={rect.y} y2={rect.y+rect.height}/>} {guide.y!==null&&<line y1={rect.y+guide.y/height*rect.height} y2={rect.y+guide.y/height*rect.height} x1={rect.x} x2={rect.x+rect.width}/>}</svg>}
 
     {show && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={tx(pt, 'Transformar camada selecionada', 'Transform selected layer')} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>

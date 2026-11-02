@@ -91,20 +91,29 @@ async function startServer() {
   throw Error('O serviço local demorou demais para iniciar.\n'+tail);
 }
 function menuCommand(action) { void request(action).catch(error=>dialog.showErrorBox('RP MotionStudio',error.message)); }
+// Native menu labels follow the interface language chosen in the editor.
+const MENU = {
+  pt: {file:'Arquivo',open:'Abrir rascunho ou template…',save:'Salvar composição',draft:'Salvar rascunho…',close:'Fechar janela',quit:'Sair',settings:'Ajustes…',quitApp:'Sair do RP MotionStudio',edit:'Editar',undo:'Desfazer',redo:'Refazer',redoAlt:'Refazer (alternativa)',cut:'Recortar',copy:'Copiar',paste:'Colar',all:'Selecionar tudo',layers:'Camadas',front:'Levar seleção ao topo',back:'Enviar seleção ao fundo',view:'Visualizar',full:'Tela cheia',palette:'Paleta de comandos…',help:'Ajuda',report:'Reportar problema'},
+  es: {file:'Archivo',open:'Abrir borrador o plantilla…',save:'Guardar composición',draft:'Guardar borrador…',close:'Cerrar ventana',quit:'Salir',settings:'Ajustes…',quitApp:'Salir de RP MotionStudio',edit:'Editar',undo:'Deshacer',redo:'Rehacer',redoAlt:'Rehacer (alternativa)',cut:'Cortar',copy:'Copiar',paste:'Pegar',all:'Seleccionar todo',layers:'Capas',front:'Traer la selección al frente',back:'Enviar la selección al fondo',view:'Ver',full:'Pantalla completa',palette:'Paleta de comandos…',help:'Ayuda',report:'Reportar un problema'},
+  en: {file:'File',open:'Open draft or template…',save:'Save composition',draft:'Save draft…',close:'Close window',quit:'Quit',settings:'Settings…',quitApp:'Quit RP MotionStudio',edit:'Edit',undo:'Undo',redo:'Redo',redoAlt:'Redo (alternative)',cut:'Cut',copy:'Copy',paste:'Paste',all:'Select all',layers:'Layers',front:'Bring selection to front',back:'Send selection to back',view:'View',full:'Full screen',palette:'Command palette…',help:'Help',report:'Report a problem'},
+};
+let menuLocale = 'pt';
+ipcMain.on('rp:locale',(event,locale)=>{if(!validSender(event)||!MENU[locale]||locale===menuLocale)return;menuLocale=locale;setMenu();});
 function setMenu() {
-  const file={label:'Arquivo',submenu:[
-    {label:'Abrir rascunho ou template…',accelerator:'CmdOrCtrl+O',click:()=>menuCommand('open-project')},
-    {label:'Salvar composição',accelerator:'CmdOrCtrl+S',click:()=>menuCommand('save-local')},
-    {label:'Salvar rascunho…',accelerator:'CmdOrCtrl+Shift+S',click:()=>menuCommand('save-draft-notify')},
-    {type:'separator'}, {label:'Fechar janela',accelerator:'CmdOrCtrl+W',click:()=>win?.close()},
-    ...(process.platform==='darwin'?[]:[{label:'Sair',accelerator:'Alt+F4',click:()=>app.quit()}]),
+  const t=MENU[menuLocale];
+  const file={label:t.file,submenu:[
+    {label:t.open,accelerator:'CmdOrCtrl+O',click:()=>menuCommand('open-project')},
+    {label:t.save,accelerator:'CmdOrCtrl+S',click:()=>menuCommand('save-local')},
+    {label:t.draft,accelerator:'CmdOrCtrl+Shift+S',click:()=>menuCommand('save-draft-notify')},
+    {type:'separator'}, {label:t.close,accelerator:'CmdOrCtrl+W',click:()=>win?.close()},
+    ...(process.platform==='darwin'?[]:[{label:t.quit,accelerator:'Alt+F4',click:()=>app.quit()}]),
   ]};
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    ...(process.platform==='darwin'?[{label:'RP MotionStudio Desktop',submenu:[{role:'about'},{type:'separator'},{label:'Ajustes…',accelerator:'Cmd+,',click:()=>menuCommand('settings')},{type:'separator'},{role:'hide'},{role:'hideOthers'},{role:'unhide'},{type:'separator'},{role:'quit',label:'Sair do RP MotionStudio'}]}]:[]),
-    file,{label:'Editar',submenu:[{label:'Desfazer',accelerator:'CmdOrCtrl+Z',click:()=>menuCommand('undo')},{label:'Refazer',accelerator:'CmdOrCtrl+Shift+Z',click:()=>menuCommand('redo')},...(process.platform==='win32'?[{label:'Refazer (alternativa)',accelerator:'Ctrl+Y',click:()=>menuCommand('redo')}]:[]),{type:'separator'},{role:'cut',label:'Recortar'},{role:'copy',label:'Copiar'},{role:'paste',label:'Colar'},{label:'Selecionar tudo',accelerator:'CmdOrCtrl+A',click:()=>menuCommand('select-all')}]},
-    {label:'Camadas',submenu:[{label:'Levar seleção ao topo',accelerator:'CmdOrCtrl+Shift+]',click:()=>menuCommand('arrange-front')},{label:'Enviar seleção ao fundo',accelerator:'CmdOrCtrl+Shift+[',click:()=>menuCommand('arrange-back')}]},
-    {label:'Visualizar',submenu:[{role:'togglefullscreen',label:'Tela cheia'}]},
-    {label:'Ajuda',submenu:[{label:'Rafael Posada',click:()=>shell.openExternal('https://rafaelposada.com')},{label:'Reportar problema',click:()=>shell.openExternal('https://github.com/rafaelposada/rp-motionstudio/issues')}]},
+    ...(process.platform==='darwin'?[{label:'RP MotionStudio Desktop',submenu:[{role:'about'},{type:'separator'},{label:t.settings,accelerator:'Cmd+,',click:()=>menuCommand('settings')},{type:'separator'},{role:'hide'},{role:'hideOthers'},{role:'unhide'},{type:'separator'},{role:'quit',label:t.quitApp}]}]:[]),
+    file,{label:t.edit,submenu:[{label:t.undo,accelerator:'CmdOrCtrl+Z',click:()=>menuCommand('undo')},{label:t.redo,accelerator:'CmdOrCtrl+Shift+Z',click:()=>menuCommand('redo')},...(process.platform==='win32'?[{label:t.redoAlt,accelerator:'Ctrl+Y',click:()=>menuCommand('redo')}]:[]),{type:'separator'},{role:'cut',label:t.cut},{role:'copy',label:t.copy},{role:'paste',label:t.paste},{label:t.all,accelerator:'CmdOrCtrl+A',click:()=>menuCommand('select-all')}]},
+    {label:t.layers,submenu:[{label:t.front,accelerator:'CmdOrCtrl+Shift+]',click:()=>menuCommand('arrange-front')},{label:t.back,accelerator:'CmdOrCtrl+Shift+[',click:()=>menuCommand('arrange-back')}]},
+    {label:t.view,submenu:[{role:'togglefullscreen',label:t.full}]},
+    {label:t.help,submenu:[{label:'Rafael Posada',click:()=>shell.openExternal('https://rafaelposada.com')},{label:t.report,click:()=>shell.openExternal('https://github.com/rafaelposada/rp-motionstudio/issues')}]},
   ]));
 }
 async function createWindow() {

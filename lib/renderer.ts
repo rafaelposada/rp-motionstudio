@@ -141,6 +141,13 @@ export class SceneRenderer {
 
   resize(width: number, height: number, resolution = previewResolution()) {
     if (!this.ready) return;
+    // Text/image overlay textures are sized for one density. Rebuild them on a
+    // density change (preview quality, export capture) instead of resizing the
+    // source in place, which left them drawn at the previous scale.
+    if (resolution !== this.app.renderer.resolution) {
+      for (const rt of this.overlays.values()) { rt.sprite.destroy(); rt.texture.destroy(true); rt.raster.destroy(); }
+      this.overlays.clear();
+    }
     this.app.renderer.resolution = resolution;
     this.app.renderer.resize(width, height, resolution);
     this.motion.position.set(width / 2, height / 2);
@@ -704,21 +711,28 @@ export class SceneRenderer {
     this.getFrameState(frame);
     const s = useSceneStore.getState();
     const order = compositionOrder(s.tracks, s.textLayers);
+    const maskSources = new Set(s.textLayers.map((l) => l.maskId).filter((id): id is string => !!id));
     for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.sprite.destroy(); rt.texture.destroy(true); rt.raster.destroy(); this.overlays.delete(id); }
     for (const item of order) {
       if (item.kind === 'motion') { const rt = this.trackRTs.get(item.id); if (rt) rt.container.zIndex = item.z; continue; }
       const layer = s.textLayers.find((l) => l.id === item.id)!;
+      const mask = layer.maskId ? s.textLayers.find((l) => l.id === layer.maskId && l.id !== layer.id) : undefined;
       let rt = this.overlays.get(item.id);
-      if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages); const texture = PIXI.Texture.from(raster.canvas); const sprite = new PIXI.Sprite(texture); this.motion.addChild(sprite); rt = { raster, texture, sprite }; this.overlays.set(item.id, rt); }
-      if (rt.raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages)) {
+      if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages, mask); const texture = PIXI.Texture.from(raster.canvas); const sprite = new PIXI.Sprite(texture); this.motion.addChild(sprite); rt = { raster, texture, sprite }; this.overlays.set(item.id, rt); }
+      if (rt.raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages, mask)) {
         const canvas = rt.raster.canvas;
         rt.texture.source.resize(canvas.width, canvas.height);
         rt.texture.frame.width = canvas.width; rt.texture.frame.height = canvas.height; rt.texture.update(); rt.texture.source.update();
       }
       rt.sprite.width = s.width; rt.sprite.height = s.height; rt.sprite.position.set(-s.width / 2, -s.height / 2); rt.sprite.zIndex = item.z; rt.sprite.blendMode = pixiBlend(layer.blend);
-      rt.sprite.visible = layer.visible && (this.exportingImages || !isCanvasEditing(layer.id)) && frame / s.fps >= layer.start && frame / s.fps < layer.end;
+      // A layer used as another layer's mask only shapes that layer.
+      rt.sprite.visible = !maskSources.has(layer.id) && layer.visible && (this.exportingImages || !isCanvasEditing(layer.id)) && frame / s.fps >= layer.start && frame / s.fps < layer.end;
     }
+    // Alpha export: hide every background layer for this frame only.
+    const backdrop = this.transparent ? [this.bg, this.gradientSprite, this.bgSprite].filter((node): node is PIXI.Sprite | PIXI.Graphics => !!node).map((node) => [node, node.visible] as const) : [];
+    backdrop.forEach(([node]) => { node.visible = false; });
     this.app.renderer.render(this.app.stage);
+    backdrop.forEach(([node, visible]) => { node.visible = visible; });
     this.outputCanvas = this.app.canvas as HTMLCanvasElement;
   }
 
@@ -748,10 +762,12 @@ export class SceneRenderer {
   // JPEG (q0.92) over PNG: ~5–10× smaller + far faster to encode at 2K/4K, and
   // the scene always paints a background so the missing alpha channel is moot.
   // ffmpeg re-encodes to h264/gif downstream, so there's no visible quality loss.
-  captureFrame(frame: number): string {
+  captureFrame(frame: number, mime: 'image/jpeg' | 'image/png' = 'image/jpeg'): string {
     this.renderFrame(frame);
-    return this.extractCanvas().toDataURL('image/jpeg', 0.92);
+    return mime === 'image/png' ? this.extractCanvas().toDataURL('image/png') : this.extractCanvas().toDataURL('image/jpeg', 0.92);
   }
+  private transparent = false;
+  setTransparentBackground(on: boolean) { this.transparent = on; }
 
   // Multiply the backing-store resolution for export capture. Logical
   // coordinates stay at store width/height, so template layout is untouched;

@@ -120,6 +120,7 @@ assert.equal(buildScenePartial(useSceneStore.getState()).tracks.find(t=>t.id===u
 const snapResult=snapAlignment({x:47,y:48,width:100,height:100},[{x:0,y:0,width:200,height:200}],6);
 assert.equal(snapResult.dx,3);assert.equal(snapResult.dy,2);assert.equal(snapResult.x,100);
 assert.equal(snapAlignment({x:22,y:23,width:10,height:10},[{x:0,y:0,width:200,height:200}],2).x,null);
+{const g=snapAlignment({x:96,y:300,width:10,height:10},[],6,{x:[100],y:[]});assert.equal(g.dx,-1,"the box centre (101) is nearest the guide");assert.equal(g.x,100);assert.equal(g.y,null,'a vertical guide only snaps the x axis');}
 useSceneStore.getState().hydrate({ ...saved, textLayers: [{ ...layer, arc: -90, fillOpacity: .4, shadowBlur: 12, strokeWidth: 5 }] });
 assert.equal(buildScenePartial(useSceneStore.getState()).textLayers[0].arc, -90);
 const state = useSceneStore.getState();

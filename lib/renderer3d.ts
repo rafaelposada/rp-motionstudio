@@ -1254,14 +1254,16 @@ export class SceneRenderer3D implements IRenderer {
         texture = rt.target.texture; opacity = rt.opacity; blend = rt.blend;
       } else {
         const layer = s.textLayers.find((l) => l.id === item.id)!;
+        if (s.textLayers.some((l) => l.maskId === layer.id)) return; // used as a mask only
+        const mask = layer.maskId ? s.textLayers.find((l) => l.id === layer.maskId && l.id !== layer.id) : undefined;
         if (!this.exportingImages && isCanvasEditing(layer.id)) return;
         if (!layer.visible || frame / s.fps < layer.start || frame / s.fps >= layer.end) return;
         let rt = this.overlays.get(item.id);
-        if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages); const texture = new THREE.CanvasTexture(raster.canvas); texture.colorSpace = THREE.SRGBColorSpace; rt = { raster, texture }; this.overlays.set(item.id, rt); }
+        if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages, mask); const texture = new THREE.CanvasTexture(raster.canvas); texture.colorSpace = THREE.SRGBColorSpace; rt = { raster, texture }; this.overlays.set(item.id, rt); }
         // The compositor consumes premultiplied layer RGB. Canvas textures
         // otherwise upload straight RGB, cancelling text opacity and fades.
         rt.texture.premultiplyAlpha = true;
-        const changed=rt.raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages);
+        const changed=rt.raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages, mask);
         if (changed) rt.texture.needsUpdate = true;
         if(rt.raster.maskCanvas){
           if(!rt.mask){rt.mask=new THREE.CanvasTexture(rt.raster.maskCanvas);rt.mask.generateMipmaps=false;rt.mask.minFilter=THREE.LinearFilter;}

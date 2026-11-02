@@ -22,7 +22,8 @@ export default function DesktopSystem() {
     setDesktop(true);document.body.classList.add('desktop-host');document.body.dataset.desktopPlatform=api.platform;
     let alive=true,working=false;
     const appearance=()=>api.appearance(useUIStore.getState().theme);appearance();
-    const stopTheme=useUIStore.subscribe((next,previous)=>{if(next.theme!==previous.theme)appearance();});
+    const language=()=>api.locale?.(useUIStore.getState().locale);language();
+    const stopTheme=useUIStore.subscribe((next,previous)=>{if(next.theme!==previous.theme)appearance();if(next.locale!==previous.locale)language();});
     const stop=api.onRequest(async({id,action,payload}:DesktopRequest)=>{
       const pt=useUIStore.getState().locale==='pt';
       let ownsWork=false;
@@ -33,7 +34,7 @@ export default function DesktopSystem() {
         if(action==='status'){
           const busy=working||desktopBusy()||pendingAssetTransactions()>0;
           if(!busy&&useUIStore.getState().autosaveEnabled)flushScene();
-          api.respond(id,{ok:true,value:{pt,busy,hasProject:!!project&&useUIStore.getState().nav!=='home',name:listProjects().find(p=>p.id===project)?.name??'Projeto',unsaved:getSaveState().status!=='saved'}});return;
+          api.respond(id,{ok:true,value:{pt,locale:useUIStore.getState().locale,busy,hasProject:!!project&&useUIStore.getState().nav!=='home',name:listProjects().find(p=>p.id===project)?.name??'Projeto',unsaved:getSaveState().status!=='saved'}});return;
         }
         // Close confirmation and error notices are drawn by the app itself, not
         // as macOS/Windows sheets, so they share the editor's design.

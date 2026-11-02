@@ -22,6 +22,7 @@ import { AdjustIcon, BackIcon, CanvasIcon, ChevronDownIcon, ExportIcon, InfoIcon
 import { MobileInteractionProvider } from './MobileInteractions';
 import { showHome } from '@/lib/homeNavigation';
 import { tx } from '@/lib/tx';
+import ShapePanel from './ShapePanel';
 
 const PreviewStage = dynamic(() => import('./PreviewStage'), { ssr: false });
 
@@ -105,7 +106,7 @@ export default function MobileEditor() {
               onSelect={() => setPanelOpen(false)}
             />
           )}
-          {tab === 'media' && <><AbsoluteMediaPanel /><AssetsPanel /></>}
+          {tab === 'media' && <><AbsoluteMediaPanel /><ShapePanel /><AssetsPanel /></>}
           {tab === 'adjust' && (
             <div className="mobile-composed-panel">
               {trackCount > 1 && <div className="mobile-desktop-hint">{trackCount} {tx(locale === 'pt', 'camadas no projeto', 'layers in this project')}</div>}

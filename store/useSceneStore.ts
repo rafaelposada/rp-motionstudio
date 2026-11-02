@@ -85,6 +85,12 @@ function persistPresets(list: CustomPreset[]) {
 
 export interface SceneState {
   compositeMode: 'single' | 'stack';
+  // Ruler guides in composition pixels, saved with the project. Editor only.
+  guides: { x: number[]; y: number[] };
+  // Timeline markers in seconds, saved with the project.
+  markers: { t: number; label?: string }[];
+  setMarkers: (markers: { t: number; label?: string }[]) => void;
+  setGuides: (guides: { x: number[]; y: number[] }) => void;
   setCompositeMode: (mode: 'single' | 'stack') => void;
   textLayers: TextLayer[];
   addTextLayer: () => void;
@@ -287,6 +293,8 @@ function initialSceneState() {
     playing: true, // autoplay loop by default
 
     compositeMode: 'single' as const,
+    guides: { x: [] as number[], y: [] as number[] },
+    markers: [] as { t: number; label?: string }[],
     textLayers: [] as TextLayer[],
     aspect: '3:4',
     width: initDims.width,
@@ -311,6 +319,8 @@ function initialSceneState() {
 export const useSceneStore = create<SceneState>((set, get) => ({
   ...initialSceneState(),
   customPresets: [],
+  setMarkers: (markers) => set((s) => ({ markers: markers.filter((m) => Number.isFinite(m.t)).map((m) => ({ ...m, t: Math.max(0, Math.min(s.duration, m.t)) })).sort((a, b) => a.t - b.t).slice(0, 200) })),
+  setGuides: (guides) => set(() => ({ guides: { x: guides.x.filter(Number.isFinite).slice(0, 64), y: guides.y.filter(Number.isFinite).slice(0, 64) } })),
   setCompositeMode: (compositeMode) => set(s => ({ compositeMode, ...(compositeMode === 'single' ? projectActive(s.tracks.map(t => t.id === s.activeTrackId ? { ...t, visible: true } : t), s.activeTrackId) : {}) })),
   addTextLayer: () => set((s) => ({ textLayers: [...s.textLayers, {
     z: Math.max(-1, ...s.tracks.map((l, i) => l.z ?? i * 2), ...s.textLayers.map((l, i) => l.z ?? s.tracks.length * 2 + i)) + 1,
@@ -601,6 +611,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         ...partial,
         textLayers: partial.textLayers ?? [],
         compositeMode: partial.compositeMode ?? 'single',
+        markers: Array.isArray(partial.markers) ? partial.markers.filter((m) => m && Number.isFinite(m.t)) : [],
+        guides: partial.guides && Array.isArray(partial.guides.x) && Array.isArray(partial.guides.y) ? { x: partial.guides.x.filter(Number.isFinite), y: partial.guides.y.filter(Number.isFinite) } : { x: [], y: [] },
         audioBlobId: partial.audioBlobId,
         audioSettings: audioSettings(partial.audioSettings),
         assets,

@@ -11,6 +11,8 @@ import { idbPut } from '@/lib/assetDb';
 import GradientEditor from './GradientEditor';
 import {numericKeyValue} from '@/lib/numericKeyboard';
 import { tx } from '@/lib/tx';
+import PreviewQuality from './PreviewQuality';
+import { BrandKitApply } from './BrandKitPanel';
 
 const FPS_OPTIONS = [15, 25, 30, 60] as const;
 const BG_SOURCES = ['color', 'image', 'card'] as const;
@@ -86,26 +88,14 @@ export default function CanvasPanel({ is3DMode = false }: { is3DMode?: boolean }
       setMediaStatus(tx(locale === 'pt', 'Arquivo salvo no projeto.', 'File saved in project.'));
     } catch { setMediaStatus(tx(locale === 'pt', 'Não foi possível salvar. Verifique o espaço disponível.', 'Unable to save. Check available storage.')); }
   };
-  const [previewQuality, setPreviewQuality] = useState('high');
-  useEffect(() => { const sync = () => setPreviewQuality(localStorage.getItem('motion-preview-quality') ?? 'high'); sync(); window.addEventListener('motion-preview-quality', sync); return () => window.removeEventListener('motion-preview-quality', sync); }, []);
 
   return (
     <>
       <div className="section-head"><span className="eyebrow">{t('canvas')}</span></div>
       <div className="section-body">
         {mediaStatus && <p className="ctl-hint" role="status">{mediaStatus}</p>}
-        <label className="text-edit-label">{tx(locale === 'pt', 'Qualidade da prévia', 'Preview quality')}
-          <select className="field" value={previewQuality} onChange={(e) => {
-            setPreviewQuality(e.target.value);
-            localStorage.setItem('motion-preview-quality', e.target.value);
-            window.dispatchEvent(new Event('motion-preview-quality'));
-          }}>
-            <option value="fast">{tx(locale === 'pt', 'Rápida', 'Fast')}</option>
-            <option value="balanced">{tx(locale === 'pt', 'Equilibrada', 'Balanced')}</option>
-            <option value="high">{tx(locale === 'pt', 'Alta qualidade', 'High quality')}</option>
-          </select>
-        </label>
-        <p className="ctl-hint">{tx(locale === 'pt', 'A exportação mantém a resolução escolhida, independentemente da qualidade da prévia.', 'Export uses its chosen resolution regardless of preview quality.')}</p>
+        <div className="text-edit-label">{tx(locale === 'pt', 'Qualidade da prévia', 'Preview quality')}<PreviewQuality pt={locale === 'pt'} compact /></div>
+        <div className="text-edit-label">{tx(locale === 'pt', 'Kit de marca', 'Brand kit')}<BrandKitApply pt={locale === 'pt'} /></div>
         <div className="ctl-row">
           <InfoLabel help={uiHelp('aspect', locale)} name={t('aspect')}>{t('aspect')}</InfoLabel>
           <div className="pills aspect-pills">

@@ -18,5 +18,6 @@ contextBridge.exposeInMainWorld('rpDesktop', Object.freeze({
     ipcRenderer.on('rp:update-progress', listener);
     return () => ipcRenderer.removeListener('rp:update-progress', listener);
   },
+  locale(value) { if (['pt', 'en', 'es'].includes(value)) ipcRenderer.send('rp:locale', value); },
   appearance(theme) { if (theme === 'light' || theme === 'dark') ipcRenderer.send('rp:appearance', theme); },
 }));

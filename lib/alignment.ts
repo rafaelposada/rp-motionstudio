@@ -1,10 +1,12 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export interface AlignBox { x: number; y: number; width: number; height: number }
-export function snapAlignment(box: AlignBox, targets: AlignBox[], threshold: number) {
+// lines: ruler guides, which only attract on their own axis.
+export function snapAlignment(box: AlignBox, targets: AlignBox[], threshold: number, lines: { x: number[]; y: number[] } = { x: [], y: [] }) {
   const solve = (axis: 'x' | 'y', size: 'width' | 'height') => {
     let delta = 0, guide: number | null = null, best = threshold;
     const points = [box[axis], box[axis] + box[size] / 2, box[axis] + box[size]];
-    for (const target of targets) for (const anchor of [target[axis], target[axis] + target[size] / 2, target[axis] + target[size]]) for (const point of points) {
+    const anchors = [...targets.flatMap((target) => [target[axis], target[axis] + target[size] / 2, target[axis] + target[size]]), ...lines[axis]];
+    for (const anchor of anchors) for (const point of points) {
       const distance = Math.abs(anchor - point);
       if (distance < best) { best = distance; delta = anchor - point; guide = anchor; }
     }

@@ -10,6 +10,11 @@ export function registerPixiBlendModes() {
   registered ??= (async () => {
     await import('pixi.js/advanced-blend-modes');
     const { BlendModeFilter, ExtensionType, extensions, hslgl, hslgpu } = PIXI;
+    // Pixi copies the backdrop at the renderer's density but renders the blend
+    // filter's own input at its default 1×, so on Retina (or any export scale
+    // above 1×) the two samples disagree and the layers behind appear zoomed.
+    // Every blend filter follows the renderer's resolution instead.
+    Object.defineProperty(BlendModeFilter.prototype, 'resolution', { configurable: true, get: () => 'inherit', set: () => {} });
     class HueBlend extends BlendModeFilter {
       static extension = { name: 'hue', type: ExtensionType.BlendMode };
       constructor() {

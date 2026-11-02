@@ -8,7 +8,7 @@ import { setRendererInstance } from '@/lib/rendererInstance';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
 import { getTemplate } from '@/templates';
-import { previewResolution } from '@/lib/previewResolution';
+import { previewResolution, setPreviewPlaying } from '@/lib/previewResolution';
 import { prepareTextFonts } from '@/lib/textLayers';
 import { useAudioPreview } from '@/lib/useAudioPreview';
 import CanvasTextSelection from './CanvasTextSelection';
@@ -107,6 +107,7 @@ export default function PreviewStage() {
       // freeze/resume card video decoding together with the timeline
       if (st.playing !== lastPlayingRef.current) {
         lastPlayingRef.current = st.playing;
+        setPreviewPlaying(st.playing);
         if (st.playing) rendererRef.current?.resumeVideos?.();
         else rendererRef.current?.pauseVideos?.();
         dirtyRef.current = true;
@@ -170,6 +171,8 @@ export default function PreviewStage() {
       if (!mounted || initGeneration !== initGenerationRef.current) { renderer.destroy(); return; }
       rendererRef.current = renderer;
       setRendererInstance(renderer);
+      // Development-only hook for scripts/verify-render-parity.cjs.
+      if (process.env.NODE_ENV !== 'production' && window.location.search.includes('rp-test')) (window as unknown as { __rpTest?: unknown }).__rpTest = { renderer, scene: useSceneStore, ui: useUIStore };
       dirtyRef.current = true;
       lastPlayingRef.current = useSceneStore.getState().playing;
       rafRef.current = requestAnimationFrame(loop);

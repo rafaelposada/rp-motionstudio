@@ -119,8 +119,9 @@ export async function POST(req: NextRequest) {
       }
       const dir = sessionDir(sessionId);
       if (!sessions.has(sessionId) || sessions.get(sessionId)?.cancelled) return NextResponse.json({ error: 'Sessão encerrada.' }, { status: 400 });
+      const png = String(dataUrl).startsWith('data:image/png');
       const base64 = String(dataUrl).replace(/^data:image\/\w+;base64,/, '');
-      const file = path.join(dir, `frame_${String(idx).padStart(5, '0')}.jpg`);
+      const file = path.join(dir, `frame_${String(idx).padStart(5, '0')}.${png ? 'png' : 'jpg'}`);
       await fs.writeFile(file, Buffer.from(base64, 'base64'));
       return NextResponse.json({ ok: true });
     }
@@ -132,7 +133,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'bad params' }, { status: 400 });
       }
       const dir = sessionDir(sessionId);
-      const pattern = path.join(dir, 'frame_%05d.jpg');
+      const alpha = format === 'mov';
+      const pattern = path.join(dir, alpha ? 'frame_%05d.png' : 'frame_%05d.jpg');
+      const suffix = typeof body.suffix === 'string' && /^[a-z0-9x_-]{1,24}$/i.test(body.suffix) ? `_${body.suffix}` : '';
       const session = sessions.get(sessionId);
       if (!session || session.cancelled) return NextResponse.json({ error: 'Sessão encerrada.' }, { status: 400 });
       const outputDirectory = session.directory;
@@ -157,7 +160,7 @@ export async function POST(req: NextRequest) {
       const files: string[] = [];
 
       if (format === 'mp4' || format === 'both') {
-        const out = `motion_${sessionId}.mp4`;
+        const out = `motion_${sessionId}${suffix}.mp4`;
         const outPath = path.join(outputDirectory, out);
         const args = ['-y', '-start_number', '0', '-framerate', String(fps), '-i', pattern];
         if (audioFile) args.push('-i', audioFile);
@@ -176,12 +179,29 @@ export async function POST(req: NextRequest) {
 
       if (format === 'gif' || format === 'both') {
         const palette = path.join(dir, 'palette.png');
-        const out = `motion_${sessionId}.gif`;
+        const out = `motion_${sessionId}${suffix}.gif`;
         const outPath = path.join(outputDirectory, out);
         await run('ffmpeg', ['-y', '-start_number', '0', '-framerate', String(fps), '-i', pattern,
           '-vf', `fps=${fps},${sizeFilter},palettegen`, palette], sessionId);
         await run('ffmpeg', ['-y', '-start_number', '0', '-framerate', String(fps), '-i', pattern, '-i', palette,
           '-filter_complex', `fps=${fps},${sizeFilter} [x]; [x][1:v] paletteuse`, outPath], sessionId);
+        files.push(out);
+      }
+
+      if (format === 'mov') {
+        // QuickTime with the PNG codec keeps the alpha channel; it opens in
+        // After Effects, Premiere, Final Cut and DaVinci Resolve.
+        const out = `motion_${sessionId}${suffix}.mov`;
+        const outPath = path.join(outputDirectory, out);
+        const args = ['-y', '-start_number', '0', '-framerate', String(fps), '-i', pattern];
+        if (audioFile) args.push('-i', audioFile);
+        args.push('-vf', Number.isInteger(w) && Number.isInteger(h) && w > 0 && h > 0 ? `scale=${w}:${h}:flags=lanczos` : 'scale=iw:ih', '-c:v', 'png', '-pix_fmt', 'rgba');
+        if (audioFile) {
+          const frameCount = (await fs.readdir(dir)).filter(name => /^frame_\d{5}\.png$/.test(name)).length;
+          args.push('-af', audioFilter(body.audioSettings, frameCount / fps, sourceAudioDuration), '-c:a', 'pcm_s16le', '-shortest');
+        }
+        args.push(outPath);
+        await run('ffmpeg', args, sessionId);
         files.push(out);
       }
 
@@ -198,7 +218,7 @@ export async function POST(req: NextRequest) {
     if (UUID_RE.test(String(body.sessionId)) && sessions.get(body.sessionId)?.cancelled) {
       await fs.rm(sessionDir(body.sessionId), { recursive: true, force: true });
       const directory = sessions.get(body.sessionId)?.directory;
-      if (directory) await Promise.all(['mp4', 'gif'].map((extension) => fs.rm(path.join(directory, `motion_${body.sessionId}.${extension}`), { force: true })));
+      if (directory) await Promise.all(['mp4', 'gif', 'mov'].map((extension) => fs.rm(path.join(directory, `motion_${body.sessionId}.${extension}`), { force: true })));
     }
     return NextResponse.json({ error: String(e?.message ?? e) }, { status: 500 });
   }

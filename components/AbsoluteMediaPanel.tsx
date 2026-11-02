@@ -8,6 +8,10 @@ import { ControlRow } from './Controls';
 import { BlendRow } from './BlendSelect';
 import LayerAnimationControls from './LayerAnimationControls';
 import { tx } from '@/lib/tx';
+import { animatedLayer, hasKeys, keyedPatch } from '@/lib/keyframes';
+import { KeyedRow } from './KeyframeControls';
+import MaskControl from './MaskControl';
+import Tilt3DControls from './Tilt3DControls';
 export default function AbsoluteMediaPanel() {
   const layers = useSceneStore((s) => s.textLayers);
   const audioUrl = useSceneStore((s) => s.audioUrl);
@@ -15,6 +19,8 @@ export default function AbsoluteMediaPanel() {
   const selected = useUIStore((s) => s.selectedTextId);
   const pt = useUIStore((s) => s.locale) === 'pt', [status, setStatus] = useState('');
   const mediaLayer = layers.find((l) => l.id === selected && l.media);
+  const keyFrame = useSceneStore((s) => mediaLayer && hasKeys(mediaLayer) ? s.frame : 0), fps = useSceneStore((s) => s.fps);
+  const seconds = (mediaLayer && hasKeys(mediaLayer) ? keyFrame : useSceneStore.getState().frame) / fps;
   const uploadAudio = async (file: File) => {
     if (file.size > 100 * 1024 * 1024) { setStatus(tx(pt, 'Limite de áudio: 100 MB.', 'Audio limit: 100 MB.')); return; }
     const revision = sceneRestoreRevision(), audioBlobId = `aux_${crypto.randomUUID()}`;
@@ -51,9 +57,11 @@ export default function AbsoluteMediaPanel() {
       <button className="btn" onClick={() => useSceneStore.setState({ audioUrl: null, audioBlobId: undefined })}>{tx(pt, 'Remover áudio', 'Remove audio')}</button></>}
     <p role="status" className="ctl-hint">{status}</p>
     {mediaLayer?.media && <><strong>{tx(pt, 'Imagem estática selecionada', 'Selected static image')}</strong>{(['width', 'height'] as const).map((axis) => <ControlRow key={axis} def={{ key: axis, label: axis === 'width' ? (tx(pt, 'Largura da imagem', 'Image width')) : (tx(pt, 'Altura da imagem', 'Image height')), type: 'slider', min: 1, max: 4000, step: 1, default: 200 }} value={mediaLayer.media![axis]} onChange={(value) => useSceneStore.getState().patchTextLayer(mediaLayer.id, { media: { ...mediaLayer.media!, [axis]: value } })} />)}
-    {(['x', 'y', 'rotation'] as const).map((key) => <ControlRow key={key} def={{ key, label:key==='rotation'?(tx(pt, 'Rotação', 'Rotation')):`${tx(pt, 'Posição', 'Position')} ${key.toUpperCase()}`, type:'slider',min:-4000,max:4000,step:1,default:0 }} value={mediaLayer[key]} onChange={value=>useSceneStore.getState().patchTextLayer(mediaLayer.id,{[key]:Number(value)})}/>)}
-    <ControlRow def={{key:'opacity',label:tx(pt, 'Opacidade', 'Opacity'),type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={mediaLayer.opacity*100} onChange={value=>useSceneStore.getState().patchTextLayer(mediaLayer.id,{opacity:Number(value)/100})}/>
+    {(['x', 'y', 'rotation'] as const).map((key) => <KeyedRow key={key} layer={mediaLayer} prop={key} pt={pt}><ControlRow def={{ key, label:key==='rotation'?(tx(pt, 'Rotação', 'Rotation')):`${tx(pt, 'Posição', 'Position')} ${key.toUpperCase()}`, type:'slider',min:-4000,max:4000,step:1,default:0 }} value={animatedLayer(mediaLayer, seconds)[key]} onChange={value=>useSceneStore.getState().patchTextLayer(mediaLayer.id,keyedPatch(mediaLayer,{[key]:Number(value)},seconds))}/></KeyedRow>)}
+    <Tilt3DControls layer={mediaLayer} pt={pt}/>
+    <KeyedRow layer={mediaLayer} prop="opacity" pt={pt}><ControlRow def={{key:'opacity',label:tx(pt, 'Opacidade', 'Opacity'),type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={animatedLayer(mediaLayer, seconds).opacity*100} onChange={value=>useSceneStore.getState().patchTextLayer(mediaLayer.id,keyedPatch(mediaLayer,{opacity:Number(value)/100},seconds))}/></KeyedRow>
     <BlendRow value={mediaLayer.blend} onChange={blend=>useSceneStore.getState().patchTextLayer(mediaLayer.id,{blend})}/>
+    <MaskControl layer={mediaLayer} pt={pt}/>
     <ControlRow def={{key:'imageCorners',label:tx(pt, 'Arredondar todos os cantos', 'Round all corners'),type:'slider',min:0,max:Math.min(mediaLayer.media.width,mediaLayer.media.height)/2,step:1,unit:'px',default:0}} value={mediaLayer.media.cornerRadii?.[0]??0} onChange={value=>{const r=Number(value);useSceneStore.getState().patchTextLayer(mediaLayer.id,{media:{...mediaLayer.media!,cornerRadii:[r,r,r,r]}});}}/>
     <LayerAnimationControls layer={mediaLayer} pt={pt}/>
     <p className="ctl-hint">{tx(pt, 'Arraste os círculos internos na tela para arredondar. Alt ajusta somente o canto arrastado.', 'Drag the inner circles to round corners. Alt changes only the dragged corner.')}</p>

@@ -18,7 +18,8 @@ import InfoHint, { InfoLabel } from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
 import { loadPreviewImage } from '@/lib/textureLoad';
 import ImageThumbnail from './ImageThumbnail';
-import { tx } from '@/lib/tx';
+import { tx, txf } from '@/lib/tx';
+import { useUIStore } from '@/store/useUIStore';
 
 const SHAPE_OPTIONS = ['auto', ...Object.keys(CARD_SHAPES)];
 const FIT_OPTIONS: MediaFit[] = ['fill', 'fit', 'stretch'];
@@ -268,6 +269,7 @@ export default function AssetsPanel() {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [dropActive, setDropActive] = useState(false);
+  const [heavyNotice, setHeavyNotice] = useState('');
   const [cropOpenId, setCropOpenId] = useState<string | null>(null);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -336,6 +338,19 @@ export default function AssetsPanel() {
     });
   };
 
+  // Very large sources slow the preview even though images are reduced for it;
+  // videos above 4K are decoded at full size. Say so once, after import.
+  const heavyMediaNotice = async (items: Array<{ name: string; url: string; kind: 'image' | 'video' }>) => {
+    const sizes = await Promise.all(items.map((item) => new Promise<{ name: string; w: number; h: number; kind: string }>((resolve) => {
+      if (item.kind === 'video') { const v = document.createElement('video'); v.preload = 'metadata'; v.onloadedmetadata = () => resolve({ name: item.name, w: v.videoWidth, h: v.videoHeight, kind: 'video' }); v.onerror = () => resolve({ name: item.name, w: 0, h: 0, kind: 'video' }); v.src = item.url; }
+      else { const i = new Image(); i.onload = () => resolve({ name: item.name, w: i.naturalWidth, h: i.naturalHeight, kind: 'image' }); i.onerror = () => resolve({ name: item.name, w: 0, h: 0, kind: 'image' }); i.src = item.url; }
+    })));
+    const heavy = sizes.filter((m) => m.kind === 'video' ? m.w * m.h > 3840 * 2160 * 1.01 : m.w * m.h > 40e6);
+    if (!heavy.length) return '';
+    const pt = useUIStore.getState().locale === 'pt';
+    return txf(pt, '{n} arquivo(s) muito grande(s): {names}. A prévia pode ficar lenta; para vídeos, prefira até 4K. A exportação usa o original.', '{n} very large file(s): {names}. The preview may slow down; for videos, prefer up to 4K. Export uses the original.', { n: heavy.length, names: heavy.slice(0, 3).map((m) => `${m.name} (${m.w}×${m.h})`).join(', ') });
+  };
+
   const ingest = (files: FileList | File[]) => {
     const items = Array.from(files)
       .filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'))
@@ -348,6 +363,7 @@ export default function AssetsPanel() {
     if (items.length) {
       addAssets(items);
       startPreparation(items);
+      void heavyMediaNotice(items).then((notice) => setHeavyNotice(notice));
     }
   };
 
@@ -396,6 +412,7 @@ export default function AssetsPanel() {
           <input ref={inputRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => e.target.files && ingest(e.target.files)} />
         </div>
 
+        {heavyNotice && <p className="media-heavy-notice" role="status"><span>{heavyNotice}</span><button type="button" aria-label="×" onClick={() => setHeavyNotice('')}>×</button></p>}
         {preparation.pending > 0 && (
           <div className="media-preparing" role="status" aria-live="polite">
             <span>{t('preparingMedia')} · {preparation.total - preparation.pending}/{preparation.total}</span>

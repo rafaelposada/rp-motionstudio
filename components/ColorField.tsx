@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { parseNumericExpression } from '@/lib/numericExpression';
 import {numericKeyValue} from '@/lib/numericKeyboard';
 import { tx } from '@/lib/tx';
+import { useBrandKits } from '@/lib/brandKits';
 function hsv(hex: string) {
   const [r,g,b] = [1,3,5].map((i) => parseInt(hex.slice(i,i+2),16)/255), max = Math.max(r,g,b), min = Math.min(r,g,b), d=max-min;
   const h = !d ? 0 : max===r ? ((g-b)/d+6)%6*60 : max===g ? ((b-r)/d+2)*60 : ((r-g)/d+4)*60;
@@ -15,6 +16,8 @@ function hexFrom(h:number,s:number,v:number) {
   return '#'+rgb.map((n)=>Math.round((n+m)*255).toString(16).padStart(2,'0')).join('');
 }
 export default function ColorField({label,color,opacity=1,onChange,pt=true,mixed=false,mixedOpacity=false}: {label:string;color:string;opacity?:number;onChange:(color:string,opacity:number,changed?:'color'|'opacity')=>void;pt?:boolean;mixed?:boolean;mixedOpacity?:boolean}) {
+  const kits = useBrandKits((st) => st.kits); useEffect(() => { if (!useBrandKits.getState().kits.length) useBrandKits.getState().hydrate(); }, []);
+  const kitColors = [...new Set(kits.flatMap((k) => k.colors))].slice(0, 16);
   const [open,setOpen]=useState(false), [draft,setDraft]=useState(color.replace('#','')), [alpha,setAlpha]=useState(String(Math.round(opacity*100))), [invalid,setInvalid]=useState(false);
   const [hue,setHue]=useState(()=>hsv(color).h);
   useEffect(()=>{setDraft(color.replace('#','')); const next=hsv(color); if(next.s>.001)setHue(next.h);},[color]);
@@ -24,6 +27,7 @@ export default function ColorField({label,color,opacity=1,onChange,pt=true,mixed
   const setPoint=(e:React.PointerEvent<HTMLDivElement>)=>{const r=e.currentTarget.getBoundingClientRect();onChange(hexFrom(hue,Math.max(0,Math.min(1,(e.clientX-r.x)/r.width)),1-Math.max(0,Math.min(1,(e.clientY-r.y)/r.height))),opacity,'color');};
   return <div className="color-editor"><button type="button" className="color-field-trigger" aria-expanded={open} onClick={()=>setOpen(!open)}><span className="color-swatch" style={{background:mixed?'repeating-conic-gradient(#777 0% 25%, #bbb 0% 50%) 0/8px 8px':color,opacity:mixed?1:opacity}}/><span>{label}</span><code>{mixed?(tx(pt, 'Misto', 'Mixed')):color.toUpperCase()}</code><span>{mixedOpacity?(tx(pt, 'Misto', 'Mixed')):`${Number((opacity*100).toFixed(6))}%`}</span></button>
     {open&&<div className="color-popover" role="group" aria-label={label}><header><strong>{label}</strong><button type="button" aria-label={tx(pt, 'Fechar seletor', 'Close color picker')} onClick={()=>setOpen(false)}>×</button></header>
+      {kitColors.length > 0 && <div className="color-kit" role="group" aria-label={tx(pt, 'Cores dos kits de marca', 'Brand kit colors')}>{kitColors.map((c) => <button key={c} type="button" title={c} aria-label={c} style={{ background: c }} onClick={() => onChange(c, opacity, 'color')} />)}</div>}
       <div className="color-sv" style={{backgroundColor:hexFrom(hue,1,1)}} onPointerDown={(e)=>{e.currentTarget.setPointerCapture(e.pointerId);setPoint(e);}} onPointerMove={(e)=>{if(e.buttons===1)setPoint(e);}}><i style={{left:`${s*100}%`,top:`${(1-v)*100}%`}}/></div>
       <label className="color-range-label">{tx(pt, 'Matiz', 'Hue')}<input aria-label={`${label}: ${tx(pt, 'matiz', 'hue')}`} className="color-hue" type="range" min="0" max="359" step=".01" value={hue} onChange={(e)=>{const h=Number(e.target.value);setHue(h);onChange(hexFrom(h,s,v),opacity,'color');}} onKeyDown={e=>{const next=numericKeyValue(e,hue,{min:0,max:359,horizontal:true});if(next!==null){e.preventDefault();e.stopPropagation();setHue(next);onChange(hexFrom(next,s,v),opacity,'color');}}}/></label>
       <label className="color-range-label">{tx(pt, 'Opacidade', 'Opacity')}<input className="color-alpha" style={{backgroundImage:`linear-gradient(to right, transparent, ${color}), repeating-conic-gradient(#777 0% 25%, #bbb 0% 50%)`}} aria-label={`${label}: ${tx(pt, 'opacidade', 'opacity')}`} type="range" min="0" max="100" step=".01" value={opacity*100} onChange={(e)=>onChange(color,Number(e.target.value)/100,'opacity')} onKeyDown={e=>{const next=numericKeyValue(e,opacity*100,{min:0,max:100,horizontal:true});if(next!==null){e.preventDefault();e.stopPropagation();onChange(color,next/100,'opacity');}}}/></label>

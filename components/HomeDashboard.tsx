@@ -13,6 +13,7 @@ import { enterProject } from '@/lib/homeNavigation';
 import { flushScene } from '@/lib/scenePersist';
 import { AddIcon, BackIcon, LibraryIcon, ProjectsIcon } from './EditorIcons';
 import { tx } from '@/lib/tx';
+import { QUICK_STARTS, startFromGoal } from '@/lib/quickStart';
 
 const SettingsDialog = dynamic(() => import('./SettingsDialog'), { ssr: false });
 
@@ -114,6 +115,13 @@ export default function HomeDashboard() {
       <section className="home-welcome"><span className="eyebrow">{tx(pt, 'SEU ESPAÇO CRIATIVO', 'YOUR CREATIVE WORKSPACE')}</span><h1>{tx(pt, 'Bom te ver por aqui.', 'Welcome to your next idea.')}</h1><p>{tx(pt, 'Uma nova ideia ou de onde você parou. Seu próximo movimento começa aqui.', 'Start something new or pick up where you left off. Your next move starts here.')}</p>
         {active && <button className="home-resume" disabled={busy} onClick={() => enterProject(active.id)}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m6 3 9 6-9 6Z" fill="currentColor" /></svg></span><span><small>{tx(pt, 'CONTINUAR EDITANDO', 'CONTINUE EDITING')}</small><strong>{active.name}</strong></span><span aria-hidden="true">↗</span></button>}
       </section>
+      {view === 'recent' && <section className="home-quickstart" aria-labelledby="home-quickstart-title">
+        <div className="home-section-heading"><div><h2 id="home-quickstart-title">{tx(pt, 'Comece por um objetivo', 'Start from a goal')}</h2><span>{tx(pt, 'Formato, modelo e um título de partida prontos. Troque tudo depois.', 'Format, model and a starting headline, ready. Change anything later.')}</span></div></div>
+        <div className="home-quickstart-grid">{QUICK_STARTS.map((goal) => { const [aw, ah] = goal.aspect.split(':').map(Number); return <button key={goal.id} type="button" className="home-quickstart-card" disabled={busy} onClick={() => startFromGoal(goal, pt)}>
+          <span className="home-quickstart-frame" aria-hidden="true"><i style={{ aspectRatio: `${aw} / ${ah}` }} /></span>
+          <strong>{tx(pt, goal.pt, goal.en)}</strong><small>{tx(pt, goal.hintPt, goal.hintEn)}</small>
+        </button>; })}</div>
+      </section>}
       <section className="home-recents" aria-labelledby="home-projects-title">
         <div className="home-section-heading"><div><h2 id="home-projects-title">{view === 'all' ? (tx(pt, 'Seus projetos', 'Your projects')) : (tx(pt, 'Recentes', 'Recent projects'))}</h2><span>{projects.length} {projects.length === 1 ? tx(pt, 'projeto salvo neste dispositivo', 'project saved on this device') : tx(pt, 'projetos salvos neste dispositivo', 'projects saved on this device')}</span></div>{view === 'recent' && <button className="home-all-projects" onClick={() => setView('all')}>{tx(pt, 'Exibir todos os projetos', 'View all projects')}<span aria-hidden="true">→</span></button>}</div>
         <div className="home-project-toolbar"><label className="home-search"><HomeSymbol type="search" /><input type="search" aria-label={tx(pt, 'Buscar projetos', 'Search projects')} placeholder={tx(pt, 'Buscar pelo nome do projeto', 'Search by project name')} value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setSearch(''); }} /></label><div className="home-view-tools"><select aria-label={tx(pt, 'Ordenar projetos', 'Sort projects')} value={sort} onChange={e => setSort(e.target.value as typeof sort)}><option value="recent">{tx(pt, 'Última edição', 'Last edited')}</option><option value="name">{tx(pt, 'Nome', 'Name')}</option></select><div className="home-view-toggle" role="group" aria-label={tx(pt, 'Visualização dos projetos', 'Project view')}>{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={mode === 'grid' ? (tx(pt, 'Visualizar em grade', 'Grid view')) : (tx(pt, 'Visualizar em lista', 'List view'))} aria-pressed={layout === mode} onClick={() => setLayout(mode)}><HomeSymbol type={mode} /></button>)}</div></div></div>

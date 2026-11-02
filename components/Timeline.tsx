@@ -24,13 +24,15 @@ function fmt(sec: number) {
 }
 
 // Figma ruler: a label every 2s, three short dashes between labels.
-function buildRuler(duration: number) {
+// Zoomed in, labels get closer: 2s, 1s, 0.5s… down to a tenth of a second.
+function buildRuler(duration: number, zoom = 1) {
   const labels: { t: number; pct: number }[] = [];
   const dashes: number[] = [];
-  for (let t = 0; t <= duration; t += 2) {
+  const step = [2, 1, .5, .25, .1].find((value) => value * zoom <= 2.2) ?? .1;
+  for (let i = 0, t = 0; t <= duration + 1e-9; i++, t = Math.round(i * step * 1000) / 1000) {
     labels.push({ t, pct: (t / duration) * 100 });
-    if (t + 2 <= duration) {
-      const w = (2 / duration) * 100;
+    if (t + step <= duration + 1e-9) {
+      const w = (step / duration) * 100;
       for (let k = 1; k <= 3; k++) dashes.push(((t / duration) * 100) + (w * k) / 4);
     }
   }
@@ -61,6 +63,8 @@ export default function Timeline({
   const addTrack = useSceneStore((s) => s.addTrack);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const lanesOpen = useUIStore((state) => state.timelineExpanded);
+  const zoomView = useUIStore((state) => state.timelineZoom);
+  useSceneStore((state) => state.markers);
   const setLanesOpen = useUIStore((state) => state.setTimelineExpanded);
 
   const shellRef = useRef<HTMLDivElement>(null);
@@ -106,6 +110,7 @@ export default function Timeline({
       if (t?.closest('dialog[open]') || t?.getAttribute('role') === 'separator') return;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       const s = useSceneStore.getState();
+      if (e.key.toLowerCase() === 'm') { e.preventDefault(); if (!s.markers.some((m) => Math.abs(m.t - s.frame / s.fps) < 1 / s.fps)) s.setMarkers([...s.markers, { t: Math.round(s.frame / s.fps * 100) / 100 }]); return; }
       if (e.code === 'Space' || e.key.toLowerCase() === 'k') {
         e.preventDefault(); s.setPlaying(!s.playing);
       } else if (['ArrowLeft', 'ArrowRight', 'j', 'l'].includes(e.key.toLowerCase()) || ['ArrowLeft', 'ArrowRight'].includes(e.key)) {
@@ -119,12 +124,42 @@ export default function Timeline({
   }, []);
 
   const totalFrames = Math.max(1, Math.round(duration * fps));
+  const addMarker = () => { const st = useSceneStore.getState(); if (st.markers.some((m) => Math.abs(m.t - st.frame / st.fps) < 1 / st.fps)) return; st.setMarkers([...st.markers, { t: Math.round(st.frame / st.fps * 100) / 100 }]); };
+  // Alt/⌘ + wheel zooms around the pointer; Shift + wheel (or a sideways swipe) pans when zoomed.
+  const onTimelineWheel = (e: React.WheelEvent) => {
+    const scrubber = scrubberRef.current; if (!scrubber) return;
+    const view = useUIStore.getState().timelineZoom, r = scrubber.getBoundingClientRect();
+    if (e.altKey || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const anchor = view.start + Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) / view.zoom;
+      useUIStore.getState().setTimelineZoom(view.zoom * (e.deltaY < 0 ? 1.25 : .8), anchor);
+    } else if (view.zoom > 1 && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
+      useUIStore.getState().panTimeline((e.shiftKey ? e.deltaY : e.deltaX) / r.width / view.zoom);
+    }
+  };
+  const startMarkerDrag = (index: number, e: React.PointerEvent) => {
+    e.stopPropagation(); e.preventDefault();
+    const st = useSceneStore.getState();
+    if (e.altKey) { st.setMarkers(st.markers.filter((_, i) => i !== index)); return; }
+    const scrubber = scrubberRef.current!, view = useUIStore.getState().timelineZoom, startX = e.clientX, original = st.markers[index].t;
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      const r = scrubber.getBoundingClientRect(), delta = (ev.clientX - startX) / r.width / view.zoom * st.duration;
+      if (Math.abs(ev.clientX - startX) > 2) moved = true;
+      const t = Math.round(Math.max(0, Math.min(st.duration, original + delta)) * st.fps) / st.fps;
+      useSceneStore.getState().setMarkers(useSceneStore.getState().markers.map((m, i) => i === index ? { ...m, t } : m));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (!moved) { st.setPlaying(false); st.setFrame(Math.round(original * st.fps)); } };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  };
   const curTime = frame / fps;
   const progress = (frame / (totalFrames - 1 || 1)) * 100;
-  const { labels, dashes } = buildRuler(duration);
+  const { labels, dashes } = buildRuler(duration, zoomView.zoom);
+  const viewPct = (fraction: number) => (fraction - zoomView.start) * zoomView.zoom;
+  const markers = useSceneStore.getState().markers;
 
   return (
-    <div className={`timeline-shell ${lanesOpen ? 'lanes-open' : ''}`} ref={shellRef}>
+    <div className={`timeline-shell ${lanesOpen ? 'lanes-open' : ''}`} ref={shellRef} style={{ ['--tl-zoom' as string]: zoomView.zoom, ['--tl-view' as string]: zoomView.start }} onWheel={onTimelineWheel}>
     <div className="timeline">
       <button className="play-btn" onClick={() => setPlaying(!playing)} title={playing ? t('pause') : t('play')} aria-label={playing ? t('pause') : t('play')}>
         {playing ? (
@@ -139,6 +174,7 @@ export default function Timeline({
 
       <div className="scrubber" ref={scrubberRef}>
         <div className="tl-trackbar" />
+        <div className="tl-zoom tl-scrub-zoom">
         <div className="ruler">
           {dashes.map((pct, i) => (
             <span key={`d${i}`} className="ruler-dash" style={{ left: `${pct}%`, width: 8 }} />
@@ -154,6 +190,11 @@ export default function Timeline({
           type="range" min={0} max={totalFrames - 1} step={1} value={frame}
           onChange={(e) => { setPlaying(false); setFrame(Number(e.target.value)); }}
         />
+        {markers.map((marker, index) => <button key={`${marker.t}-${index}`} type="button" className="tl-marker" style={{ left: `${marker.t / duration * 100}%` }}
+          title={`${marker.label ? `${marker.label} · ` : ''}${marker.t.toFixed(2)}s · ${tx(locale === 'pt', 'Alt + clique remove; arraste para mover', 'Alt-click removes; drag to move')}`}
+          aria-label={`${tx(locale === 'pt', 'Marcador em', 'Marker at')} ${marker.t.toFixed(2)}s`}
+          onPointerDown={(e) => startMarkerDrag(index, e)} />)}
+        </div>
       </div>
 
       <span className="tl-divider" />
@@ -174,6 +215,12 @@ export default function Timeline({
         {t('layers')}
         <span className="tl-lanes-count">{tracks.length + textLayers.length + (audioUrl ? 1 : 0)}</span>
       </button>
+      <div className="tl-zoom-controls" role="group" aria-label={tx(locale === 'pt', 'Zoom da linha do tempo', 'Timeline zoom')}>
+        <button type="button" disabled={zoomView.zoom <= 1} title={tx(locale === 'pt', 'Afastar a linha do tempo · Alt + roda', 'Zoom timeline out · Alt + wheel')} aria-label={tx(locale === 'pt', 'Afastar a linha do tempo', 'Zoom timeline out')} onClick={() => useUIStore.getState().setTimelineZoom(zoomView.zoom / 2, progress / 100)}>−</button>
+        <button type="button" className="tl-zoom-value" title={tx(locale === 'pt', 'Ajustar a linha do tempo inteira', 'Fit the whole timeline')} onClick={() => useUIStore.getState().setTimelineZoom(1)}>{zoomView.zoom === 1 ? tx(locale === 'pt', 'Tudo', 'Fit') : `${zoomView.zoom}×`}</button>
+        <button type="button" disabled={zoomView.zoom >= 32} title={tx(locale === 'pt', 'Aproximar a linha do tempo · Alt + roda', 'Zoom timeline in · Alt + wheel')} aria-label={tx(locale === 'pt', 'Aproximar a linha do tempo', 'Zoom timeline in')} onClick={() => useUIStore.getState().setTimelineZoom(zoomView.zoom * 2, progress / 100)}>+</button>
+        <button type="button" title={tx(locale === 'pt', 'Adicionar marcador no tempo atual · M', 'Add a marker at the playhead · M')} aria-label={tx(locale === 'pt', 'Adicionar marcador', 'Add marker')} onClick={addMarker}><svg width="11" height="12" viewBox="0 0 11 12" aria-hidden="true"><path d="M1.5 1h8v6l-4 4-4-4z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /></svg></button>
+      </div>
 
       {extra}
 
@@ -209,7 +256,8 @@ export default function Timeline({
         {audioUrl && <AudioTrackLane duration={duration} />}
 
         {/* one playhead across every lane, in the shared axis space */}
-        <div className="tl-lanes-playhead" style={{ left: `calc(var(--tl-axis-left) + var(--tl-axis-w) * ${progress / 100})` }} />
+        {viewPct(progress / 100) >= 0 && viewPct(progress / 100) <= 1 && <div className="tl-lanes-playhead" style={{ left: `calc(var(--tl-axis-left) + var(--tl-axis-w) * ${viewPct(progress / 100)})` }} />}
+        {markers.map((marker, index) => { const v = viewPct(marker.t / duration); return v >= 0 && v <= 1 ? <div key={`m${index}`} className="tl-lanes-marker" style={{ left: `calc(var(--tl-axis-left) + var(--tl-axis-w) * ${v})` }} /> : null; })}
 
         <div className="tl-lanes-foot">
           <button className="tl-add-track" onClick={() => addTrack()}>

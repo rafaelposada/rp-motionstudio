@@ -18,6 +18,11 @@ import {addCompositionText} from '@/lib/textActions';
 import { moveCompositionLayer, deleteCompositionLayer, selectOverlayForEditing } from '@/lib/compositionActions';
 import {applyInlineStyle,inlineProperty,validTextRange,textFontVariants,type InlineStyle} from '@/lib/richText';
 import { tx } from '@/lib/tx';
+import { animatedLayer, hasKeys, isKeyProp, keyedPatch } from '@/lib/keyframes';
+import { KeyedRow } from './KeyframeControls';
+import { isTextLayer } from '@/lib/textLayers';
+import MaskControl from './MaskControl';
+import Tilt3DControls from './Tilt3DControls';
 
 const FONTS = ['Arial', 'Georgia', 'monospace', 'Inter', 'Roboto', 'Montserrat', 'Poppins', 'DM Sans', 'Manrope', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Lora', 'Merriweather', 'Space Grotesk'];
 
@@ -34,8 +39,11 @@ export default function TextPanel() {
   const textRange = useUIStore(s=>s.textRange);
   const [fontName, setFontName] = useState('');
   const [status, setStatus] = useState('');
-  const textLayers = layers.filter((item) => !item.media);
-  const layer = layers.find((item) => item.id === selected)?.media ? undefined : textLayers.find((item) => item.id === selected) ?? textLayers.at(-1);
+  const textLayers = layers.filter(isTextLayer);
+  const picked = layers.find((item) => item.id === selected);
+  const layer = picked && !isTextLayer(picked) ? undefined : textLayers.find((item) => item.id === selected) ?? textLayers.at(-1);
+  const keyFrame = useSceneStore((s) => layer && hasKeys(layer) ? s.frame : 0), fps = useSceneStore((s) => s.fps);
+  const seconds = (layer && hasKeys(layer) ? keyFrame : useSceneStore.getState().frame) / fps, live = layer ? animatedLayer(layer, seconds) : undefined;
   const range=layer?validTextRange(layer,textRange):null;
   const font=layer?inlineProperty(layer,'font',range):null,weight=layer?inlineProperty(layer,'weight',range):null;
   const fill=layer?inlineProperty(layer,'color',range):null,fillAlpha=layer?inlineProperty(layer,'fillOpacity',range):null;
@@ -69,9 +77,10 @@ export default function TextPanel() {
       patch(original.id,applyInlineStyle(current,{weight:value},selectedRange));setStatus('');
     }catch{setStatus(tx(pt, 'Não foi possível carregar esse peso.', 'Unable to load this weight.'));}
   };
-  const numberControl = (key: keyof TextLayer, label: string, min: number, max: number, step = 1) => layer && (
-    <ControlRow key={key} def={{ key, label, type: 'slider', min, max, step, default: key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0 }} value={layer[key] ?? (key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0)} onChange={(value) => patch(layer.id, { [key]: value })} />
-  );
+  const numberControl = (key: keyof TextLayer, label: string, min: number, max: number, step = 1) => layer && live && (() => {
+    const row = <ControlRow key={key} def={{ key, label, type: 'slider', min, max, step, default: key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0 }} value={live[key] ?? (key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0)} onChange={(value) => patch(layer.id, keyedPatch(layer, { [key]: value }, seconds))} />;
+    return isKeyProp(key) ? <KeyedRow key={key} layer={layer} prop={key} pt={pt}>{row}</KeyedRow> : row;
+  })();
   return <div className="section-body text-panel">
     <button className="btn solid full" onClick={() => addCompositionText()}>{tx(pt, '+ Adicionar texto', '+ Add text')}</button>
     <p className="ctl-hint">{tx(pt, 'Duplo clique para editar na tela. Arraste para mover; gire pela área externa das alças.', 'Double-click to edit on canvas. Drag to move; rotate outside the handles.')}</p>
@@ -104,12 +113,14 @@ export default function TextPanel() {
       {numberControl('y', tx(pt, 'Posição Y', 'Position Y'), -height, height * 2)}
       <button className="btn" onClick={() => patch(layer.id, { x: width / 2, y: height / 2 })}>{tx(pt, 'Centralizar na tela', 'Center on canvas')}</button>
       {numberControl('rotation', tx(pt, 'Rotação', 'Rotation'), -180, 180)}
-      {(['scaleX','scaleY'] as const).map(key=><ControlRow key={key} def={{key,label:key==='scaleX'?(tx(pt, 'Escala horizontal', 'Horizontal scale')):(tx(pt, 'Escala vertical', 'Vertical scale')),type:'slider',min:5,max:2000,step:1,unit:'%',default:100}} value={(layer[key]??1)*100} onChange={value=>patch(layer.id,{[key]:Number(value)/100})}/>)}
+      <Tilt3DControls layer={layer} pt={pt}/>
+      {(['scaleX','scaleY'] as const).map(key=><KeyedRow key={key} layer={layer} prop={key} pt={pt}><ControlRow def={{key,label:key==='scaleX'?(tx(pt, 'Escala horizontal', 'Horizontal scale')):(tx(pt, 'Escala vertical', 'Vertical scale')),type:'slider',min:5,max:2000,step:1,unit:'%',default:100}} value={(live?.[key]??1)*100} onChange={value=>patch(layer.id,keyedPatch(layer,{[key]:Number(value)/100},seconds))}/></KeyedRow>)}
       <div className="text-font-search"><button className="btn" onClick={() => moveCompositionLayer(layer.id, -1)}>{tx(pt, 'Recuar camada', 'Send backward')}</button><button className="btn" onClick={() => moveCompositionLayer(layer.id, 1)}>{tx(pt, 'Avançar camada', 'Bring forward')}</button></div>
       <h3 className="text-section-title">{tx(pt, 'Aparência', 'Appearance')}</h3>
       <ColorField pt={pt} label={tx(pt, 'Cor do texto', 'Text fill')} color={String(fill?.value??layer.color)} opacity={Number(fillAlpha?.value??1)} mixed={fill?.mixed} mixedOpacity={fillAlpha?.mixed} onChange={(color,fillOpacity,changed)=>styleText(changed==='opacity'?{fillOpacity}:{color})}/>
-      <ControlRow def={{key:'opacity',label:tx(pt, 'Opacidade da camada', 'Layer opacity'),type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={layer.opacity*100} onChange={(value)=>patch(layer.id,{opacity:Number(value)/100})}/>
+      <KeyedRow layer={layer} prop="opacity" pt={pt}><ControlRow def={{key:'opacity',label:tx(pt, 'Opacidade da camada', 'Layer opacity'),type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={(live?.opacity??layer.opacity)*100} onChange={(value)=>patch(layer.id,keyedPatch(layer,{opacity:Number(value)/100},seconds))}/></KeyedRow>
       <BlendRow value={layer.blend} onChange={blend=>patch(layer.id,{blend})}/>
+      <MaskControl layer={layer} pt={pt}/>
       <p className="ctl-hint">{tx(pt, 'A opacidade da camada afeta o conjunto. A opacidade da cor afeta apenas o preenchimento do texto.', 'Layer opacity affects the whole layer. Fill opacity affects only the text fill.')}</p>
       <label className="text-edit-label"><span><input type="checkbox" checked={!!layer.stroke} onChange={(e) => patch(layer.id, { stroke: e.target.checked ? '#000000' : undefined, strokeWidth: layer.strokeWidth ?? 3 })} /> {tx(pt, 'Contorno', 'Stroke')}</span></label>
       {layer.stroke && <><ColorField pt={pt} label={tx(pt, 'Cor do contorno', 'Stroke color')} color={layer.stroke} opacity={layer.strokeOpacity??1} onChange={(stroke,strokeOpacity)=>patch(layer.id,{stroke,strokeOpacity})}/>{numberControl('strokeWidth', tx(pt, 'Espessura do contorno', 'Stroke width'), 0, 30, 0.1)}</>}
