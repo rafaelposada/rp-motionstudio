@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // The three half of the effect contract: the same EffectShader as a full-screen
 // pass on the compose ping-pong.
 //

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import {NextRequest,NextResponse} from 'next/server';
 import {spawn} from 'node:child_process';
 import {promises as fs} from 'node:fs';
@@ -11,7 +12,7 @@ export const dynamic='force-dynamic';
 export async function GET(req:NextRequest){
   if(!isLocalFileRequest(req))return NextResponse.json({error:'Disponível somente neste computador.'},{status:403});
   if(req.nextUrl.searchParams.get('check')==='1')await checkRemote(req.nextUrl.searchParams.get('force')==='1');
-  return NextResponse.json(await updateStatus(),{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({...await updateStatus(),desktop:process.env.RP_MOTION_DESKTOP==='1'},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(req:NextRequest){
   let startedId:string|null=null,claimed=false;

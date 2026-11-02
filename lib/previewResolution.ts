@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // The stage uses logical scene coordinates; this value only controls the
 // backing-store density. Capping at 2 keeps Retina text and edges crisp without
 // multiplying GPU memory again on uncommon 3× displays.

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,16 +7,16 @@ import { useUIStore } from '@/store/useUIStore';
 
 const SEEN_KEY = 'motion-welcome-seen';
 
-// First-run welcome: shows once, until the user agrees and enters the library.
+// First-run introduction; it does not impose terms beyond LICENSE and NOTICE.
 export default function WelcomeDialog() {
   const [open, setOpen] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  const pt=useUIStore(state=>state.locale)==='pt';
 
   useEffect(() => {
     try { if (!localStorage.getItem(SEEN_KEY)) setOpen(true); } catch { /* storage blocked */ }
   }, []);
 
-  // Accepting hands the user a real, named project to work in rather than an
+  // Entering hands the user a real, named project to work in rather than an
   // unsaved scratch scene. bootstrap() (page mount) has already created the
   // default project, so this only has to make sure one is open — it never
   // overwrites an existing project.
@@ -32,48 +33,31 @@ export default function WelcomeDialog() {
 
   return (
     <div className="modal-backdrop welcome-backdrop">
-      <div className="modal welcome" onClick={(e) => e.stopPropagation()}>
+      <div className="modal welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" onClick={(e) => e.stopPropagation()}>
         <div className="welcome-body">
-          <span className="eyebrow">Welcome</span>
-          <h1 className="welcome-title">RP MotionStudio</h1>
+          <span className="eyebrow">{pt?'Boas-vindas':'Welcome'}</span>
+          <h1 className="welcome-title" id="welcome-title">RP MotionStudio</h1>
 
           <p>
-            This is an open-source adaptation of several motion libraries —
-            CodePen demos, React Bits, React Motion, JS motion work and others.
+            {pt?'Componha fotos, vídeos, texto e áudio com modelos de movimento. Desenvolvimento da versão RP e direção do produto por Rafael Posada.':'Compose photos, video, text and audio with motion templates. RP edition development and product direction by Rafael Posada.'}
           </p>
           <p>
-            Use it responsibly. It is <b>not to be sold or commercialised</b>{' — '}
-            it&apos;s here for you and your company, where needed.
+            {pt?'Esta edição é distribuída sob Apache 2.0. Componentes de terceiros mantêm suas próprias licenças e atribuições em LICENSE e NOTICE.':'This edition is distributed under Apache 2.0. Third-party components retain their own licenses and attribution in LICENSE and NOTICE.'}
           </p>
 
           <ul className="welcome-list">
-            <li><b>Spacebar</b> plays and pauses, globally.</li>
-            <li>All sliders affect the canvas immediately.</li>
-            <li>You define the timeline length and the speed of the animation.</li>
-            <li>Tweak any template and save it as a custom.</li>
-            <li>Search across all templates.</li>
-            <li>Export in full resolution — 1080p, 2K or 4K.</li>
+            <li>{pt?'Escolha um modelo e adicione suas mídias.':'Choose a template and add your media.'}</li>
+            <li>{pt?'T e clique adicionam texto; duplo clique edita.':'Press T and click to add text; double-click to edit.'}</li>
+            <li>{pt?'O salvamento automático mantém a composição neste aplicativo.':'Autosave keeps your composition in this app.'}</li>
+            <li>{pt?'Salve um rascunho .motion.zip para guardar uma cópia com as mídias.':'Save a .motion.zip draft for an independent copy including media.'}</li>
+            <li>{pt?'Importe seus rascunhos da instalação anterior para continuar.':'Import drafts from your previous installation to continue.'}</li>
           </ul>
 
           <p className="welcome-love">
-            Made with love, so you can have great videos for your deck
-            presentations and social media posts.
+            {pt?'Sua instalação anterior e os projetos originais permanecem independentes.':'Your previous installation and original projects remain independent.'}
           </p>
 
-          <label className="welcome-agree">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-            />
-            I agree not to commercialise this
-          </label>
-
-          {agreed && (
-            <button className="btn primary full" onClick={enter}>
-              Go to the library
-            </button>
-          )}
+          <button className="btn primary full" onClick={enter}>{pt?'Começar':'Get started'}</button>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 import { useEffect, useState } from 'react';
 import { getRendererInstance } from '@/lib/rendererInstance';

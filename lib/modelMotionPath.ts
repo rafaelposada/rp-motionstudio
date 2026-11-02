@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { MotionTrack } from './tracks';
 export interface MotionPath { enabled: boolean; duration: number; loop: boolean; points: { x: number; y: number }[] }
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));

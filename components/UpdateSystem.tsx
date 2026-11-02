@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {useUpdateStore,refreshUpdates,updateRunning} from '@/store/useUpdateStore';

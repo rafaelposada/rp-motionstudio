@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { NextRequest, NextResponse } from 'next/server';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (folder !== 'exports' && folder !== 'projects') return NextResponse.json({ error: 'Pasta inválida.' }, { status: 400 });
     const directory = await destinationFor(folder === 'exports' ? 'exports' : 'drafts');
     await fs.mkdir(directory, { recursive: true });
-    await exec('/usr/bin/open', [directory], { timeout: 5000 });
+    await exec(process.platform==='darwin'?'/usr/bin/open':process.platform==='win32'?'explorer.exe':'xdg-open', [directory], { timeout: 5000 });
     return NextResponse.json({ ok: true });
   } catch { return NextResponse.json({ error: 'Não foi possível abrir a pasta.' }, { status: 500 }); }
 }

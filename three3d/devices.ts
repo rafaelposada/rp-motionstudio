@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { use3DStore } from '@/store/use3DStore';
 
 // ── Device library (Mockup mode) ────────────────────────────────────────────

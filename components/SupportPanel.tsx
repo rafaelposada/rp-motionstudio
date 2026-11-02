@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 export default function SupportPanel({pt}:{pt:boolean}) {
   return <section className="support-panel">

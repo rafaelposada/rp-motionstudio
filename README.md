@@ -146,6 +146,66 @@ npm run build
 ## Licença e atribuições
 
 RP MotionStudio é uma versão modificada baseada no [Motion Studio](https://github.com/appariciojunior/motion-studio-open),
-de appariciojunior e colaboradores; não é o aplicativo oficial. A base preserva a
-[PolyForm Noncommercial 1.0.0](LICENSE). Componentes adicionais preservam suas
-licenças Apache-2.0 e MIT em [NOTICE](NOTICE) e [licenses](licenses).
+de appariciojunior e colaboradores; não é o aplicativo oficial. A partir da versão
+1.3.0, esta edição adota [Apache License 2.0](LICENSE), com a origem e a transição
+documentadas em [LICENSING.md](LICENSING.md). Avisos e licenças de terceiros são
+preservados em [NOTICE](NOTICE) e [licenses](licenses).
+
+## Versão desktop separada · macOS e Windows
+
+O editor e seus recursos são reaproveitados em uma janela Electron com armazenamento
+próprio. A instalação de navegador permanece independente. O aplicativo desktop não
+contrata serviços, não usa uma API paga e não exige assinatura de desenvolvedor para
+ser compilado e testado localmente. A distribuição sem assinatura/notarização pode
+mostrar avisos de segurança do sistema. Não há promessa de publicação em lojas.
+
+```bash
+npm ci
+npm run build
+npm run desktop:package
+```
+
+A saída fica em `dist-desktop/packages`, para o sistema e arquitetura que executam
+o comando. No Windows, gere e valide o pacote em uma máquina Windows. O projeto
+não declara que um pacote Windows foi testado apenas porque compilou no macOS.
+FFmpeg precisa estar disponível no PATH. A preparação exclui arquivos `.env`,
+exportações, projetos privados e imagens de referência.
+
+Para usar sem empacotar: `npm run desktop:prepare` e `npm run desktop`.
+
+### Projetos e fechamento
+
+O menu Arquivo oferece Abrir rascunho/template (⌘/Ctrl+O), Salvar composição
+(⌘/Ctrl+S) e Salvar rascunho (⌘/Ctrl+Shift+S). Fechar por ⌘W, ⌘Q ou pelos
+controles do sistema pede uma cópia portátil quando há uma composição aberta.
+Salvar rascunho só libera o fechamento após o pacote ser gravado; falha de
+gravação mantém a janela. Cancelar volta ao editor. No Windows, Ctrl+W e
+Alt+F4 passam pelo mesmo controle. Encerramento forçado ou queda de energia
+dependem do último salvamento automático, sem garantia de diálogo.
+
+Os dados desktop ficam em `RP MotionStudio Desktop` dentro de Application Support
+no macOS, AppData/Roaming no Windows e a pasta de dados do usuário no Linux. A
+origem interna é fixa, mesmo que a porta do serviço local mude entre aberturas.
+Para transferir a edição antiga, salve pacotes `.motion.zip` nela e importe-os
+na edição desktop. Confira as mídias e a exportação antes de substituir a instalação
+antiga. O original permanece preservado. Nunca remova os dados do navegador para
+fazer a migração.
+
+Esta primeira edição desktop consulta versões no GitHub, mas a substituição do
+pacote desktop é manual. O atualizador gerenciado da edição de navegador permanece
+independente. Arquivos publicados de identificação profissional incluem
+`CITATION.cff` e `public/llms.txt`; metadados descrevem Rafael Posada como criador
+da edição RP. Isso não garante indexação, recomendação por IA ou publicação do
+editor local na internet.
+
+### Remover a edição desktop
+
+Feche o aplicativo e guarde seus rascunhos antes de remover os dados. No macOS,
+mova `RP MotionStudio Desktop.app` e, se quiser excluir também os projetos e
+preferências desta edição, `~/Library/Application Support/RP MotionStudio Desktop`
+para a Lixeira. No Windows, remova a pasta do pacote e, opcionalmente,
+`%APPDATA%\RP MotionStudio Desktop`. Os arquivos exportados e os rascunhos nas
+pastas escolhidas são independentes: preserve-os ou remova-os separadamente.
+A edição desktop não instala um serviço de inicialização; seu processo local
+é encerrado junto com o aplicativo. A instalação antiga de navegador não é
+removida por esse procedimento.

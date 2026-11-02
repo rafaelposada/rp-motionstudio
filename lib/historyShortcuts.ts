@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export interface HistoryKey { key:string;code?:string;metaKey:boolean;ctrlKey:boolean;shiftKey:boolean;altKey:boolean;repeat?:boolean;isComposing?:boolean }
 export function historyShortcut(event:HistoryKey):'undo'|'redo'|null {
   if(!(event.metaKey||event.ctrlKey)||event.altKey||event.repeat||event.isComposing)return null;

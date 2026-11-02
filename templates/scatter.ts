@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Template } from '@/lib/types';
 import { frac, lerp, hash2 } from '@/lib/motion';
 import { variant } from './variant';

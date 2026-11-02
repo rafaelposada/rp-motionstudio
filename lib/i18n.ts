@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export type Locale = 'en' | 'pt';
 
 const messages = {

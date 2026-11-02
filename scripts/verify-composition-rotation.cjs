@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),Module=require('node:module');
 require('sucrase/register');
 const root=path.resolve(__dirname,'..'),resolve=Module._resolveFilename;

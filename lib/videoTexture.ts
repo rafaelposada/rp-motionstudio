@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Shared video helpers for both renderers. A card asset can be backed by a
 // <video> element uploaded to the GPU as a LIVE texture (Pixi VideoSource /
 // three VideoTexture) instead of a still image. Centralizing detection and

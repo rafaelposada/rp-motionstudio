@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { create } from 'zustand';
 
 // Model transform — cross-effect (applies to the 3D object itself, not the

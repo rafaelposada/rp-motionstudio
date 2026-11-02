@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export interface AudioSettings { volume: number; fadeIn: number; fadeOut: number }
 export const DEFAULT_AUDIO: AudioSettings = { volume: 1, fadeIn: 0, fadeOut: 0 };
 const finite = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? n : fallback;

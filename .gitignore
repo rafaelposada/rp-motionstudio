@@ -1,6 +1,7 @@
 # dependencies / build
 node_modules/
 .next/
+dist-desktop/
 tsconfig.tsbuildinfo
 
 # exports (generated videos/gifs)

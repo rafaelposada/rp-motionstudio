@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),Module=require('node:module'),{spawn}=require('node:child_process'),net=require('node:net');
 require('sucrase/register');const project=path.resolve(__dirname,'..'),resolve=Module._resolveFilename;Module._resolveFilename=function(request,parent,...args){return resolve.call(this,request.startsWith('@/')?path.join(project,request.slice(2)):request,parent,...args);};
 const common=require('./update-common.cjs'),{textPadding,textBackdropBox}=require('../lib/textPadding'),{TextCompositor}=require('../lib/textLayers'),{buildScenePartial}=require('../lib/scenePersist'),{useSceneStore}=require('../store/useSceneStore');

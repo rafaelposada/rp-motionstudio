@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 /** @type {import('next').NextConfig} */
 
 // STATIC_EXPORT=1 → GitHub Pages build: static export served under the
@@ -11,7 +12,7 @@ const nextConfig = {
   reactStrictMode: false, // avoid double Pixi mount in dev
   devIndicators: false,   // hide the dev overlay badge (it covers the play button)
   outputFileTracingIncludes:{'/api/updates':['./scripts/update-common.cjs','./scripts/update-worker.cjs','./scripts/local-app.cjs']},
-  outputFileTracingExcludes:{'/*':['./verification/**/*','./.env*','./.shots/**/*','./public/exports/**/*','./public/demo-arqe/**/*']},
+  outputFileTracingExcludes:{'/*':['./verification/**/*','./dist-desktop/**/*','./desktop/**/*','./.env*','./.shots/**/*','./public/exports/**/*','./public/demo-arqe/**/*']},
   async headers() {
     return [{
       source: '/',

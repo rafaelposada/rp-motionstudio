@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 
 import { use3DStore, defaultModelFor } from '@/store/use3DStore';

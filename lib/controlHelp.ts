@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { ControlDef } from '@/lib/types';
 import type { Locale } from '@/lib/i18n';
 import { EDITOR_HELP } from './editorHelp';

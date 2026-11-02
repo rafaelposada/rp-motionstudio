@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -21,6 +22,7 @@ import AbsoluteMediaPanel from './AbsoluteMediaPanel';
 import InspectorIcon from './InspectorIcon';
 import { useSceneStore } from '@/store/useSceneStore';
 import { fitPanelLayout } from '@/lib/panelLayout';
+import {desktopAPI} from '@/lib/desktop';
 
 const PreviewStage = dynamic(() => import('@/components/PreviewStage'), { ssr: false });
 const SettingsDialog = dynamic(() => import('@/components/SettingsDialog'), { ssr: false });
@@ -46,7 +48,7 @@ export default function DesktopEditor() {
   const showGrid = useUIStore((s) => s.showStageGrid);
   const [viewport, setViewport] = useState({ width: 1280, height: 800 });
   useEffect(() => {
-    const sync = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
+    const sync = () => setViewport({ width: window.innerWidth, height: window.innerHeight-(desktopAPI()?38:0) });
     sync(); window.addEventListener('resize', sync);
     const keys = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key === ',') { event.preventDefault(); useUIStore.getState().setSettingsOpen(true); } };
     window.addEventListener('keydown', keys);

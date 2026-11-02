@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const path = require('path');
 const Module = require('module');
 const assert = require('node:assert/strict');

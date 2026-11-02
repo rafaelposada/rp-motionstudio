@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { useSceneStore } from '@/store/useSceneStore';
 import { selectedCompositionIds } from './compositionActions';
 import { trackWindow } from './tracks';

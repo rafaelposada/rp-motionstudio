@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { useSceneStore, type SceneState } from '@/store/useSceneStore';
 import { writeProjectScene } from './projects';
 import { useUIStore } from '@/store/useUIStore';
@@ -144,6 +145,13 @@ export function startSceneAutosave(): () => void {
   const leave = () => { if (useUIStore.getState().autosaveEnabled) { if (timer) clearTimeout(timer); timer = null; flushScene(); } };
   const visibility = () => { if (document.visibilityState === 'hidden') leave(); };
   const key = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (document.activeElement instanceof HTMLInputElement) document.activeElement.blur(); flushScene(); } };
+  const beforeUnload=(event:BeforeUnloadEvent)=>{
+    if(window.rpDesktop)return; // Native close coordinator owns the desktop prompt.
+    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+    leave();
+    if(autosaveTarget&&saveState.status!=='saved'){event.preventDefault();event.returnValue='';}
+  };
+  window.addEventListener('beforeunload',beforeUnload);
   window.addEventListener('pagehide', leave); document.addEventListener('visibilitychange', visibility); window.addEventListener('keydown', key);
-  return () => { stopScene(); stopUI(); leave(); if (timer) clearTimeout(timer); window.removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('keydown', key); };
+  return () => { stopScene(); stopUI(); leave(); if (timer) clearTimeout(timer); window.removeEventListener('beforeunload',beforeUnload); window.removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('keydown', key); };
 }

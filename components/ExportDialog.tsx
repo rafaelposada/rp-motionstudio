@@ -1,4 +1,6 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
+import {setDesktopBusy} from '@/lib/desktop';
 
 import { useEffect, useRef, useState } from 'react';
 import { useSceneStore, ASPECTS } from '@/store/useSceneStore';
@@ -87,6 +89,7 @@ export default function ExportDialog({ onClose }: { onClose: () => void }) {
   const [encodingLog, setEncodingLog] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const busy = phase === 'preparing' || phase === 'capturing' || phase === 'encoding';
+  useEffect(()=>{setDesktopBusy('export',busy);return()=>setDesktopBusy('export',false);},[busy]);
   useEffect(() => {
     if (phase !== 'encoding') return;
     const timer = setInterval(() => { if (exportSession.current) void post({ action: 'status', sessionId: exportSession.current }).then((data) => setEncodingLog(data.log)).catch(() => {}); }, 1500);

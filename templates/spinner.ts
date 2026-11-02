@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { CameraPose, LayerTransform, LayerTransform3D, Template, TransformCtx } from '@/lib/types';
 import { TAU, clamp, smooth } from '@/lib/motion';
 import { DEG, multiplyQuaternion, quaternionFromEuler, type Quaternion, type Vec3 } from '@/lib/tilt3d';

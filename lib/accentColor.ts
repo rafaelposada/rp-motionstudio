@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Interface-only colors. Never written into scene or export state.
 export const DEFAULT_ACCENT = '#007aff';
 export const ACCENT_PRESETS = [

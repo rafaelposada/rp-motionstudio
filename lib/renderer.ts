@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import * as PIXI from 'pixi.js';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
@@ -20,6 +21,7 @@ import { reelVideoTime, syncReelVideo } from '@/lib/reelVideoClock';
 import { renderableTracks, renderableAssetUrls, exportImageUrls } from '@/lib/renderAssets';
 import { cardOpacity } from '@/lib/cardOpacity';
 import { modelPathOffset } from '@/lib/modelMotionPath';
+import { desktopAPI } from '@/lib/desktop';
 
 // Reference base long-edge (px) shared with templates (carousel BASE = 340),
 // so control values read directly in on-screen pixels.
@@ -94,6 +96,9 @@ export class SceneRenderer {
   }
 
   async init(canvas: HTMLCanvasElement) {
+    // Pixi's statically implemented shader/uniform synchronizers avoid runtime
+    // code generation. Keep the desktop CSP's eval restriction intact.
+    if (desktopAPI()) await import('pixi.js/unsafe-eval');
     const { width, height } = useSceneStore.getState();
     const resolution = previewResolution();
     await this.app.init({

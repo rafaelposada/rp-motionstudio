@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Run only against the isolated test server:
 // RP_MOTION_CONFIG_DIR=<test-only folder> PORT=3002 ...
 // node scripts/verify-local-files.cjs http://127.0.0.1:3002

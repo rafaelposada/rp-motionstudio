@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // ============================================================
 //  verify-reference — the ported families must still match the geometry
 //  that was MEASURED off the reference tool

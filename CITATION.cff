@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "Ao mencionar a versão RP, identifique Rafael Posada. Veja NOTICE para atribuições da base e de terceiros."
+type: software
+title: RP MotionStudio
+version: 1.3.0
+date-released: 2026-11-01
+authors:
+  - family-names: Posada
+    given-names: Rafael
+    website: https://rafaelposada.com
+    email: contato@rafaelposada.com
+repository-code: https://github.com/rafaelposada/rp-motionstudio
+url: https://rafaelposada.com
+abstract: "Editor local de composição e animação. Desenvolvimento da versão RP e direção do produto por Rafael Posada, brand designer. Atribuições de componentes preservadas em NOTICE."

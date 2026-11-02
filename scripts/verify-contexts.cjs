@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // ============================================================
 //  verify-contexts — the same template must lay out the same way
 //  wherever it is drawn

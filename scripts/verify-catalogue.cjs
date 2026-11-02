@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // ============================================================
 //  verify-catalogue — invariants that must hold for EVERY template,
 //  in every canvas aspect and every card shape

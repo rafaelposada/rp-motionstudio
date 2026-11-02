@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { EasingSpec } from './easing';
 
 // ----- Control vocabulary. Templates may ONLY use these types. -----

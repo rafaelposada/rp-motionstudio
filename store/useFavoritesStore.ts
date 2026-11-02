@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { create } from 'zustand';
 
 const KEY = 'rp-favorite-templates-v1';

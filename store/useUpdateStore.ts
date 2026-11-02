@@ -1,5 +1,6 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import {create} from 'zustand';
-export interface UpdateInfo {current:string;managed:boolean;available:boolean;latest?:{version:string;sha:string;url:string;notes:string[]};previous:string|null;token:string;checkedAt:number;error?:string;job:{id:string;phase:string;message:string;version:string}|null}
+export interface UpdateInfo {current:string;managed:boolean;desktop?:boolean;available:boolean;latest?:{version:string;sha:string;url:string;notes:string[]};previous:string|null;token:string;checkedAt:number;error?:string;job:{id:string;phase:string;message:string;version:string}|null}
 interface Updates {info:UpdateInfo|null;loading:boolean;auto:boolean;error:string;armed:boolean;setAuto:(v:boolean)=>void;hydrate:()=>void}
 const key='rp-motionstudio-update-checks';
 export const useUpdateStore=create<Updates>(set=>({info:null,loading:false,auto:true,error:'',armed:false,

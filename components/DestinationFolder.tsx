@@ -1,8 +1,10 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 import { useEffect, useState } from 'react';
 import { BASE_PATH, IS_STATIC_EXPORT } from '@/lib/paths';
 import { useI18n } from '@/lib/useI18n';
 import type { DestinationKind } from '@/lib/localDestinations';
+import {desktopAPI} from '@/lib/desktop';
 
 export default function DestinationFolder({ kind, disabled = false }: { kind: DestinationKind; disabled?: boolean }) {
   const pt = useI18n().locale === 'pt', [path, setPath] = useState(''), [editing, setEditing] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -11,7 +13,11 @@ export default function DestinationFolder({ kind, disabled = false }: { kind: De
   const update = async (action: 'choose' | 'set') => {
     setBusy(true); setError('');
     try {
-      const response = await fetch(`${BASE_PATH}/api/destinations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, kind, path }) });
+      let selected=path;
+      if(action==='choose'&&desktopAPI()){
+        const folder=await desktopAPI()!.chooseFolder();if(folder===null)return;selected=folder;action='set';
+      }
+      const response = await fetch(`${BASE_PATH}/api/destinations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, kind, path:selected }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error);
       setPath(data[kind]); setEditing(false);
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }

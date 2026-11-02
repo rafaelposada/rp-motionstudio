@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import * as THREE from 'three';
 import { makeBentPlaneGeometry, makeCurlPlaneGeometry, makeStickerRollGeometry, makeCornerPeelGeometry } from '@/three3d/cardMesh';
 import { previewMatrix } from './templatePreviewGeometry';

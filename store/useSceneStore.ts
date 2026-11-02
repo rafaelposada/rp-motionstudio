@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { create } from 'zustand';
 import type { TextLayer } from '@/lib/textLayers';
 import { audioSettings, DEFAULT_AUDIO, type AudioSettings } from '@/lib/audioEnvelope';

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Walk through 193 neutral luminance values in a coprime stride. Adjacent
 // starter cards stay visibly separated and larger scenes do not restart the
 // same short palette after card 12. Values are shared by Pixi and Three.

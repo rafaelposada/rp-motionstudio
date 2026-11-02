@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Shader assembly for both engines, with no engine imported.
 //
 // Split out of the adapters on purpose: this is the part worth testing, and a

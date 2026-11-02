@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export interface PreviewView { zoom: number; x: number; y: number }
 export const FIT_VIEW: PreviewView = { zoom: 1, x: 0, y: 0 };
 export function panPreview(view: PreviewView, dx: number, dy: number): PreviewView {

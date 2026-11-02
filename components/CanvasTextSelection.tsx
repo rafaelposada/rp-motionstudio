@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
 import { useSceneStore, type SceneState } from '@/store/useSceneStore';

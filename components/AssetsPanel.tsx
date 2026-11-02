@@ -1,6 +1,8 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {setDesktopBusy} from '@/lib/desktop';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -269,6 +271,7 @@ export default function AssetsPanel() {
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [preparation, setPreparation] = useState({ total: 0, pending: 0 });
+  useEffect(()=>{setDesktopBusy('media-preparation',preparation.pending>0);return()=>setDesktopBusy('media-preparation',false);},[preparation.pending]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   // Pointer-based row drag (HTML5 DnD is unreliable: img elements hijack the
   // drag and re-renders can cancel it). Drag arms after a 4px move so plain

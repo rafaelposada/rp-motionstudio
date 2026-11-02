@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Locale } from './i18n';
 const help: Record<string, [string, string]> = {
   grain: ['Textura de filme. Quantidade intensifica o ruído; tamanho aumenta os grãos. Animar troca o padrão ao longo do vídeo.', 'Film texture. Amount increases noise; size makes the grains larger. Animate changes the pattern over time.'],

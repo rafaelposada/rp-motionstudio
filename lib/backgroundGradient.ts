@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Shared background document and native Canvas raster for both GPU engines.
 export interface GradientStop { id:string; color:string; opacity:number; position:number }
 export interface BackgroundGradient { shape:'linear'|'radial'|'conic'; angle:number; centerX:number; centerY:number; radius:number; stops:GradientStop[] }

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // ============================================================
 //  WEB MODE — BAKING A TEMPLATE INTO CSS @keyframes
 //  The preview poses elements every frame from JS. The export can't ship that

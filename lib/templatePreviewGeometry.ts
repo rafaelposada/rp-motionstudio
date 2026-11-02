@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Pixi represents each projected axis with its own sine/cosine pair. CSS skew
 // uses a tangent shear instead, which stretches near 90° and loses back flips.
 export function previewMatrix(rotation:number,skewX=0,skewY=0,width=1,height=1) {

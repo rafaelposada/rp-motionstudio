@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import {promises as fs} from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -8,7 +9,7 @@ export interface Latest {version:string;sha:string;notes:string[];url:string}
 export const SHA=/^[a-f0-9]{40}$/;
 export const VERSION=/^\d+\.\d+\.\d+$/;
 export const installRoot=process.env.RP_MOTION_INSTALL_ROOT||'';
-export const managed=process.env.RP_MOTION_MANAGED==='1'&&path.isAbsolute(installRoot);
+export const managed=process.env.RP_MOTION_DESKTOP!=='1'&&process.env.RP_MOTION_MANAGED==='1'&&path.isAbsolute(installRoot);
 export async function validateManagedRelease(release:{dir:string;version:string;legacy?:boolean}|null){
   if(!release||!VERSION.test(release.version)||!path.isAbsolute(release.dir))throw Error('Versão local inválida.');
   const root=await fs.realpath(/* turbopackIgnore: true */ installRoot),real=await fs.realpath(release.dir),relative=path.relative(root,real);

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { SVGProps } from 'react';
 
 export type EditorIconProps = Omit<SVGProps<SVGSVGElement>, 'width' | 'height'> & {

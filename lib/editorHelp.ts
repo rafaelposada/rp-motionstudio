@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export const EDITOR_HELP:Record<string,{pt:string;en:string}>=Object.fromEntries([
   ['backdropBlur','Desfoca somente o que está atrás do fundo do texto. Aumentar suaviza os detalhes; zero desliga. A cor e sua opacidade continuam independentes.','Blurs only the scene behind the text background. Increase to soften detail; zero disables. Fill color and opacity remain independent.'],
   ['backdropRadius','Arredondamento dos cantos do fundo do texto. Zero deixa reto; aumentar torna os cantos mais arredondados.','Text background corner rounding. Zero keeps square corners; increase for rounder corners.'],

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Tiny IndexedDB store for uploaded asset blobs. Uploads are held as blob: URLs
 // which the browser revokes on unload, so they can't be persisted as strings —
 // the bytes go here (keyed by the asset id) and a fresh object URL is rebuilt on
@@ -6,6 +7,8 @@
 
 const DB_NAME = 'motion-assets';
 const STORE = 'blobs';
+let pending=0;
+export function pendingAssetTransactions(){return pending;}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -18,6 +21,7 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 function run<T>(mode: IDBTransactionMode, op: (store: IDBObjectStore) => IDBRequest): Promise<T> {
+  pending++;
   return openDb().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
@@ -29,7 +33,7 @@ function run<T>(mode: IDBTransactionMode, op: (store: IDBObjectStore) => IDBRequ
         tx.oncomplete = () => { db.close(); resolve(result); };
         tx.onabort = () => { db.close(); reject(tx.error ?? new Error('Falha ao salvar no armazenamento local.')); };
       }),
-  );
+  ).finally(()=>{pending--;});
 }
 
 export const idbPut = (id: string, blob: Blob) => run<void>('readwrite', (s) => s.put(blob, id));

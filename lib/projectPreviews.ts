@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { idbGet, idbPut } from './assetDb';
 
 export const projectPreviewKey = (id: string) => `project-preview:${id}`;

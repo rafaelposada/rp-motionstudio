@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { MeshStandardMaterial } from 'three';
 
 // Preserve the original texture's emissive color when image lighting is off.

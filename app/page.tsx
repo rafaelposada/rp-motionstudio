@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -11,6 +12,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { useUIStore } from '@/store/useUIStore';
 import { historyShortcut } from '@/lib/historyShortcuts';
 const UpdateSystem=dynamic(()=>import('@/components/UpdateSystem'),{ssr:false});
+const DesktopSystem=dynamic(()=>import('@/components/DesktopSystem'),{ssr:false});
 
 const MobileEditor = dynamic(() => import('@/components/MobileEditor'), {
   ssr: false,
@@ -92,6 +94,7 @@ export default function Home() {
   return (
     <>
       <ThemeFavicon />
+      <DesktopSystem />
       <UpdateSystem />
       {nav === 'home' ? <HomeDashboard /> : mode === 'mobile' ? <MobileEditor /> : <DesktopEditor />}
       <WelcomeDialog />

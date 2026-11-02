@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { TransformFrame } from './transformGeometry';
 // The renderer contract the app depends on. Both the PixiJS SceneRenderer
 // (2D templates) and the Three.js SceneRenderer3D (webgl templates) implement

@@ -1,6 +1,7 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SceneRenderer } from '@/lib/renderer';
 import type { IRenderer } from '@/lib/rendererTypes';
 import { setRendererInstance } from '@/lib/rendererInstance';
@@ -16,6 +17,9 @@ import PreviewNavigation from './PreviewNavigation';
 
 export default function PreviewStage() {
   useAudioPreview();
+  const [initializationError,setInitializationError]=useState(false);
+  const [attempt,setAttempt]=useState(0);
+  const pt=useUIStore(state=>state.locale)==='pt';
   const stageRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<IRenderer | null>(null);
   const rafRef = useRef<number>(0);
@@ -76,6 +80,7 @@ export default function PreviewStage() {
 
   useEffect(() => {
     const initGeneration = ++initGenerationRef.current;
+    setInitializationError(false);
     // A new template/renderer starts from the authoritative playhead, including
     // a trimmed layer's in-point. Never reuse the previous template's clock.
     anchorTimeRef.current=0;
@@ -167,7 +172,12 @@ export default function PreviewStage() {
       dirtyRef.current = true;
       lastPlayingRef.current = useSceneStore.getState().playing;
       rafRef.current = requestAnimationFrame(loop);
-    })();
+    })().catch(error=>{
+      if(!mounted||initGeneration!==initGenerationRef.current)return;
+      console.error('Preview initialization failed',error);
+      useSceneStore.getState().setPlaying(false);
+      setInitializationError(true);
+    });
 
     return () => {
       mounted = false;
@@ -178,7 +188,7 @@ export default function PreviewStage() {
       renderer?.destroy();
       if (canvas.parentNode) canvas.remove();
     };
-  }, [engine, sceneGeneration]);
+  }, [engine, sceneGeneration, attempt]);
 
   // live resize on aspect/fps-driven dimension changes
   useEffect(() => {
@@ -195,6 +205,6 @@ export default function PreviewStage() {
   }, [width, height]);
 
   return (
-    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /><PreviewNavigation stage={stageRef}/></div>
+    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /><PreviewNavigation stage={stageRef}/>{initializationError&&<div className="preview-init-error" role="alert"><span>{pt?'Não foi possível iniciar a prévia. A edição permanece nesta janela; salve um rascunho antes de sair.':'The preview could not start. Your editing data remains in this window; save a draft before leaving.'}</span><button type="button" className="btn" onClick={()=>setAttempt(value=>value+1)}>{pt?'Tentar novamente':'Try again'}</button></div>}</div>
   );
 }

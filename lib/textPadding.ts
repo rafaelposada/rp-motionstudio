@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export type TextPadding = number | [number,number,number,number];
 export function textPadding(value?:TextPadding):[number,number,number,number]{
   const p=value===undefined?[15,18,15,18]:typeof value==='number'?[value,value,value,value]:value;

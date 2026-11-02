@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Small arithmetic parser for inspector values. It deliberately avoids eval
 // and accepts only numbers, parentheses and the four basic operators.
 export function parseNumericExpression(source: string, unit = ''): number | null {

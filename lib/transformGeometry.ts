@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export interface TransformPoint { x: number; y: number }
 export interface TransformFrame { cx: number; cy: number; width: number; height: number; rotation: number }
 export type ResizeAnchor = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Card geometry and textures for the 3D path — the deformations themselves.
 //
 // Lifted out of lib/renderer3d so the catalogue thumbnail can build the SAME

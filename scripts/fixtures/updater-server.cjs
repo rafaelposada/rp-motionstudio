@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const http=require('node:http'),fs=require('node:fs');
 const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
 if(pkg.failStartup)process.exit(42);

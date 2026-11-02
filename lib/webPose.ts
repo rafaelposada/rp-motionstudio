@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // ============================================================
 //  WEB MODE — LayerTransform → CSS (SPIKE)
 //  The 2D renderer hands a template's LayerTransform to a PIXI sprite

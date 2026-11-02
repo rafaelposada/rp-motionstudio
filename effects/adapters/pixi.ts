@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // The Pixi half of the effect contract: wrap an EffectShader in a PIXI.Filter.
 //
 // Two things here are not incidental.

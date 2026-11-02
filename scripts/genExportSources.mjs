@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Snapshots the real TS modules the exported scene pack ships, into
 // lib/exportSources.ts. Also builds a manifest of which template FILE provides
 // which template ids + export names, so the export can bundle ONLY the template

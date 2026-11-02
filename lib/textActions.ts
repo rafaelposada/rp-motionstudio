@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import {useSceneStore} from '@/store/useSceneStore';
 import {useUIStore} from '@/store/useUIStore';
 import {useHistoryStore} from '@/store/useHistoryStore';

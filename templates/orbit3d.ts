@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Template } from '@/lib/types';
 import { TAU, clamp, loopCycles, smooth } from '@/lib/motion';
 import {

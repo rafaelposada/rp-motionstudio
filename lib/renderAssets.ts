@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { SceneState } from '@/store/useSceneStore';
 import { trackAssetIndices } from './tracks';
 import { isVideoSource } from './videoTexture';

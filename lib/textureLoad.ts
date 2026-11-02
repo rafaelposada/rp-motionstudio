@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Shared image-decode path for both renderers. Uploads are blob: URLs with no
 // file extension, which library-level loaders (PIXI.Assets, THREE.TextureLoader
 // routing) can mis-handle — decoding via HTMLImageElement is reliable for both.

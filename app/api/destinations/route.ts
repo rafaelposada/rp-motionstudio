@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { NextRequest, NextResponse } from 'next/server';
 import { chooseDestination, getDestinations, isDestinationKind, isLocalFileRequest, setDestination } from '@/lib/localDestinations';
 export const runtime = 'nodejs';

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const assert = require('node:assert/strict');
 require('sucrase/register');
 const { loadImage, loadPreviewImage, previewImageSize, clearPreviewImages } = require('../lib/textureLoad');

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Template } from '@/lib/types';
 import { clamp, frac, loopCycles, smooth } from '@/lib/motion';
 import { backfaceFade, tiltNormalCanvas, tiltPointCanvas, wrapEnvelope } from '@/lib/tilt3d';

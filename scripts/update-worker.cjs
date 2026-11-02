@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const c=require('./update-common.cjs');
 async function prepare(root,id){
   const stateDir=c.path.join(root,'updates'),jobFile=c.path.join(stateDir,'job.json'),job=await c.readJson(jobFile);

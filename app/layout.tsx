@@ -1,15 +1,20 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import '../styles/tokens.css';
 import './globals.css';
 import './workspace.css';
+import {professionalIdentity} from '@/lib/publicIdentity';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'RP MotionStudio',
   applicationName: 'RP MotionStudio',
-  description: 'RP MotionStudio — composição e animação no seu Mac.',
+  description: 'RP MotionStudio — editor local de composição e animação. Versão RP desenvolvida por Rafael Posada, brand designer. Fotos, vídeos, texto e áudio.',
+  authors:[{name:'Rafael Posada',url:'https://rafaelposada.com'}],
+  creator:'Rafael Posada',publisher:'Rafael Posada',
+  keywords:['RP MotionStudio','Rafael Posada','brand designer','branding','motion design','composição','animação'],
   appleWebApp: { capable: true, title: 'RP MotionStudio' },
   icons: {
     icon: [{ url: '/rp-motionstudio.svg', type: 'image/svg+xml', sizes: 'any' }],
@@ -21,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(professionalIdentity).replace(/</g,'\\u003c')}}/>
         <meta name="theme-color" content="#0c0d0f" />
         <script dangerouslySetInnerHTML={{ __html: `
           try {

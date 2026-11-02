@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { frameAABB, mapFramePoint, normalizedAngle, type TransformFrame } from './transformGeometry';
 
 export function groupFrame(frames: TransformFrame[]): TransformFrame | null {

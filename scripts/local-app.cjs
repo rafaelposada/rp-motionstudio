@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const c=require('./update-common.cjs'),{spawn}=require('node:child_process');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function healthy(port,version,child){for(let i=0;i<40;i++){if(child.exitCode!==null||child.signalCode!==null)return false;try{const response=await fetch(`http://127.0.0.1:${port}/api/diagnostics`,{signal:AbortSignal.timeout(1500)}),data=await response.json();if(response.ok&&data.version===`${version}-local`&&(data.instance===child.rpInstance||(child.rpAllowLegacy&&!data.instance)))return true;}catch{}await delay(500);}return false;}

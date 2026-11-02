@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export interface TextShadowSettings {
   color: string; opacity: number; x: number; y: number; blur: number; spread: number;
   position: 'outside'|'inside'; type: 'box'|'realistic';

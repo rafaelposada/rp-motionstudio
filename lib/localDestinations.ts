@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Server only. Keep preferences inside the existing app data directory so the
 // app's uninstaller also removes them. Exported user files remain independent.
 import { promises as fs, constants } from 'node:fs';
@@ -9,7 +10,7 @@ import crypto from 'node:crypto';
 
 export type DestinationKind = 'exports' | 'drafts' | 'templates';
 export const isDestinationKind = (kind: unknown): kind is DestinationKind => ['exports', 'drafts', 'templates'].includes(String(kind));
-const directory = process.env.RP_MOTION_CONFIG_DIR || path.join(os.homedir(), 'Library', 'Application Support', 'Motion Studio');
+const directory = process.env.RP_MOTION_CONFIG_DIR || (process.platform==='darwin'?path.join(os.homedir(),'Library','Application Support','Motion Studio'):process.platform==='win32'?path.join(process.env.LOCALAPPDATA||path.join(os.homedir(),'AppData','Local'),'RP MotionStudio'):path.join(os.homedir(),'.local','share','rp-motionstudio'));
 const configPath = path.join(directory, 'destinations.json');
 const defaults: Record<DestinationKind, string> = {
   exports: path.join(os.homedir(), 'Movies', 'Motion Studio Exports'),

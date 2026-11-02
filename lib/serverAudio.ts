@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { execFile } from 'node:child_process';
 export function probeAudioDuration(file: string): Promise<number> {
   return new Promise((resolve,reject)=>execFile('ffprobe',['-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',file],{timeout:10000,maxBuffer:16384},(error,stdout)=>{

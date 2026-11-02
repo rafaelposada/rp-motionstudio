@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import JSZip from 'jszip';
 import { idbGet, idbPut, idbDelete, idbKeys } from './assetDb';
 import { buildScenePartial, flushScene, type ScenePartial } from './scenePersist';
@@ -6,12 +7,15 @@ import { useSceneStore } from '@/store/useSceneStore';
 import { templates } from '@/templates';
 import { prepareTextFonts } from './textLayers';
 import { projectPreviewKey } from './projectPreviews';
+import {setDesktopBusy} from './desktop';
 
 interface Entry { key: string; path: string; type: string }
 interface PackageManifest { format: 'motion-studio'; version: 1; name: string; kind?: 'draft' | 'template'; scene: ScenePartial; files: Entry[] }
 const MAX_BYTES = 512 * 1024 * 1024;
 
 export async function saveProjectPackage(id: string, kind: 'draft' | 'template' = 'draft') {
+  const task=`package-save:${crypto.randomUUID()}`;setDesktopBusy(task,true);
+  try {
   flushScene();
   const current = useSceneStore.getState(), isActive = id === activeProjectId();
   const scene = isActive ? buildScenePartial(current) : readProjectScene(id);
@@ -55,7 +59,8 @@ export async function saveProjectPackage(id: string, kind: 'draft' | 'template' 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
   const response = await fetch('/api/project-package', { method: 'POST', headers: { 'X-Project-Name': encodeURIComponent(name), 'X-Package-Kind': kind }, body: blob });
   if (!response.ok) throw new Error(await response.text());
-  return response.json() as Promise<{ path: string }>;
+  return await response.json() as { path: string };
+  }finally{setDesktopBusy(task,false);}
 }
 
 export function validateManifest(data: unknown): asserts data is PackageManifest {
@@ -72,6 +77,8 @@ export function validateManifest(data: unknown): asserts data is PackageManifest
 }
 
 export async function importProjectPackage(file: File) {
+  const task=`package-import:${crypto.randomUUID()}`;setDesktopBusy(task,true);
+  try {
   if (file.size > MAX_BYTES) throw new Error('Pacote maior que 512 MB.');
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const manifestFile = zip.file('project.json');
@@ -117,6 +124,7 @@ export async function importProjectPackage(file: File) {
     await Promise.all(written.map((key) => idbDelete(key)));
     throw error;
   }
+  }finally{setDesktopBusy(task,false);}
 }
 
 export function referencedBlobKeys() {

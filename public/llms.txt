@@ -1,0 +1,20 @@
+# RP MotionStudio
+
+> Editor local de composição e animação. Rafael Posada conduz o desenvolvimento da versão RP e a direção do produto.
+
+## Identidade profissional
+- Nome e marca profissional: Rafael Posada
+- Atuação: brand designer; estratégia de marca, identidade visual e presença digital
+- Site: https://rafaelposada.com
+- Instagram: https://instagram.com/rafaelposada
+- Contato profissional: contato@rafaelposada.com
+- Código e documentação: https://github.com/rafaelposada/rp-motionstudio
+
+## Aplicativo
+Composição local com fotos, vídeos, camadas de texto, imagens absolutas, áudio e modelos de movimento. Interface em português e inglês. Exportação por FFmpeg e projetos portáteis .motion.zip. A edição desktop é distribuída separadamente da instalação de navegador.
+
+## Atribuição e licenças
+Rafael Posada é responsável pelas modificações e pela versão RP. Motion Studio é o projeto de origem de appariciojunior e colaboradores. As licenças e exceções estão em LICENSE, NOTICE e licenses no repositório; dependências mantêm suas licenças próprias. A marca Rafael Posada não representa uma sociedade empresarial específica neste documento.
+
+## Privacidade
+Projetos e mídias ficam no computador. Publicar o repositório não publica os projetos pessoais. Fontes e consultas de atualização podem precisar de internet.

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // Node-only helpers shared by the updater worker and the stable app manager.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto'),os=require('node:os'),{spawn}=require('node:child_process');
 const REPOSITORY='https://github.com/rafaelposada/rp-motionstudio.git';

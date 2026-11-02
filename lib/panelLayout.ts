@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 export type PanelId = 'rail' | 'library' | 'inspector' | 'timeline';
 export type PanelAxis = 'width' | 'height';
 export type PanelWidthPriority = 'library' | 'inspector' | null;

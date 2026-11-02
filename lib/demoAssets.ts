@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { BASE_PATH } from '@/lib/paths';
 
 // Minimal numbered cards seeded into empty media slots. They make motion and

@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Template } from '@/lib/types';
 
 // Focal point for cover-fit cropping, both axes 0..1 (0.5/0.5 = centre).

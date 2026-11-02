@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Template } from '@/lib/types';
 // Compatibility only: keep existing saved compositions readable after the
 // AI creator is removed. This preset remains absent from the library picker.

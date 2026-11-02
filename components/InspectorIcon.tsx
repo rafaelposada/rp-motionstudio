@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { ReactNode } from 'react';
 export default function InspectorIcon({ tab }: { tab: 'motion' | 'canvas' | 'media' | 'text' | 'layers' }) {
   const paths: Record<typeof tab, ReactNode> = {

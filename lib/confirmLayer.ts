@@ -1,3 +1,4 @@
+// RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // In-app confirmation avoids browser-owned alerts and keeps keyboard focus
 // trapped until the user explicitly confirms or cancels.
 export function confirmLayer(message: string, pt = true): Promise<boolean> {
