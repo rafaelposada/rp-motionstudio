@@ -3,6 +3,8 @@ const {app, BrowserWindow, Menu, dialog, ipcMain, protocol, net, shell, utilityP
 const fs = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto'), nodeNet = require('node:net');
 const {APP_ORIGIN, trustedURL, externalURL, closeCoordinator} = require('./policy.cjs');
 const {prepareRuntime}=require('./runtime.cjs');
+const {execFile}=require('node:child_process');
+const exec= require('node:util').promisify(execFile);
 protocol.registerSchemesAsPrivileged([{scheme:'rp-motion',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,codeCache:true}}]);
 const profile = process.env.RP_DESKTOP_PROFILE;
 if (profile && !path.isAbsolute(profile)) throw Error('RP_DESKTOP_PROFILE must be absolute.');
@@ -11,6 +13,7 @@ app.setPath('userData', profile || path.join(app.getPath('appData'), 'RP MotionS
 app.setPath('sessionData', path.join(app.getPath('userData'), 'Browser'));
 const bundledRuntime = app.isPackaged ? path.join(process.resourcesPath,'runtime') : path.join(__dirname,'..','dist-desktop','runtime');
 let runtime=bundledRuntime;
+const mediaBin=app.isPackaged?path.join(process.resourcesPath,'media','bin'):path.join(__dirname,'..','dist-desktop','media',`${process.platform}-${process.arch}`,'bin');
 let win, server, serverOrigin, closing = false, exiting = false, ready = false;
 const requests = new Map();
 const validSender = event => !!win && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame && trustedURL(event.senderFrame?.url || '');
@@ -52,6 +55,11 @@ async function freePort() {
   return new Promise((resolve,reject) => {const socket=nodeNet.createServer();socket.once('error',reject);socket.listen(0,'127.0.0.1',()=>{const port=socket.address().port;socket.close(error=>error?reject(error):resolve(port));});});
 }
 async function startServer() {
+  for(const tool of ['ffmpeg','ffprobe']){
+    const executable=path.join(mediaBin,tool+(process.platform==='win32'?'.exe':''));
+    const result=await exec(executable,['-version'],{timeout:15000,windowsHide:true});
+    if(!result.stdout.startsWith(`${tool} version `))throw Error(`Componente de mídia inválido: ${tool}`);
+  }
   runtime=await prepareRuntime(bundledRuntime,path.join(app.getPath('userData'),'Runtime'));
   const port = await freePort(), instance = crypto.randomUUID();serverOrigin=`http://127.0.0.1:${port}`;
   const safePath = [process.env.PATH || '', '/opt/homebrew/bin','/usr/local/bin','/usr/bin','/bin'].join(path.delimiter);
@@ -60,7 +68,7 @@ async function startServer() {
     ...(process.env.SystemRoot?{SystemRoot:process.env.SystemRoot}:{}),...(process.env.WINDIR?{WINDIR:process.env.WINDIR}:{}),
     ...(process.env.HOME?{HOME:process.env.HOME}:{}),...(process.env.USERPROFILE?{USERPROFILE:process.env.USERPROFILE}:{}),
     ...(process.env.TEMP?{TEMP:process.env.TEMP}:{}),...(process.env.TMPDIR?{TMPDIR:process.env.TMPDIR}:{}),
-    RP_MOTION_CONFIG_DIR:path.join(app.getPath('userData'),'Config'),RP_MOTION_DESKTOP:'1',RP_MOTION_INSTANCE:instance,NEXT_TELEMETRY_DISABLED:'1',
+    RP_MOTION_CONFIG_DIR:path.join(app.getPath('userData'),'Config'),RP_MOTION_DESKTOP:'1',RP_MEDIA_BIN:mediaBin,RP_MOTION_INSTANCE:instance,NEXT_TELEMETRY_DISABLED:'1',
   }});
   let tail = '', exited = false;
   const log = data => {tail=(tail+data.toString()).slice(-3000);};server.stdout?.on('data',log);server.stderr?.on('data',log);
@@ -84,6 +92,7 @@ function setMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     ...(process.platform==='darwin'?[{label:'RP MotionStudio Desktop',submenu:[{role:'about'},{type:'separator'},{label:'Ajustes…',accelerator:'Cmd+,',click:()=>menuCommand('settings')},{type:'separator'},{role:'hide'},{role:'hideOthers'},{role:'unhide'},{type:'separator'},{role:'quit',label:'Sair do RP MotionStudio'}]}]:[]),
     file,{label:'Editar',submenu:[{label:'Desfazer',accelerator:'CmdOrCtrl+Z',click:()=>menuCommand('undo')},{label:'Refazer',accelerator:'CmdOrCtrl+Shift+Z',click:()=>menuCommand('redo')},...(process.platform==='win32'?[{label:'Refazer (alternativa)',accelerator:'Ctrl+Y',click:()=>menuCommand('redo')}]:[]),{type:'separator'},{role:'cut',label:'Recortar'},{role:'copy',label:'Copiar'},{role:'paste',label:'Colar'},{label:'Selecionar tudo',accelerator:'CmdOrCtrl+A',click:()=>menuCommand('select-all')}]},
+    {label:'Camadas',submenu:[{label:'Levar seleção ao topo',accelerator:'CmdOrCtrl+Shift+]',click:()=>menuCommand('arrange-front')},{label:'Enviar seleção ao fundo',accelerator:'CmdOrCtrl+Shift+[',click:()=>menuCommand('arrange-back')}]},
     {label:'Visualizar',submenu:[{role:'togglefullscreen',label:'Tela cheia'}]},
     {label:'Ajuda',submenu:[{label:'Rafael Posada',click:()=>shell.openExternal('https://rafaelposada.com')},{label:'Reportar problema',click:()=>shell.openExternal('https://github.com/rafaelposada/rp-motionstudio/issues')}]},
   ]));

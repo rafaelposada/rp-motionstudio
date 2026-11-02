@@ -8,7 +8,8 @@ import { captionFontSize, textMotion, textFontRevision, type TextLayer } from '@
 import type { MotionTrack } from '@/lib/tracks';
 import { getRendererInstance } from '@/lib/rendererInstance';
 import { compositionOrder } from '@/lib/composition';
-import { deleteCompositionLayers, duplicateCompositionLayers, layerDisplayName } from '@/lib/compositionActions';
+import { arrangeCompositionLayers, deleteCompositionLayers, duplicateCompositionLayers, layerDisplayName } from '@/lib/compositionActions';
+import { compositionArrangeShortcut } from '@/lib/compositionShortcuts';
 import { groupFrame, transformGroupMember } from '@/lib/groupTransform';
 import { snapAlignment, type AlignBox } from '@/lib/alignment';
 import { ANCHOR_AXES, RESIZE_ANCHORS, bounded, frameAABB, mapFramePoint, normalizedAngle, normalizedRadii, pointerRotation, resizeCursor, resizeFrame, rotatePoint, type ResizeAnchor, type TransformFrame, type TransformPoint } from '@/lib/transformGeometry';
@@ -129,7 +130,9 @@ export default function CanvasTextSelection() {
       if(textToolShortcut(e)){e.preventDefault();e.stopImmediatePropagation();textToolRef.current=true;setTextTool(true);window.dispatchEvent(new Event('motion-text-tool'));return;}
       if(e.key==='Escape'&&textToolRef.current){e.preventDefault();e.stopImmediatePropagation();textToolRef.current=false;setTextTool(false);return;}
       const ui = useUIStore.getState(), ids = ui.selectedLayerIds;
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'd' && ids.length) { e.preventDefault(); e.stopImmediatePropagation(); duplicateCompositionLayers(ids); }
+      const arrange=compositionArrangeShortcut(e);
+      if(arrange&&ids.length){e.preventDefault();e.stopImmediatePropagation();arrangeCompositionLayers(ids,arrange);}
+      else if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'd' && ids.length) { e.preventDefault(); e.stopImmediatePropagation(); duplicateCompositionLayers(ids); }
       else if (['Backspace', 'Delete'].includes(e.key) && ids.length) { e.preventDefault(); if (!e.repeat) void deleteCompositionLayers(ids); }
       else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a' && (e.target as HTMLElement).closest('.canvas-selection,.tl-lanes,.layers-panel')) {
         e.preventDefault(); const s = useSceneStore.getState(); ui.setLayerSelection(compositionOrder(s.tracks, s.textLayers).map(l => l.id));

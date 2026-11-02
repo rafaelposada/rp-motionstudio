@@ -7,7 +7,8 @@ const { useUIStore } = require('../store/useUIStore');
 const { useSceneStore } = require('../store/useSceneStore');
 const { useHistoryStore } = require('../store/useHistoryStore');
 const { compositionOrder } = require('../lib/composition');
-const { duplicateCompositionLayers, reorderCompositionLayer, selectModelForEditing, deleteCompositionLayers } = require('../lib/compositionActions');
+const { arrangeCompositionLayers, duplicateCompositionLayers, reorderCompositionLayer, selectModelForEditing, deleteCompositionLayers } = require('../lib/compositionActions');
+const {compositionArrangeShortcut}=require('../lib/compositionShortcuts');
 const { groupFrame, transformGroupMember } = require('../lib/groupTransform');
 const { FIT_VIEW, zoomPreview, panPreview } = require('../lib/previewNavigation');
 const { isCanvasEditing, setCanvasEditing } = require('../lib/canvasEditing');
@@ -70,6 +71,20 @@ async function main() {
   assert.deepEqual(useSceneStore.getState().tracks.map(t => t.visible), visible, 'Shift selection does not alter visibility');
 
   const history = useHistoryStore.getState(), stop = history.start(); history.reset();
+  const baseOrder=()=>compositionOrder(useSceneStore.getState().tracks,useSceneStore.getState().textLayers).map(layer=>layer.id);
+  const initialOrder=baseOrder(),initialSelection=[...useUIStore.getState().selectedLayerIds];
+  arrangeCompositionLayers([model.id],'front');assert.equal(baseOrder().at(-1),model.id);
+  assert.equal(useHistoryStore.getState().past.length,1);
+  arrangeCompositionLayers([model.id],'front');assert.equal(useHistoryStore.getState().past.length,1,'Repeated front command is a no-op');
+  assert.deepEqual(useUIStore.getState().selectedLayerIds,initialSelection,'Stacking preserves selection');
+  history.undo();assert.deepEqual(baseOrder(),initialOrder);history.redo();assert.equal(baseOrder().at(-1),model.id);history.undo();history.reset();
+  arrangeCompositionLayers([a.id,model.id],'front');assert.deepEqual(baseOrder().slice(-2),initialOrder.filter(id=>id===a.id||id===model.id),'Mixed selection keeps its internal stacking order');
+  history.undo();history.reset();arrangeCompositionLayers([a.id,b.id],'back');assert.deepEqual(baseOrder().slice(0,2),[a.id,b.id]);history.undo();history.reset();
+  scene.patchTextLayer(a.id,{locked:true});history.reset();const lockedOrder=baseOrder();arrangeCompositionLayers([a.id],'front');assert.deepEqual(baseOrder(),lockedOrder);assert.equal(useHistoryStore.getState().past.length,0);scene.patchTextLayer(a.id,{locked:false});history.reset();
+  for(const modifier of ['metaKey','ctrlKey'])for(const [key,code,direction] of [[']','BracketRight','front'],['}','BracketRight','front'],['[','BracketLeft','back'],['{','BracketLeft','back']]){
+    const event={key,code,metaKey:false,ctrlKey:false,altKey:false,shiftKey:true,[modifier]:true};assert.equal(compositionArrangeShortcut(event),direction);assert.equal(compositionArrangeShortcut({...event,shiftKey:false}),null);assert.equal(compositionArrangeShortcut({...event,altKey:true}),null);
+  }
+  assert.equal(compositionArrangeShortcut({key:'z',code:'KeyZ',metaKey:true,ctrlKey:false,altKey:false,shiftKey:true}),null,'Redo is not intercepted');
   const copies = duplicateCompositionLayers([a.id, b.id, model.id]);
   assert.equal(copies.length, 3); assert.equal(useHistoryStore.getState().past.length, 1, 'Group duplication is one undo');
   assert.deepEqual(useUIStore.getState().selectedLayerIds, copies);

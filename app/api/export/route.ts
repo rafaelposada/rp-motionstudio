@@ -9,6 +9,7 @@ import { destinationFor, isLocalFileRequest } from '@/lib/localDestinations';
 import { audioFilter } from '@/lib/audioEnvelope';
 import { probeAudioDuration } from '@/lib/serverAudio';
 import {updaterBusy} from '@/lib/updateServer';
+import {mediaExecutable} from '@/lib/mediaExecutable';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -31,7 +32,7 @@ function run(cmd: string, args: string[], sessionId?: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const session = sessionId ? sessions.get(sessionId) : undefined;
     if (session?.cancelled) { reject(new Error('Exportação cancelada.')); return; }
-    const p = spawn(cmd, args);
+    const p = spawn(cmd==='ffmpeg'?mediaExecutable('ffmpeg'):cmd, args,{windowsHide:true});
     if (session) session.child = p;
     let stderr = '';
     p.stderr.on('data', (d) => { stderr = (stderr + d.toString()).slice(-12000); if (session) session.log = stderr; });

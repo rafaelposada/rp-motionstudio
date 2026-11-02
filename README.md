@@ -8,6 +8,25 @@ Rafael Posada é brand designer com mais de 13 anos de experiência em branding,
 com atuação em estratégia de marca, identidade visual e presença digital para
 advogados e escritórios de advocacia. Conheça seu trabalho em [rafaelposada.com](https://rafaelposada.com/).
 
+## Instalar o aplicativo
+
+Os instaladores estão em [Releases](https://github.com/rafaelposada/rp-motionstudio/releases).
+O pacote desktop inclui FFmpeg e FFprobe: não exige Homebrew, Node.js, npm ou
+um navegador separado na máquina de quem instala.
+
+- **Mac Apple Silicon:** macOS 13 ou mais recente. Abra o `.dmg` e arraste o
+  RP MotionStudio para Aplicativos na tela de instalação.
+- **Windows x64 · Preview:** Windows 10 ou mais recente, Intel/AMD. Abra o
+  `Setup-Preview.exe` e escolha a pasta. O pacote foi compilado e inspecionado
+  no Mac; instalação, exportação e desinstalação ainda precisam de teste real
+  no Windows.
+
+Pacotes sem certificado comercial podem exibir avisos do sistema. Confira a
+origem e os guias de [Mac](docs/INSTALAR-macOS.md) e [Windows](docs/INSTALAR-Windows.md).
+Projetos e mídias pessoais não acompanham os instaladores. A atualização do
+pacote desktop é manual; o atualizador descrito adiante pertence à instalação
+gerenciada por `npm run app`.
+
 ## Apoio, contato e feedback
 
 Quer ajudar a melhorar o RP MotionStudio e criar novas soluções? Você pode
@@ -168,12 +187,45 @@ npm run desktop:package
 A saída fica em `dist-desktop/packages`, para o sistema e arquitetura que executam
 o comando. No Windows, gere e valide o pacote em uma máquina Windows. O projeto
 não declara que um pacote Windows foi testado apenas porque compilou no macOS.
-FFmpeg precisa estar disponível no PATH. A preparação exclui arquivos `.env`,
+Os pacotes desktop 1.4.1 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
+para o sistema e arquitetura. A exportação usa esses executáveis por caminho
+absoluto; não depende de Homebrew ou FFmpeg instalado no computador do usuário.
+Os programas de mídia são agregados separados: FFmpeg/x264 mantêm GPL versão 2
+ou posterior; zlib mantém sua licença. Fontes completos, opções de compilação
+e licenças acompanham `resources/media/licenses` (dentro de Contents no macOS).
+A preparação exclui arquivos `.env`,
 exportações, projetos privados e imagens de referência.
 
 Para usar sem empacotar: `npm run desktop:prepare` e `npm run desktop`.
 
+Antes de empacotar, gere a mídia com `scripts/build-media.cjs`. Esse script fixa
+revisões e SHA-256 de FFmpeg, x264 e zlib, compila estaticamente e inclui seus
+fontes. Requer ferramentas de desenvolvimento somente na máquina de compilação:
+C compiler, make, NASM e pkg-config. Para Windows gerado no Mac, utiliza LLVM-MinGW
+com revisão e SHA-256 fixos. `RP_NASM` e `RP_PKG_CONFIG` podem apontar às ferramentas;
+`RP_MEDIA_ROOT` aponta à saída que contém `darwin-arm64` e `win32-x64`.
+
+O destino padrão do empacotador é o sistema atual. `--target=win32-x64` gera o
+pacote Windows, com `RP_WINDOWS_MODULES` apontando às dependências preparadas por
+`npm ci --os=win32 --cpu=x64 --ignore-scripts`. Os módulos nativos macOS são
+substituídos pelos de Windows. O instalador `.exe` é gerado pelo compilador NSIS
+indicado em `RP_MAKENSIS`, usando `scripts/build-windows-installer.cjs`. A instalação
+é por usuário, inclui atalhos e desinstalador e preserva dados de projetos.
+O DMG é gerado por `scripts/build-dmg.cjs`, com Python e `dmgbuild==1.6.7` somente
+na máquina de compilação (`RP_DMG_PYTHON` aponta ao Python preparado). A arte
+vetorial fica em `desktop/installer/mac-background.svg`; `scripts/dmg-settings.py`
+define a posição dos ícones e a janela, sem alterar preferências globais do Finder.
+O NSIS usa arte de boas-vindas, ícones RP e controles nativos para teclado e DPI.
+Os guias estão em `docs/INSTALAR-*.md`.
+O primeiro instalador Windows é uma distribuição de teste até sua execução real
+ser validada nesse sistema; gerar um PE/NSIS no Mac não comprova esse funcionamento.
+
 ### Projetos e fechamento
+
+⌘/Ctrl+Shift+] leva a seleção ao topo da composição; ⌘/Ctrl+Shift+[ envia ao
+fundo. Textos, imagens absolutas e modelos compartilham a mesma ordem. A seleção
+múltipla mantém sua ordem interna e cada comando pode ser desfeito em uma etapa.
+Os atalhos ficam suspensos durante a digitação e em diálogos.
 
 O menu Arquivo oferece Abrir rascunho/template (⌘/Ctrl+O), Salvar composição
 (⌘/Ctrl+S) e Salvar rascunho (⌘/Ctrl+Shift+S). Fechar por ⌘W, ⌘Q ou pelos

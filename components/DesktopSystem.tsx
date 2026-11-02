@@ -11,6 +11,7 @@ import {importProjectPackage,saveProjectPackage} from '@/lib/projectPackage';
 import {pendingAssetTransactions} from '@/lib/assetDb';
 import {useHistoryStore} from '@/store/useHistoryStore';
 import {compositionOrder} from '@/lib/composition';
+import {arrangeCompositionLayers} from '@/lib/compositionActions';
 
 export default function DesktopSystem() {
   const [desktop,setDesktop]=useState(false),[message,setMessage]=useState('');
@@ -25,7 +26,7 @@ export default function DesktopSystem() {
       let ownsWork=false;
       try {
         // Commit inline text and numeric drafts before deciding what to save.
-        if(!['undo','redo','select-all'].includes(action)&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
+        if(!['undo','redo','select-all','arrange-front','arrange-back'].includes(action)&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
         const project=activeProjectId();
         if(action==='status'){
           const busy=working||desktopBusy()||pendingAssetTransactions()>0;
@@ -45,6 +46,10 @@ export default function DesktopSystem() {
           else if(!useUIStore.getState().settingsOpen&&useUIStore.getState().nav!=='home'){
             const scene=useSceneStore.getState();useUIStore.getState().setLayerSelection(compositionOrder(scene.tracks,scene.textLayers).map(layer=>layer.id));
           }
+        }else if(action==='arrange-front'||action==='arrange-back'){
+          const ui=useUIStore.getState(),active=document.activeElement;
+          const typing=active instanceof HTMLElement&&active.closest('input,textarea,select,[contenteditable=true]');
+          if(!typing&&!ui.settingsOpen&&ui.nav!=='home'&&!document.querySelector('dialog[open]'))arrangeCompositionLayers(ui.selectedLayerIds,action==='arrange-front'?'front':'back');
         }else if(action==='settings')useUIStore.getState().setSettingsOpen(true);
         else if(action==='save-local'){
           flushScene();if(getSaveState().status!=='saved')throw Error(pt?'Não foi possível salvar. A janela será mantida aberta.':'Save failed. The window will remain open.');

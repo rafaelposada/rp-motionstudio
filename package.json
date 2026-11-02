@@ -1,6 +1,6 @@
 {
   "name": "rp-motionstudio",
-  "version": "1.3.1",
+  "version": "1.4.1",
   "description": "RP MotionStudio — editor local de composição e animação, baseado em Motion Studio.",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,10 @@
     "start:network": "next start -H 0.0.0.0",
     "desktop": "electron desktop/main.cjs",
     "desktop:prepare": "node scripts/build-desktop.cjs --prepare",
-    "desktop:package": "node scripts/build-desktop.cjs"
+    "desktop:package": "node scripts/build-desktop.cjs",
+    "desktop:media": "node scripts/build-media.cjs",
+    "desktop:dmg": "node scripts/build-dmg.cjs",
+    "desktop:windows-installer": "node scripts/build-windows-installer.cjs"
   },
   "keywords": [],
   "author": "Rafael Posada <contato@rafaelposada.com> (https://rafaelposada.com)",

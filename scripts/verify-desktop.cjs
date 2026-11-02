@@ -3,6 +3,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {trustedURL,externalURL,closeCoordinator,closeCopy}=require('../desktop/policy.cjs');
 const {prepareRuntime}=require('../desktop/runtime.cjs');
 async function main(){
+  require('sucrase/register');
+  const {mediaExecutable}=require('../lib/mediaExecutable');
+  assert.equal(mediaExecutable('ffmpeg','darwin',{}),'ffmpeg');
+  assert.equal(mediaExecutable('ffprobe','darwin',{RP_MOTION_DESKTOP:'1',RP_MEDIA_BIN:'/bundle/media/bin'}),'/bundle/media/bin/ffprobe');
+  assert.equal(mediaExecutable('ffmpeg','win32',{RP_MOTION_DESKTOP:'1',RP_MEDIA_BIN:'/bundle/media/bin'}),'/bundle/media/bin/ffmpeg.exe');
+  assert.throws(()=>mediaExecutable('ffmpeg','darwin',{RP_MOTION_DESKTOP:'1'}),/Componentes de mídia ausentes/);
   const temporary=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'rp-runtime-verification-'));
   try{
     const source=path.join(temporary,'bundle'),root=path.join(temporary,'data');
@@ -15,9 +21,13 @@ async function main(){
     fs.mkdirSync(path.join(first,'.next/server/route-cache'),{recursive:true});fs.writeFileSync(path.join(first,'.next/server/route-cache/new'),'new cache');
     assert.equal(fs.existsSync(path.join(source,'.next/server/route-cache/new')),false,'Runtime writes must leave the bundled source intact');
     assert.equal(await prepareRuntime(source,root),first,'Reopen must reuse the generated copy');
+    fs.writeFileSync(path.join(source,'public/apple-touch-icon.png'),'updated icon');
+    const refreshed=await prepareRuntime(source,root);
+    assert.notEqual(refreshed,first,'An icon update must refresh the disposable runtime without touching project data');
+    assert.equal(fs.existsSync(first),false);
     fs.mkdirSync(path.join(root,'user-files'));fs.writeFileSync(path.join(root,'user-files/project'),'preserve');
     fs.writeFileSync(path.join(source,'.next/BUILD_ID'),'fixture-2');const second=await prepareRuntime(source,root);
-    assert.notEqual(first,second);assert.equal(fs.existsSync(first),false);assert.equal(fs.readFileSync(path.join(root,'user-files/project'),'utf8'),'preserve');
+    assert.notEqual(refreshed,second);assert.equal(fs.existsSync(refreshed),false);assert.equal(fs.readFileSync(path.join(root,'user-files/project'),'utf8'),'preserve');
     fs.writeFileSync(path.join(second,'.rp-runtime.json'),'{}');await assert.rejects(()=>prepareRuntime(source,root),/não identificados/);
   }finally{fs.rmSync(temporary,{recursive:true,force:true});}
   for(const u of ['rp-motion://app/','rp-motion://app/?x=1'])assert.ok(trustedURL(u));

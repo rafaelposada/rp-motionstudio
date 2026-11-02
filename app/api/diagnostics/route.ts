@@ -7,13 +7,14 @@ import os from 'node:os';
 import path from 'node:path';
 import {APP_VERSION} from '@/lib/appVersion';
 import { destinationFor, isLocalFileRequest } from '@/lib/localDestinations';
+import {mediaExecutable} from '@/lib/mediaExecutable';
 const exec = promisify(execFile);
 export const runtime = 'nodejs';
 const folders = { exports: path.join(os.homedir(), 'Movies', 'Motion Studio Exports'), projects: path.join(os.homedir(), 'Documents', 'Motion Studio Projects') };
 export async function GET() {
   let ffmpeg = '';
-  try { ffmpeg = (await exec('ffmpeg', ['-version'], { timeout: 5000 })).stdout.split('\n')[0]; } catch { /* report unavailable */ }
-  return NextResponse.json({ version: `${APP_VERSION}-local`,instance:process.env.RP_MOTION_INSTANCE??null, ffmpeg: ffmpeg || 'Indisponível', freeMemoryMB: Math.round(os.freemem() / 1048576), localOnly: true });
+  try { ffmpeg = (await exec(mediaExecutable('ffmpeg'), ['-version'], { timeout: 5000,windowsHide:true })).stdout.split('\n')[0]; } catch { /* report unavailable */ }
+  return NextResponse.json({ version: `${APP_VERSION}-local`,instance:process.env.RP_MOTION_INSTANCE??null, ffmpeg: ffmpeg?(process.env.RP_MOTION_DESKTOP==='1'?'Incluído no aplicativo · ':'')+ffmpeg:'Indisponível',ffmpegBundled:process.env.RP_MOTION_DESKTOP==='1'&&!!ffmpeg, freeMemoryMB: Math.round(os.freemem() / 1048576), localOnly: true });
 }
 export async function POST(request: NextRequest) {
   if (!isLocalFileRequest(request)) return NextResponse.json({ error: 'Acesso local necessário.' }, { status: 403 });

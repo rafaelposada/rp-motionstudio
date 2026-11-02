@@ -7,7 +7,8 @@ async function prepareRuntime(source,root){
   // application bundle; Browser/Config/projects remain outside this disposable copy.
   const buildId=(await fs.readFile(path.join(source,'.next','BUILD_ID'),'utf8')).trim();
   if(!/^[\w-]{1,128}$/.test(buildId))throw Error('Identificação de compilação inválida.');
-  const id=crypto.createHash('sha256').update(buildId).update(await fs.readFile(path.join(source,'server.js'))).digest('hex').slice(0,24);
+  const icon=await fs.readFile(path.join(source,'public','apple-touch-icon.png')).catch(error=>{if(error.code==='ENOENT')return Buffer.alloc(0);throw error;});
+  const id=crypto.createHash('sha256').update(buildId).update(await fs.readFile(path.join(source,'server.js'))).update(icon).digest('hex').slice(0,24);
   const target=path.join(root,id);
   await fs.mkdir(root,{recursive:true});
   try{

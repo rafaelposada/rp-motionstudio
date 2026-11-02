@@ -132,6 +132,8 @@ export default function SettingsDialog() {
  [pt ? 'Selecionar todas as camadas (foco na composição)' : 'Select all layers (composition focused)', '⌘ / Ctrl + A'],
  [pt ? 'Excluir seleção e confirmar' : 'Delete selection and confirm', 'Backspace / Delete → Return'],
  [pt ? 'Ordenar camada pela alça' : 'Reorder layer at grip', 'Alt / Option + ↑ / ↓'],
+ [pt ? 'Levar seleção ao topo' : 'Bring selection to front', '⌘ / Ctrl + Shift + ]'],
+ [pt ? 'Enviar seleção ao fundo' : 'Send selection to back', '⌘ / Ctrl + Shift + ['],
  [pt ? 'Rotação em passos de 15°' : 'Rotate in 15° steps', 'Shift + rotação'],
  [pt ? 'Redimensionar pelo centro' : 'Resize from center', 'Alt / Option + alça'],
  [pt ? 'Manter proporção ao redimensionar' : 'Keep resize aspect ratio', 'Shift + alça'],

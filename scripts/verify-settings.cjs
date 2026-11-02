@@ -36,7 +36,7 @@ const lightLogo=fs.readFileSync(path.join(root,'public/rp-motionstudio-light.svg
 const darkLogo=fs.readFileSync(path.join(root,'public/rp-motionstudio-dark.svg'),'utf8');
 assert.ok(lightLogo.includes('fill: #17181b;')&&darkLogo.includes('fill: #f5f5f7;'));
 const geometry=svg=>[...svg.matchAll(/<(?:path|polygon)\b[^>]*>/g)].map(match=>match[0]);
-assert.equal(geometry(lightLogo).length,5);
+assert.equal(geometry(lightLogo).length,3, 'RP mark contains only the letters and ring, without a trademark');
 assert.deepEqual(geometry(lightLogo),geometry(darkLogo),'Theme variants preserve the supplied vector geometry');
 assert.ok(fs.readFileSync(path.join(root,'public/rp-motionstudio.svg'),'utf8').includes('prefers-color-scheme: dark'),'First-load favicon adapts to system appearance');
 const tallTimeline = sanitizePanels({ timeline: { height: 220 } });

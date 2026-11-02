@@ -80,6 +80,19 @@ export function moveCompositionLayer(id: string, delta: number) {
   if (index < 0 || target < 0 || target >= order.length) return;
   reorderCompositionLayer(id, order[target].id);
 }
+export function arrangeCompositionLayers(ids: string[], destination: 'front' | 'back') {
+  const s=useSceneStore.getState(), order=compositionOrder(s.tracks,s.textLayers);
+  const locked=new Set(s.textLayers.filter(layer=>layer.locked).map(layer=>layer.id));
+  const selected=new Set(ids.filter(id=>!locked.has(id)));
+  const moved=order.filter(layer=>selected.has(layer.id)),rest=order.filter(layer=>!selected.has(layer.id));
+  if(!moved.length)return;
+  const next=destination==='front'?[...rest,...moved]:[...moved,...rest];
+  if(next.every((layer,index)=>layer.id===order[index].id))return;
+  const z=new Map(next.map((layer,index)=>[layer.id,index]));
+  s.setPlaying(false);useHistoryStore.getState().beginGesture();
+  useSceneStore.setState({tracks:s.tracks.map(layer=>({...layer,z:z.get(layer.id)})),textLayers:s.textLayers.map(layer=>({...layer,z:z.get(layer.id)}))});
+  useHistoryStore.getState().endGesture();
+}
 export async function deleteCompositionLayer(id: string) {
   return deleteCompositionLayers(selectedCompositionIds(id));
 }
