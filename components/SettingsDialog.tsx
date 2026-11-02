@@ -5,6 +5,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { useI18n } from '@/lib/useI18n';
 import { DEFAULT_PANELS, PANEL_LIMITS, type PanelAxis, type PanelId } from '@/lib/panelLayout';
 import { parseNumericExpression } from '@/lib/numericExpression';
+import {numericKeyValue} from '@/lib/numericKeyboard';
 import { getPreviewQuality, setPreviewQuality, type PreviewQuality } from '@/lib/previewResolution';
 import { panelName } from './PanelDock';
 import { storageReport } from '@/lib/projectPackage';
@@ -58,7 +59,7 @@ function DimensionField({ panel, axis, pt }: { panel: PanelId; axis: PanelAxis; 
     useUIStore.getState().setPanelDimension(panel, axis, parsed);
     setDraft(String(useUIStore.getState().panels[panel][axis] || 'Auto')); setInvalid(false);
   };
-  return <div className="settings-dimension"><div className="settings-dimension-input"><input aria-label={label} aria-invalid={invalid} type="text" inputMode="decimal" value={draft} title={`${min}–${max}px. ${pt ? 'Aceita cálculos, como 300+20.' : 'Accepts calculations, such as 300+20.'}`} onFocus={() => { focused.current = true; }} onChange={(event) => { setDraft(event.target.value); setInvalid(false); }} onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); discard.current = true; focused.current = false; setDraft(String(value || 'Auto')); setInvalid(false); event.currentTarget.blur(); } }} /><span>px</span></div>{automatic && <button type="button" className="settings-auto" aria-label={`${pt ? 'Automático' : 'Automatic'} — ${label}`} onClick={() => { useUIStore.getState().setPanelDimension(panel, axis, 0); setDraft('Auto'); setInvalid(false); }}>Auto</button>}{invalid && <small role="alert">{pt ? 'Valor inválido' : 'Invalid value'}</small>}</div>;
+  return <div className="settings-dimension"><div className="settings-dimension-input"><input aria-label={label} aria-invalid={invalid} type="text" inputMode="decimal" value={draft} title={`${min}–${max}px. ${pt ? 'Aceita cálculos, como 300+20.' : 'Accepts calculations, such as 300+20.'}`} onFocus={() => { focused.current = true; }} onChange={(event) => { setDraft(event.target.value); setInvalid(false); }} onBlur={commit} onKeyDown={(event) => {const next=numericKeyValue(event,parseNumericExpression(draft,'px')??value,{min,max,integer:true});if(next!==null){event.preventDefault();event.stopPropagation();useUIStore.getState().setPanelDimension(panel,axis,next);setDraft(String(next));setInvalid(false);return;} if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); discard.current = true; focused.current = false; setDraft(String(value || 'Auto')); setInvalid(false); event.currentTarget.blur(); } }} /><span>px</span></div>{automatic && <button type="button" className="settings-auto" aria-label={`${pt ? 'Automático' : 'Automatic'} — ${label}`} onClick={() => { useUIStore.getState().setPanelDimension(panel, axis, 0); setDraft('Auto'); setInvalid(false); }}>Auto</button>}{invalid && <small role="alert">{pt ? 'Valor inválido' : 'Invalid value'}</small>}</div>;
 }
 
 export default function SettingsDialog() {
@@ -134,6 +135,9 @@ export default function SettingsDialog() {
  [pt ? 'Ordenar camada pela alça' : 'Reorder layer at grip', 'Alt / Option + ↑ / ↓'],
  [pt ? 'Levar seleção ao topo' : 'Bring selection to front', '⌘ / Ctrl + Shift + ]'],
  [pt ? 'Enviar seleção ao fundo' : 'Send selection to back', '⌘ / Ctrl + Shift + ['],
+ [pt ? 'Ajustar campo numérico em foco' : 'Adjust focused numeric field', '↑ / ↓'],
+ [pt ? 'Ajuste fino do valor · passo ÷ 10' : 'Fine value adjustment · step ÷ 10', 'Shift + ↑ / ↓'],
+ [pt ? 'Ajuste ultrafino · passo ÷ 100' : 'Extra-fine adjustment · step ÷ 100', '⌘ / Ctrl + Shift + ↑ / ↓'],
  [pt ? 'Rotação em passos de 15°' : 'Rotate in 15° steps', 'Shift + rotação'],
  [pt ? 'Redimensionar pelo centro' : 'Resize from center', 'Alt / Option + alça'],
  [pt ? 'Manter proporção ao redimensionar' : 'Keep resize aspect ratio', 'Shift + alça'],

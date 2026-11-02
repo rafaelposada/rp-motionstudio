@@ -9,6 +9,7 @@ import InfoHint from './InfoHint';
 import { controlHelp } from '@/lib/controlHelp';
 import { parseNumericExpression } from '@/lib/numericExpression';
 import { xyPadPoint } from '@/lib/xyPad';
+import {integerNumericKey,numericDecimals,numericKeyValue} from '@/lib/numericKeyboard';
 
 interface RowProps {
   def: ControlDef;
@@ -62,8 +63,9 @@ function SliderControl({ def, value, onChange }: RowProps) {
   // declares a coarse 0.1 or 0.05 step. Integer controls (count, rows, frames)
   // keep their declared step, so they can never drift to fractional values.
   const interactionStep = step < 1 ? Math.min(step, 0.01) : step;
+  const integer=integerNumericKey(def.key);
   const stepDecimals = interactionStep < 1 ? Math.min(6, Math.ceil(-Math.log10(interactionStep))) : 0;
-  const decimals = Math.max(def.precision ?? 0, stepDecimals);
+  const decimals = Math.max(def.precision ?? 0, stepDecimals, integer?0:numericDecimals(num));
   const formatted = num.toFixed(decimals);
 
   useEffect(() => {
@@ -76,7 +78,7 @@ function SliderControl({ def, value, onChange }: RowProps) {
     return Number(bounded.toFixed(Math.max(4, decimals)));
   };
   const parsedDraft = parseNumericExpression(draft, def.unit ?? '');
-  const calculated = parsedDraft === null ? null : snapValue(parsedDraft);
+  const calculated = parsedDraft === null ? null : integer?snapValue(parsedDraft):Number(Math.max(min,Math.min(max,parsedDraft)).toFixed(10));
   const adjustedToControl = parsedDraft !== null && calculated !== null && Math.abs(parsedDraft - calculated) > 1e-8;
   const isCalculation = /[+*/()]|\d\s*[−–—-]\s*\d/.test(draft.trim());
 
@@ -90,7 +92,7 @@ function SliderControl({ def, value, onChange }: RowProps) {
 
   const applyDraft = () => {
     if (calculated !== null) onChange(calculated);
-    setDraft(calculated === null ? formatted : calculated.toFixed(decimals));
+    setDraft(calculated === null ? formatted : String(calculated));
     setEditing(false);
   };
 
@@ -101,6 +103,7 @@ function SliderControl({ def, value, onChange }: RowProps) {
           ref={trackRef}
           className={`strack ${mobile ? 'strack-mobile' : ''} ${dragging ? 'is-dragging' : ''}`}
           tabIndex={0}
+          role="slider" aria-label={label(def.label)} aria-valuemin={min} aria-valuemax={max} aria-valuenow={num}
           onPointerDown={(e) => {
             (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
             setDragging(true);
@@ -110,10 +113,8 @@ function SliderControl({ def, value, onChange }: RowProps) {
           onPointerUp={() => setDragging(false)}
           onPointerCancel={() => setDragging(false)}
           onKeyDown={(e) => {
-            if (!['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
-            e.preventDefault();
-            const sign = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : -1;
-            onChange(snapValue(num + interactionStep * sign));
+            const next=numericKeyValue(e,num,{step:interactionStep,min,max,integer,horizontal:true});
+            if(next===null)return;e.preventDefault();e.stopPropagation();onChange(next);
           }}
           onDoubleClick={() => {
             const defaultValue = Number(def.default);
@@ -159,6 +160,8 @@ function SliderControl({ def, value, onChange }: RowProps) {
               applyDraft();
             }}
             onKeyDown={(event) => {
+              const next=numericKeyValue(event,parseNumericExpression(draft,def.unit??'')??num,{step:interactionStep,min,max,integer});
+              if(next!==null){event.preventDefault();event.stopPropagation();setDraft(String(next));onChange(next);return;}
               if (event.key === 'Enter') event.currentTarget.blur();
               if (event.key === 'Escape') {
                 cancelBlurRef.current = true;
@@ -174,7 +177,7 @@ function SliderControl({ def, value, onChange }: RowProps) {
           {parsedDraft === null
             ? (locale === 'pt' ? 'Cálculo inválido' : 'Invalid calculation')
             : isCalculation
-              ? `= ${calculated?.toFixed(decimals)}${def.unit ?? ''}${adjustedToControl ? (locale === 'pt' ? ' · ajustado ao limite/passo' : ' · adjusted to range/step') : ''}`
+              ? `= ${calculated?.toFixed(Math.max(decimals,numericDecimals(calculated??0)))}${def.unit ?? ''}${adjustedToControl ? (locale === 'pt' ? ' · ajustado ao limite/passo' : ' · adjusted to range/step') : ''}`
               : (locale === 'pt' ? 'Enter para aplicar' : 'Press Enter to apply')}
         </output>
       )}
@@ -236,7 +239,7 @@ function ColorControl({ value, onChange }: { value: any; onChange: (v: any) => v
 function XYAxisField({ axis, value, onChange, range, label }: { axis: string; value: number; onChange: (value: number) => void; range: number; label: string }) {
   const [draft, setDraft] = useState(String(value)), [editing, setEditing] = useState(false), cancel = useRef(false);
   useEffect(() => { if (!editing) setDraft(String(Math.round(value * 100) / 100)); }, [value, editing]);
-  return <label className="xy-axis-field"><span>{axis.toUpperCase()}</span><input type="text" aria-label={`${label} ${axis.toUpperCase()}: valor ou cálculo`} value={draft} onFocus={() => setEditing(true)} onChange={e => setDraft(e.target.value)} onBlur={() => { const result = parseNumericExpression(draft); if (!cancel.current && result !== null) onChange(Math.max(-range, Math.min(range, result))); cancel.current = false; setEditing(false); setDraft(String(value)); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } if (e.key === 'Escape') { e.stopPropagation(); cancel.current = true; e.currentTarget.blur(); } }} /></label>;
+  return <label className="xy-axis-field"><span>{axis.toUpperCase()}</span><input type="text" aria-label={`${label} ${axis.toUpperCase()}: valor ou cálculo`} value={draft} onFocus={() => setEditing(true)} onChange={e => setDraft(e.target.value)} onBlur={() => { const result = parseNumericExpression(draft); if (!cancel.current && result !== null) onChange(Math.max(-range, Math.min(range, result))); cancel.current = false; setEditing(false); setDraft(String(value)); }} onKeyDown={e => {const next=numericKeyValue(e,parseNumericExpression(draft)??value,{min:-range,max:range});if(next!==null){e.preventDefault();e.stopPropagation();setDraft(String(next));onChange(next);return;} if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } if (e.key === 'Escape') { e.stopPropagation(); cancel.current = true; e.currentTarget.blur(); } }} /></label>;
 }
 
 function XYPadControl({ def, value, onChange }: RowProps) {
@@ -265,7 +268,7 @@ function XYPadControl({ def, value, onChange }: RowProps) {
         onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setFromEvent(e.clientX, e.clientY); }}
         onPointerMove={(e) => { if (e.buttons === 1) setFromEvent(e.clientX, e.clientY); }}
         onDoubleClick={() => onChange({ x: 0, y: 0 })}
-        onKeyDown={e => { if (!e.key.startsWith('Arrow')) return; e.preventDefault(); const step = e.shiftKey ? 10 : 1; onChange({ x: Math.max(-range, Math.min(range, v.x + (e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0))), y: Math.max(-range, Math.min(range, v.y + (e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0))) }); }}
+        onKeyDown={e => {const delta=numericKeyValue(e,0,{horizontal:true});if(delta===null)return;e.preventDefault();e.stopPropagation();const axis=e.key==='ArrowLeft'||e.key==='ArrowRight'?'x':'y';onChange({...v,[axis]:Math.max(-range,Math.min(range,v[axis]+(axis==='y'?-delta:delta)))});}}
       >
         <div className="xypad-cross-h" />
         <div className="xypad-cross-v" />

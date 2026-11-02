@@ -3,11 +3,12 @@
 import {useEffect,useRef,useState} from 'react';
 import {parseNumericExpression} from '@/lib/numericExpression';
 import {textPadding,type TextPadding} from '@/lib/textPadding';
+import {numericKeyValue} from '@/lib/numericKeyboard';
 function PaddingField({value,label,onChange}:{value:number;label:string;onChange:(n:number)=>void}){
   const [draft,setDraft]=useState(String(value)),[invalid,setInvalid]=useState(false),focused=useRef(false),discard=useRef(false);
   useEffect(()=>{if(!focused.current)setDraft(String(value));},[value]);
   const commit=()=>{focused.current=false;if(discard.current){discard.current=false;return;}const n=parseNumericExpression(draft,'px');if(n===null){setInvalid(true);return;}const bounded=Math.max(0,Math.min(400,n));setDraft(String(bounded));setInvalid(false);onChange(bounded);};
-  return <input type="text" inputMode="decimal" aria-label={label} aria-invalid={invalid} value={draft} onFocus={()=>{focused.current=true;}} onChange={e=>{setDraft(e.target.value);setInvalid(false);}} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){e.preventDefault();e.stopPropagation();discard.current=true;focused.current=false;setDraft(String(value));setInvalid(false);e.currentTarget.blur();}}}/>;
+  return <input type="text" inputMode="decimal" aria-label={label} aria-invalid={invalid} value={draft} onFocus={()=>{focused.current=true;}} onChange={e=>{setDraft(e.target.value);setInvalid(false);}} onBlur={commit} onKeyDown={e=>{const next=numericKeyValue(e,parseNumericExpression(draft,'px')??value,{min:0,max:400});if(next!==null){e.preventDefault();e.stopPropagation();setDraft(String(next));setInvalid(false);onChange(next);return;}if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){e.preventDefault();e.stopPropagation();discard.current=true;focused.current=false;setDraft(String(value));setInvalid(false);e.currentTarget.blur();}}}/>;
 }
 export default function TextPaddingEditor({value,pt,onChange}:{value?:TextPadding;pt:boolean;onChange:(value:TextPadding)=>void}){
   const split=Array.isArray(value)||value===undefined,p=textPadding(value),names=pt?['Superior','Direito','Inferior','Esquerdo']:['Top','Right','Bottom','Left'];

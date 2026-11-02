@@ -12,6 +12,7 @@ import { useI18n } from '@/lib/useI18n';
 import { useUIStore } from '@/store/useUIStore';
 import { compositionOrder } from '@/lib/composition';
 import LayerDropTarget from './LayerDropTarget';
+import {numericKeyValue} from '@/lib/numericKeyboard';
 
 function fmt(sec: number) {
   const s = Math.max(0, sec);
@@ -156,7 +157,7 @@ export default function Timeline({
       <span className="tl-divider" />
 
       <label className="dur-field">
-        <input type="number" min={1} max={60} step={1} value={duration} onChange={(e) => setDuration(Math.max(1, Number(e.target.value)))} />
+        <input type="number" min={1} max={60} step={.01} value={duration} onChange={(e) => setDuration(Math.max(1,Math.min(60,Number(e.target.value))))} onKeyDown={e=>{const next=numericKeyValue(e,duration,{min:1,max:60});if(next!==null){e.preventDefault();e.stopPropagation();setDuration(next);}}}/>
         <span>s</span>
       </label>
 

@@ -10,6 +10,7 @@ const { DEFAULT_PANELS, sanitizePanels, panelDimension, fitPanelLayout } = requi
 const fs = require('node:fs');
 const { useUIStore } = require('../store/useUIStore');
 const { parseNumericExpression } = require('../lib/numericExpression');
+const {numericKeyValue,numericDecimals,integerNumericKey}=require('../lib/numericKeyboard');
 const { getPreviewQuality, setPreviewQuality } = require('../lib/previewResolution');
 const { accentTokens, sanitizeAccent, contrastRatio, ACCENT_PRESETS, DEFAULT_ACCENT } = require('../lib/accentColor');
 const data = new Map(); let writes = 0; let events = 0;
@@ -24,6 +25,22 @@ assert.equal(panelDimension('inspector', 'width', 50000), 680);
 assert.equal(panelDimension('library', 'height', 0), 0);
 assert.equal(panelDimension('timeline', 'width', 0), 0);
 assert.equal(parseNumericExpression('300+20', 'px'), 320);
+const up={key:'ArrowUp',shiftKey:false,ctrlKey:false,metaKey:false,altKey:false};
+assert.equal(numericKeyValue(up,10),11);assert.equal(numericKeyValue({...up,key:'ArrowDown'},10),9);
+assert.equal(numericKeyValue({...up,shiftKey:true},10),10.1);
+for(const modifier of ['metaKey','ctrlKey']){
+  assert.equal(numericKeyValue({...up,shiftKey:true,[modifier]:true},10),10.01);
+  assert.equal(numericKeyValue({...up,shiftKey:true,[modifier]:true},.05,{step:.01,min:.01,max:3}),.0501);
+  assert.equal(numericKeyValue({...up,[modifier]:true},10),null,'Unmodified command arrows keep native caret navigation');
+}
+assert.equal(numericKeyValue({...up,shiftKey:true,metaKey:true},4,{integer:true}),5);
+assert.equal(numericKeyValue(up,100,{min:0,max:100}),100);assert.equal(numericKeyValue({...up,key:'ArrowDown'},0,{min:0,max:100}),0);
+assert.equal(numericKeyValue({...up,key:'ArrowLeft'},10),null);assert.equal(numericKeyValue({...up,key:'ArrowRight'},10,{horizontal:true}),11);
+assert.equal(numericKeyValue({...up,altKey:true},10),null);assert.equal(numericKeyValue(up,NaN),null);
+let repeated=0;for(let i=0;i<1000;i++)repeated=numericKeyValue({...up,shiftKey:true},repeated);assert.equal(repeated,100,'Repeated fine adjustments do not accumulate floating-point noise');
+assert.equal(numericDecimals(.0000001),7);assert.equal(numericDecimals(1),0);assert.equal(numericDecimals(.0501),4);
+for(const key of ['count','rows','cols','columns','_fade'])assert.equal(integerNumericKey(key),true);
+for(const key of ['speed','rotation','opacity','padding'])assert.equal(integerNumericKey(key),false);
 const constrained = sanitizePanels({library:{width:500},inspector:{width:500}});
 assert.equal(fitPanelLayout(constrained,1280,800,false,false,false,false,'library').library,500,'The panel being resized keeps its requested width');
 assert.equal(fitPanelLayout(constrained,1280,800,false,false,false,false,'inspector').inspector,500,'Inspector resizing has the same priority');

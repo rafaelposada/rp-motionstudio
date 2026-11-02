@@ -15,6 +15,7 @@ import {
 import { useI18n } from '@/lib/useI18n';
 import InfoHint from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
+import {numericKeyValue,numericDecimals} from '@/lib/numericKeyboard';
 
 // SVG unit square is 0..100; the viewBox adds padding so overshoot/spring
 // curves that leave [0,1] stay visible.
@@ -152,10 +153,11 @@ export default function EasingPanel() {
               className="ez-num"
               type="number"
               step={0.01}
-              value={bezier ? bezier[i].toFixed(2) : ''}
+              value={bezier ? bezier[i].toFixed(Math.max(2,numericDecimals(bezier[i]))) : ''}
               placeholder="—"
               disabled={!bezier}
               onChange={(e) => onInput(i, e.target.value)}
+              onKeyDown={e=>{if(!bezier)return;const next=numericKeyValue(e,bezier[i],{step:.01,min:i===0||i===2?0:-Infinity,max:i===0||i===2?1:Infinity});if(next!==null){e.preventDefault();e.stopPropagation();onInput(i,String(next));}}}
             />
           ))}
         </div>

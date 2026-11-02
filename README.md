@@ -187,7 +187,7 @@ npm run desktop:package
 A saída fica em `dist-desktop/packages`, para o sistema e arquitetura que executam
 o comando. No Windows, gere e valide o pacote em uma máquina Windows. O projeto
 não declara que um pacote Windows foi testado apenas porque compilou no macOS.
-Os pacotes desktop 1.4.1 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
+Os pacotes desktop 1.4.2 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
 para o sistema e arquitetura. A exportação usa esses executáveis por caminho
 absoluto; não depende de Homebrew ou FFmpeg instalado no computador do usuário.
 Os programas de mídia são agregados separados: FFmpeg/x264 mantêm GPL versão 2
@@ -226,6 +226,11 @@ ser validada nesse sistema; gerar um PE/NSIS no Mac não comprova esse funcionam
 fundo. Textos, imagens absolutas e modelos compartilham a mesma ordem. A seleção
 múltipla mantém sua ordem interna e cada comando pode ser desfeito em uma etapa.
 Os atalhos ficam suspensos durante a digitação e em diálogos.
+
+Nos campos numéricos, ↑/↓ ajusta o passo normal; Shift+↑/↓ usa um passo dez
+vezes menor; ⌘/Ctrl+Shift+↑/↓ usa um passo cem vezes menor. Contagens, quadros
+e dimensões inteiras preservam valores válidos. Os decimais finos são mantidos
+ao sair do campo, salvar e exportar.
 
 O menu Arquivo oferece Abrir rascunho/template (⌘/Ctrl+O), Salvar composição
 (⌘/Ctrl+S) e Salvar rascunho (⌘/Ctrl+Shift+S). Fechar por ⌘W, ⌘Q ou pelos

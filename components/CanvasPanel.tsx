@@ -9,6 +9,7 @@ import InfoHint, { InfoLabel } from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
 import { idbPut } from '@/lib/assetDb';
 import GradientEditor from './GradientEditor';
+import {numericKeyValue} from '@/lib/numericKeyboard';
 
 const FPS_OPTIONS = [15, 25, 30, 60] as const;
 const BG_SOURCES = ['color', 'image', 'card'] as const;
@@ -32,7 +33,7 @@ export function DimInput({ value, onCommit }: { value: number; onCommit: (v: num
       value={text}
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
-      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      onKeyDown={(e) => {const next=numericKeyValue(e,Number(text),{min:16,max:8192,integer:true});if(next!==null){e.preventDefault();e.stopPropagation();setText(String(next));onCommit(next);return;} if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
     />
   );
 }
