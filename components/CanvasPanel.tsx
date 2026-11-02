@@ -10,6 +10,7 @@ import { uiHelp } from '@/lib/controlHelp';
 import { idbPut } from '@/lib/assetDb';
 import GradientEditor from './GradientEditor';
 import {numericKeyValue} from '@/lib/numericKeyboard';
+import { tx } from '@/lib/tx';
 
 const FPS_OPTIONS = [15, 25, 30, 60] as const;
 const BG_SOURCES = ['color', 'image', 'card'] as const;
@@ -74,7 +75,7 @@ export default function CanvasPanel({ is3DMode = false }: { is3DMode?: boolean }
   const setLogo = useSceneStore((s) => s.setLogo);
   const [mediaStatus, setMediaStatus] = useState('');
   const persistAux = async (file: File, kind: 'logo' | 'background' | 'audio') => {
-    setMediaStatus(locale === 'pt' ? 'Salvando arquivo…' : 'Saving file…');
+    setMediaStatus(tx(locale === 'pt', 'Salvando arquivo…', 'Saving file…'));
     try {
       const blobId = `aux_${crypto.randomUUID()}`;
       await idbPut(blobId, file);
@@ -82,8 +83,8 @@ export default function CanvasPanel({ is3DMode = false }: { is3DMode?: boolean }
       if (kind === 'logo') setLogo({ url, blobId });
       else if (kind === 'background') setBackground({ imageUrl: url, blobId });
       else useSceneStore.setState({ audioUrl: url, audioBlobId: blobId });
-      setMediaStatus(locale === 'pt' ? 'Arquivo salvo no projeto.' : 'File saved in project.');
-    } catch { setMediaStatus(locale === 'pt' ? 'Não foi possível salvar. Verifique o espaço disponível.' : 'Unable to save. Check available storage.'); }
+      setMediaStatus(tx(locale === 'pt', 'Arquivo salvo no projeto.', 'File saved in project.'));
+    } catch { setMediaStatus(tx(locale === 'pt', 'Não foi possível salvar. Verifique o espaço disponível.', 'Unable to save. Check available storage.')); }
   };
   const [previewQuality, setPreviewQuality] = useState('high');
   useEffect(() => { const sync = () => setPreviewQuality(localStorage.getItem('motion-preview-quality') ?? 'high'); sync(); window.addEventListener('motion-preview-quality', sync); return () => window.removeEventListener('motion-preview-quality', sync); }, []);
@@ -93,18 +94,18 @@ export default function CanvasPanel({ is3DMode = false }: { is3DMode?: boolean }
       <div className="section-head"><span className="eyebrow">{t('canvas')}</span></div>
       <div className="section-body">
         {mediaStatus && <p className="ctl-hint" role="status">{mediaStatus}</p>}
-        <label className="text-edit-label">{locale === 'pt' ? 'Qualidade da prévia' : 'Preview quality'}
+        <label className="text-edit-label">{tx(locale === 'pt', 'Qualidade da prévia', 'Preview quality')}
           <select className="field" value={previewQuality} onChange={(e) => {
             setPreviewQuality(e.target.value);
             localStorage.setItem('motion-preview-quality', e.target.value);
             window.dispatchEvent(new Event('motion-preview-quality'));
           }}>
-            <option value="fast">{locale === 'pt' ? 'Rápida' : 'Fast'}</option>
-            <option value="balanced">{locale === 'pt' ? 'Equilibrada' : 'Balanced'}</option>
-            <option value="high">{locale === 'pt' ? 'Alta qualidade' : 'High quality'}</option>
+            <option value="fast">{tx(locale === 'pt', 'Rápida', 'Fast')}</option>
+            <option value="balanced">{tx(locale === 'pt', 'Equilibrada', 'Balanced')}</option>
+            <option value="high">{tx(locale === 'pt', 'Alta qualidade', 'High quality')}</option>
           </select>
         </label>
-        <p className="ctl-hint">{locale === 'pt' ? 'A exportação mantém a resolução escolhida, independentemente da qualidade da prévia.' : 'Export uses its chosen resolution regardless of preview quality.'}</p>
+        <p className="ctl-hint">{tx(locale === 'pt', 'A exportação mantém a resolução escolhida, independentemente da qualidade da prévia.', 'Export uses its chosen resolution regardless of preview quality.')}</p>
         <div className="ctl-row">
           <InfoLabel help={uiHelp('aspect', locale)} name={t('aspect')}>{t('aspect')}</InfoLabel>
           <div className="pills aspect-pills">

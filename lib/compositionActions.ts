@@ -6,6 +6,7 @@ import { confirmLayer } from './confirmLayer';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { defaultsFor } from '@/templates';
 import { DEFAULT_TRACK_TRANSFORM, trackWindow } from './tracks';
+import { tx, txf } from '@/lib/tx';
 
 export function selectModelForEditing(id: string, additive = false, preserve = false, origin: 'canvas' | 'layers' | 'timeline' | 'inspector' = 'inspector') {
   const s = useSceneStore.getState(), track = s.tracks.find(t => t.id === id); if (!track) return;
@@ -52,7 +53,7 @@ export function duplicateCompositionLayer(id: string, offset = 24, record = true
     useSceneStore.setState({ tracks: s.tracks.map(l => ({ ...l, z: z.get(l.id) })), textLayers: [...s.textLayers.map(l => ({ ...l, z: z.get(l.id) })), copy] });
     useUIStore.getState().selectText(copyId);
   } else {
-    const copy = { ...structuredClone(track!), id: copyId, name: `${track!.name} ${pt ? 'cópia' : 'copy'}`, visible: true, transform: { ...track!.transform, x: track!.transform.x + offset, y: track!.transform.y + offset }, z: z.get(copyId) };
+    const copy = { ...structuredClone(track!), id: copyId, name: `${track!.name} ${tx(pt, 'cópia', 'copy')}`, visible: true, transform: { ...track!.transform, x: track!.transform.x + offset, y: track!.transform.y + offset }, z: z.get(copyId) };
     useSceneStore.setState({ tracks: [...s.tracks.map(l => ({ ...l, z: z.get(l.id) })), copy], activeTrackId: copyId, activeTemplateId: copy.templateId, values: copy.values, easing: copy.easing, compositeMode: 'stack' });
     useUIStore.getState().selectMotion(copyId);
   }
@@ -120,9 +121,9 @@ export async function deleteCompositionLayers(ids: string[]) {
   if (!removable.length) return;
   const removesLastModel = s.tracks.length > 0 && s.tracks.every(t => removable.includes(t.id));
   const message = removable.length === 1 && removesLastModel
-    ? (pt ? 'Este é o último modelo. Ocultá-lo da composição? A camada base será mantida para novos modelos.' : 'This is the last model. Hide it from the composition? The base layer is kept for new models.')
-    : (removable.length > 1 ? (pt ? `Excluir ${removable.length} camadas da composição?` : `Delete ${removable.length} composition layers?`) : (pt ? 'Excluir esta camada da composição?' : 'Delete this composition layer?'))
-      + (removesLastModel ? (pt ? ' O último modelo será mantido oculto como base do editor.' : ' The last model is kept hidden as the editor base.') : '');
+    ? (tx(pt, 'Este é o último modelo. Ocultá-lo da composição? A camada base será mantida para novos modelos.', 'This is the last model. Hide it from the composition? The base layer is kept for new models.'))
+    : (removable.length > 1 ? txf(pt, 'Excluir {n} camadas da composição?', 'Delete {n} composition layers?', { n: removable.length }) : (tx(pt, 'Excluir esta camada da composição?', 'Delete this composition layer?')))
+      + (removesLastModel ? (tx(pt, ' O último modelo será mantido oculto como base do editor.', ' The last model is kept hidden as the editor base.')) : '');
   if (!await confirmLayer(message, pt) || revision !== sceneRestoreRevision()) return;
   const current = useSceneStore.getState();
   let tracks = current.tracks.filter(l => !removable.includes(l.id));

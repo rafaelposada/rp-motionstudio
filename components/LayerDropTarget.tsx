@@ -4,6 +4,7 @@ import { type ReactNode, type DragEvent, type PointerEvent } from 'react';
 import { useUIStore } from '@/store/useUIStore';
 import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { reorderCompositionLayer, moveCompositionLayer, selectedCompositionIds } from '@/lib/compositionActions';
+import { tx } from '@/lib/tx';
 
 let cancelReorder: (() => void) | null = null;
 let suppressClick: { id: string; until: number } | null = null;
@@ -77,7 +78,7 @@ export function layerDragProps(id: string) {
 }
 export function LayerDragHandle({ id, name }: { id: string; name: string }) {
   const pt = useUIStore(s => s.locale) === 'pt';
-  return <button type="button" className="layer-sort-grip" {...layerDragProps(id)} aria-label={`${pt ? 'Arrastar para ordenar' : 'Drag to reorder'}: ${name}`} title={pt ? 'Arraste a alça ou o nome para ordenar. Alt + ↑/↓ também altera a ordem.' : 'Drag the grip or name to reorder. Alt + ↑/↓ also changes order.'}
+  return <button type="button" className="layer-sort-grip" {...layerDragProps(id)} aria-label={`${tx(pt, 'Arrastar para ordenar', 'Drag to reorder')}: ${name}`} title={tx(pt, 'Arraste a alça ou o nome para ordenar. Alt + ↑/↓ também altera a ordem.', 'Drag the grip or name to reorder. Alt + ↑/↓ also changes order.')}
     onKeyDown={e => { if (e.altKey && ['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); moveCompositionLayer(id, e.key === 'ArrowUp' ? 1 : -1); } }}>⠿</button>;
 }
 export default function LayerDropTarget({ id, children }: { id: string; name?: string; children: ReactNode }) {

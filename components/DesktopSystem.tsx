@@ -13,6 +13,7 @@ import {useHistoryStore} from '@/store/useHistoryStore';
 import {compositionOrder} from '@/lib/composition';
 import {arrangeCompositionLayers} from '@/lib/compositionActions';
 import {appChoice,type AppChoice} from '@/lib/appDialog';
+import { tx } from '@/lib/tx';
 
 export default function DesktopSystem() {
   const [desktop,setDesktop]=useState(false),[message,setMessage]=useState('');
@@ -37,7 +38,7 @@ export default function DesktopSystem() {
         // Close confirmation and error notices are drawn by the app itself, not
         // as macOS/Windows sheets, so they share the editor's design.
         if(action==='choice'){api.respond(id,{ok:true,value:await appChoice(payload as AppChoice)});return;}
-        if(working||desktopBusy()||pendingAssetTransactions()>0)throw Error(pt?'Aguarde a operação em andamento.':'Wait for the current operation to finish.');
+        if(working||desktopBusy()||pendingAssetTransactions()>0)throw Error(tx(pt, 'Aguarde a operação em andamento.', 'Wait for the current operation to finish.'));
         working=true;ownsWork=true;
         if(action==='undo'||action==='redo'){
           const active=document.activeElement;
@@ -57,19 +58,19 @@ export default function DesktopSystem() {
           if(!typing&&!ui.settingsOpen&&ui.nav!=='home'&&!document.querySelector('dialog[open]'))arrangeCompositionLayers(ui.selectedLayerIds,action==='arrange-front'?'front':'back');
         }else if(action==='settings')useUIStore.getState().setSettingsOpen(true);
         else if(action==='save-local'){
-          flushScene();if(getSaveState().status!=='saved')throw Error(pt?'Não foi possível salvar. A janela será mantida aberta.':'Save failed. The window will remain open.');
+          flushScene();if(getSaveState().status!=='saved')throw Error(tx(pt, 'Não foi possível salvar. A janela será mantida aberta.', 'Save failed. The window will remain open.'));
         }else if(action==='save-draft'||action==='save-draft-notify'){
-          if(!project)throw Error(pt?'Abra uma composição primeiro.':'Open a composition first.');
+          if(!project)throw Error(tx(pt, 'Abra uma composição primeiro.', 'Open a composition first.'));
           useSceneStore.getState().setPlaying(false);
           const saved=await saveProjectPackage(project,'draft');
-          if(alive&&action.endsWith('notify'))setMessage(`${pt?'Rascunho salvo em':'Draft saved to'}: ${saved.path}`);
+          if(alive&&action.endsWith('notify'))setMessage(`${tx(pt, 'Rascunho salvo em', 'Draft saved to')}: ${saved.path}`);
         }else if(action==='open-project'){
           const file=await api.openProject();
           if(file){const imported=await importProjectPackage(new File([new Uint8Array(file.bytes)],file.name,{type:'application/zip'}));
             // Open before refreshing: package creation changes the persisted
             // active id, while open() must still see the previous live id.
             useProjectStore.getState().open(imported.id);useProjectStore.getState().refresh();
-            useUIStore.getState().setNav('library');if(alive)setMessage(pt?'Projeto importado. O pacote original foi preservado.':'Project imported. The original package was preserved.');}
+            useUIStore.getState().setNav('library');if(alive)setMessage(tx(pt, 'Projeto importado. O pacote original foi preservado.', 'Project imported. The original package was preserved.'));}
         }else throw Error('Ação indisponível.');
         api.respond(id,{ok:true});
       }catch(error){api.respond(id,{ok:false,error:error instanceof Error?error.message:String(error)});}

@@ -6,6 +6,7 @@ import { recoverModel } from '@/lib/compositionActions';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
 import { trackWindow } from '@/lib/tracks';
+import { tx } from '@/lib/tx';
 
 export default function ModelVisibilityNotice() {
   const pt = useUIStore(s => s.locale) === 'pt', [outside, setOutside] = useState<string | null>(null);
@@ -23,5 +24,5 @@ export default function ModelVisibilityNotice() {
     return () => window.removeEventListener('motion-preview-rendered', update);
   }, []);
   if (!outside) return null;
-  return <div className="model-visibility-notice" role="status"><span>{pt ? 'O modelo está fora da área visível neste quadro.' : 'The model is outside the visible canvas at this frame.'}</span><button className="btn" onClick={() => recoverModel(outside)}>{pt ? 'Recuperar enquadramento' : 'Restore framing'}</button></div>;
+  return <div className="model-visibility-notice" role="status"><span>{tx(pt, 'O modelo está fora da área visível neste quadro.', 'The model is outside the visible canvas at this frame.')}</span><button className="btn" onClick={() => recoverModel(outside)}>{tx(pt, 'Recuperar enquadramento', 'Restore framing')}</button></div>;
 }

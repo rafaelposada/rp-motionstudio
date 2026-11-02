@@ -85,6 +85,7 @@ export default function EasingPanel() {
   };
 
   const signature = EASING_PRESETS.filter((p) => p.group === 'signature');
+  const [presetsOpen, setPresetsOpen] = useState(false);
   const standard = EASING_PRESETS.filter((p) => p.group === 'standard');
   const physics = EASING_PRESETS.filter((p) => p.group === 'physics');
 
@@ -162,31 +163,39 @@ export default function EasingPanel() {
           ))}
         </div>
 
-        {/* ---- Defaults / Custom tabs ---- */}
-        <div className="segmented ez-tabs">
-          <button className={`seg ${tab === 'defaults' ? 'active' : ''}`} onClick={() => setTab('defaults')}>{t('defaults')}</button>
-          <button className={`seg ${tab === 'custom' ? 'active' : ''}`} onClick={() => setTab('custom')}>{t('custom')}</button>
-        </div>
+        {/* ---- presets: collapsible, like the other inspector sections ---- */}
+        <button type="button" className="ez-presets-toggle" aria-expanded={presetsOpen} onClick={() => setPresetsOpen((open) => !open)}>
+          <span>{t('presets')}</span>
+          <em>{activePreset ? label(activePreset.label) : t('customCurve')}</em>
+          <span aria-hidden="true">{presetsOpen ? '−' : '+'}</span>
+        </button>
+        {presetsOpen && <>
+          {/* ---- Defaults / Custom tabs ---- */}
+          <div className="segmented ez-tabs">
+            <button className={`seg ${tab === 'defaults' ? 'active' : ''}`} onClick={() => setTab('defaults')}>{t('defaults')}</button>
+            <button className={`seg ${tab === 'custom' ? 'active' : ''}`} onClick={() => setTab('custom')}>{t('custom')}</button>
+          </div>
 
-        {/* ---- preset list ---- */}
-        {tab === 'defaults' ? (
-          <div className="ez-list">
-            {signature.map((p) => (
-              <PresetRow key={p.id} id={p.id} label={label(p.label)} active={easing.id === p.id} onPick={() => setEasing({ id: p.id })} />
-            ))}
-          </div>
-        ) : (
-          <div className="ez-list">
-            <div className="ez-group-label">{t('standard')}</div>
-            {standard.map((p) => (
-              <PresetRow key={p.id} id={p.id} label={label(p.label)} active={easing.id === p.id} onPick={() => setEasing({ id: p.id })} />
-            ))}
-            <div className="ez-group-label">{t('physics')}</div>
-            {physics.map((p) => (
-              <PresetRow key={p.id} id={p.id} label={label(p.label)} active={easing.id === p.id} onPick={() => setEasing({ id: p.id })} />
-            ))}
-          </div>
-        )}
+          {/* ---- preset list ---- */}
+          {tab === 'defaults' ? (
+            <div className="ez-list">
+              {signature.map((p) => (
+                <PresetRow key={p.id} id={p.id} label={label(p.label)} active={easing.id === p.id} onPick={() => setEasing({ id: p.id })} />
+              ))}
+            </div>
+          ) : (
+            <div className="ez-list">
+              <div className="ez-group-label">{t('standard')}</div>
+              {standard.map((p) => (
+                <PresetRow key={p.id} id={p.id} label={label(p.label)} active={easing.id === p.id} onPick={() => setEasing({ id: p.id })} />
+              ))}
+              <div className="ez-group-label">{t('physics')}</div>
+              {physics.map((p) => (
+                <PresetRow key={p.id} id={p.id} label={label(p.label)} active={easing.id === p.id} onPick={() => setEasing({ id: p.id })} />
+              ))}
+            </div>
+          )}
+        </>}
 
         {easing.id === 'custom' && <div className="ez-custom-tag">{t('customCurve')}</div>}
 

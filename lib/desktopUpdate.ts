@@ -6,6 +6,7 @@ import { desktopAPI, desktopBusy } from './desktop';
 import { appChoice } from './appDialog';
 import { flushScene } from './scenePersist';
 import { useSceneStore } from '@/store/useSceneStore';
+import { tx, txf } from '@/lib/tx';
 
 export type DesktopUpdatePhase = 'idle' | 'downloading' | 'installing' | 'ready' | 'applying' | 'error';
 interface State { phase: DesktopUpdatePhase; received: number; total: number; version: string; error: string }
@@ -38,12 +39,12 @@ export async function installDesktopUpdate(pt: boolean) {
     const version = useDesktopUpdate.getState().version;
     const restart = await appChoice({
       title: 'RP MotionStudio',
-      message: pt ? `A versão ${version} está pronta para instalar.` : `Version ${version} is ready to install.`,
-      detail: pt ? 'O app salva a composição, fecha, troca a versão e abre de novo em alguns segundos. Projetos, mídias e preferências são mantidos.' : 'The app saves your composition, closes, swaps the version and reopens in a few seconds. Projects, media and preferences are kept.',
-      buttons: [pt ? 'Reiniciar e instalar' : 'Restart and install', pt ? 'Depois' : 'Later'], defaultIndex: 0, cancelIndex: 1,
+      message: txf(pt, 'A versão {v} está pronta para instalar.', 'Version {v} is ready to install.', { v: version }),
+      detail: tx(pt, 'O app salva a composição, fecha, troca a versão e abre de novo em alguns segundos. Projetos, mídias e preferências são mantidos.', 'The app saves your composition, closes, swaps the version and reopens in a few seconds. Projects, media and preferences are kept.'),
+      buttons: [tx(pt, 'Reiniciar e instalar', 'Restart and install'), tx(pt, 'Depois', 'Later')], defaultIndex: 0, cancelIndex: 1,
     });
     if (restart !== 0) return;
-    if (desktopBusy()) throw Error(pt ? 'Aguarde a exportação ou o salvamento em andamento e tente de novo.' : 'Wait for the export or save in progress, then try again.');
+    if (desktopBusy()) throw Error(tx(pt, 'Aguarde a exportação ou o salvamento em andamento e tente de novo.', 'Wait for the export or save in progress, then try again.'));
     useSceneStore.getState().setPlaying(false);
     flushScene();
     useDesktopUpdate.setState({ phase: 'applying' });

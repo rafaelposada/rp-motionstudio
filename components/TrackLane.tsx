@@ -12,6 +12,7 @@ import { LayerDragHandle, timelineLayerDragProps } from './LayerDropTarget';
 import { layerDisplayName, duplicateCompositionLayers, selectedCompositionIds } from '@/lib/compositionActions';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection, type TimelineWindow } from '@/lib/timelineSelection';
+import { tx } from '@/lib/tx';
 
 type DragMode = 'move' | 'in' | 'out';
 
@@ -106,7 +107,7 @@ export default function TrackLane({
       <div className="tl-lane-gutter">{leadingControl}<LayerDragHandle id={track.id} name={name}/>
         <button
           className="tl-lane-btn"
-          title={track.visible ? (pt ? 'Ocultar camada' : 'Hide layer') : (pt ? 'Mostrar camada' : 'Show layer')}
+          title={track.visible ? (tx(pt, 'Ocultar camada', 'Hide layer')) : (tx(pt, 'Mostrar camada', 'Show layer'))}
           onClick={(e) => { e.stopPropagation(); toggleTrackVisible(track.id); }}
         >
           {track.visible ? (
@@ -120,7 +121,7 @@ export default function TrackLane({
         <div className="tl-lane-order">
           <button
             className="tl-lane-arrow"
-            title={pt ? 'Trazer à frente' : 'Bring forward'}
+            title={tx(pt, 'Trazer à frente', 'Bring forward')}
             disabled={index === order.length - 1}
             onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, 1); }}
           >
@@ -128,7 +129,7 @@ export default function TrackLane({
           </button>
           <button
             className="tl-lane-arrow"
-            title={pt ? 'Enviar atrás' : 'Send backward'}
+            title={tx(pt, 'Enviar atrás', 'Send backward')}
             disabled={index === 0}
             onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, -1); }}
           >
@@ -146,7 +147,7 @@ export default function TrackLane({
 
         <button
           className="tl-lane-btn danger"
-          title={pt ? 'Excluir camada' : 'Delete layer'}
+          title={tx(pt, 'Excluir camada', 'Delete layer')}
           onClick={(e) => { e.stopPropagation(); removeTrack(track.id); }}
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6.5 5V3.5h3V5M5 5l.6 8h4.8L11 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -176,8 +177,8 @@ export default function TrackLane({
             <em>{templateName}</em>
           </span>
 
-          <span className="tl-bar-edge in" onPointerDown={onPointerDown('in')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={pt ? 'Aparar início' : 'Trim in'} />
-          <span className="tl-bar-edge out" onPointerDown={onPointerDown('out')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={pt ? 'Aparar fim' : 'Trim out'} />
+          <span className="tl-bar-edge in" onPointerDown={onPointerDown('in')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={tx(pt, 'Aparar início', 'Trim in')} />
+          <span className="tl-bar-edge out" onPointerDown={onPointerDown('out')} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp()} onPointerCancel={() => onPointerUp(true)} title={tx(pt, 'Aparar fim', 'Trim out')} />
         </div>
       </div>
     </div>

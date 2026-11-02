@@ -9,6 +9,7 @@ import { ControlRow } from './Controls';
 import { useI18n } from '@/lib/useI18n';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import type { Template } from '@/lib/types';
+import { tx, txf } from '@/lib/tx';
 
 function CatalogTile({ template, active, pick }: { template: Template; active: boolean; pick: (id: string) => void }) {
   const { t, locale } = useI18n(), ids = useFavoritesStore(s => s.ids), toggle = useFavoritesStore(s => s.toggle);
@@ -17,9 +18,9 @@ function CatalogTile({ template, active, pick }: { template: Template; active: b
     <button className={`tpl-card ${active ? 'active' : ''}`} onClick={() => pick(template.meta.id)} aria-label={template.meta.name} title={template.meta.name}>
       <TemplateThumb template={template} />
       {template.meta.isNew && <span className="tpl-new">{t('newBadge')}</span>}
-      <span className="tpl-card-label">{template.meta.name}{template.meta.staticByDefault && <small className="tpl-static-label">{locale === 'pt' ? 'Base estática · movimento opcional' : 'Static base · optional motion'}</small>}</span>
+      <span className="tpl-card-label">{template.meta.name}{template.meta.staticByDefault && <small className="tpl-static-label">{tx(locale === 'pt', 'Base estática · movimento opcional', 'Static base · optional motion')}</small>}</span>
     </button>
-    <button type="button" className={`tpl-favorite ${favorite ? 'active' : ''}`} aria-pressed={favorite} aria-label={`${locale === 'pt' ? 'Favorito' : 'Favorite'}: ${template.meta.name}`} title={locale === 'pt' ? 'Salvar nos favoritos' : 'Save to favorites'} onClick={() => toggle(template.meta.id)}>{favorite ? '♥' : '♡'}</button>
+    <button type="button" className={`tpl-favorite ${favorite ? 'active' : ''}`} aria-pressed={favorite} aria-label={`${tx(locale === 'pt', 'Favorito', 'Favorite')}: ${template.meta.name}`} title={tx(locale === 'pt', 'Salvar nos favoritos', 'Save to favorites')} onClick={() => toggle(template.meta.id)}>{favorite ? '♥' : '♡'}</button>
   </div>;
 }
 
@@ -190,10 +191,10 @@ export default function TemplatesCard({
           // Accordion: keep catalogue context while showing one group's models.
           <>
             <div className={`tpl-accordion ${openGroup === '__favorites' ? 'open' : ''}`}>
-              <button className="tpl-item" aria-expanded={openGroup === '__favorites'} onClick={() => setOpenGroup(openGroup === '__favorites' ? null : '__favorites')}><span aria-hidden="true">♡</span><span className="tpl-name">{locale === 'pt' ? 'Favoritos' : 'Favorites'}</span><span className="tpl-count">{catalogTemplateList.filter(t => favorites.includes(t.meta.id)).length}</span><Chevron /></button>
-              {openGroup === '__favorites' && (favorites.length ? <div className="tpl-grid tpl-grid-accordion">{catalogTemplateList.filter(t => favorites.includes(t.meta.id)).map(template => <CatalogTile key={template.meta.id} template={template} active={activeTemplateId === template.meta.id} pick={pick} />)}</div> : <p className="tpl-empty">{locale === 'pt' ? 'Toque no coração de um modelo para guardá-lo aqui.' : 'Tap the heart on a template to keep it here.'}</p>)}
+              <button className="tpl-item" aria-expanded={openGroup === '__favorites'} onClick={() => setOpenGroup(openGroup === '__favorites' ? null : '__favorites')}><span aria-hidden="true">♡</span><span className="tpl-name">{tx(locale === 'pt', 'Favoritos', 'Favorites')}</span><span className="tpl-count">{catalogTemplateList.filter(t => favorites.includes(t.meta.id)).length}</span><Chevron /></button>
+              {openGroup === '__favorites' && (favorites.length ? <div className="tpl-grid tpl-grid-accordion">{catalogTemplateList.filter(t => favorites.includes(t.meta.id)).map(template => <CatalogTile key={template.meta.id} template={template} active={activeTemplateId === template.meta.id} pick={pick} />)}</div> : <p className="tpl-empty">{tx(locale === 'pt', 'Toque no coração de um modelo para guardá-lo aqui.', 'Tap the heart on a template to keep it here.')}</p>)}
             </div>
-            {favoritesError && <p className="ctl-hint" role="status">{locale === 'pt' ? 'Os favoritos não puderam ser salvos no armazenamento local.' : 'Favorites could not be saved to local storage.'}</p>}
+            {favoritesError && <p className="ctl-hint" role="status">{tx(locale === 'pt', 'Os favoritos não puderam ser salvos no armazenamento local.', 'Favorites could not be saved to local storage.')}</p>}
             {templateGroups.map(({ group: name, items }) => {
               const activeHere = items.some((t) => t.meta.id === activeTemplateId);
               const isOpen = openGroup === name;
@@ -210,7 +211,7 @@ export default function TemplatesCard({
                     {/* A family is new if any of its presets is, so the marker
                         shows on the collapsed list without opening the group. */}
                     {items.some((t) => t.meta.isNew) && <span className="tpl-new-inline">{t('newBadge')}</span>}
-                    <span className="tpl-count" aria-label={locale === 'pt' ? `${items.length} versões` : `${items.length} variants`}>{items.length}</span>
+                    <span className="tpl-count" aria-label={txf(locale === 'pt', '{n} versões', '{n} variants', { n: items.length })}>{items.length}</span>
                     <span className="tpl-accordion-chevron"><Chevron /></span>
                   </button>
                   {isOpen && (

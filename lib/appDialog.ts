@@ -17,8 +17,13 @@ export function appChoice({ title, message, detail, buttons, defaultIndex = 0, c
     const actions = document.createElement('div'); actions.className = 'app-dialog-actions';
     let done = false;
     const finish = (index: number) => { if (done) return; done = true; dialog.close(); dialog.remove(); prior?.focus?.(); resolve(index); };
-    // Visual order follows the desktop convention: cancel first, primary last.
-    const order = buttons.map((_, index) => index).sort((a, b) => (a === cancelIndex ? -1 : b === cancelIndex ? 1 : 0) || (a === defaultIndex ? 1 : b === defaultIndex ? -1 : a - b));
+    // Two choices sit in a row (cancel first, primary last). Three or more stack
+    // full width with the primary on top and cancel at the bottom, so long
+    // labels never wrap into an uneven grid.
+    const stacked = buttons.length > 2;
+    if (stacked) actions.classList.add('stacked');
+    const rank = (index: number) => index === defaultIndex ? (stacked ? -1 : 1) : index === cancelIndex ? (stacked ? 1 : -1) : 0;
+    const order = buttons.map((_, index) => index).sort((a, b) => rank(a) - rank(b) || a - b);
     let primary: HTMLButtonElement | null = null;
     for (const index of order) {
       const button = document.createElement('button');

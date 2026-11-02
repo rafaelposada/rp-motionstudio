@@ -1,5 +1,6 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
-export type Locale = 'en' | 'pt';
+export type Locale = 'en' | 'pt' | 'es';
+import { ES } from './i18nEs';
 
 const messages = {
   en: {
@@ -24,7 +25,7 @@ const messages = {
     fullBleed: 'Full-bleed template — cards match the canvas', videoEnd: 'Video end', loop: 'Loop', holdLast: 'Hold last frame',
     slot: 'Slot {number}', dropOrClick: 'Drop or click to add', crop: 'Crop', remove: 'Remove', hide: 'Hide', show: 'Show',
     mediaFit: 'Media fit', fillMedia: 'Fill', fitMedia: 'Fit', stretchMedia: 'Stretch', focalPoint: 'Focal point', preparingMedia: 'Preparing media', applyAllMedia: 'Apply focal point to all media',
-    easing: 'Easing', defaults: 'Defaults', standard: 'Standard', physics: 'Physics', customCurve: 'Custom curve', resetAll: 'Reset all values',
+    easing: 'Easing', defaults: 'Defaults', standard: 'Standard', physics: 'Physics', customCurve: 'Custom curve', presets: 'Preset curves', resetAll: 'Reset all values',
   },
   pt: {
     new: 'Novo', projects: 'Projetos', library: 'Biblioteca', mockup: 'Mockup', experiments: 'Experimentos', boards: 'Painéis',
@@ -48,14 +49,14 @@ const messages = {
     fullBleed: 'Modelo em tela cheia — os cartões acompanham a tela', videoEnd: 'Fim do vídeo', loop: 'Repetir', holdLast: 'Manter último quadro',
     slot: 'Espaço {number}', dropOrClick: 'Solte ou clique para adicionar', crop: 'Recortar', remove: 'Remover', hide: 'Ocultar', show: 'Mostrar',
     mediaFit: 'Preenchimento', fillMedia: 'Preencher', fitMedia: 'Ajustar', stretchMedia: 'Esticar', focalPoint: 'Ponto focal', preparingMedia: 'Preparando mídia', applyAllMedia: 'Aplicar ponto focal a todas as mídias',
-    easing: 'Suavização', defaults: 'Padrões', standard: 'Padrão', physics: 'Física', customCurve: 'Curva personalizada', resetAll: 'Redefinir todos os valores',
+    easing: 'Suavização', defaults: 'Padrões', standard: 'Padrão', physics: 'Física', customCurve: 'Curva personalizada', presets: 'Curvas predefinidas', resetAll: 'Redefinir todos os valores',
   },
 } as const;
 
 export type MessageKey = keyof typeof messages.en;
 
 export function translate(locale: Locale, key: MessageKey, vars?: Record<string, string | number>) {
-  let value: string = messages[locale][key] ?? messages.en[key];
+  let value: string = locale === 'es' ? ES[messages.pt[key]] ?? messages.en[key] : messages[locale][key] ?? messages.en[key];
   if (vars) {
     for (const [name, replacement] of Object.entries(vars)) {
       value = value.replace(`{${name}}`, String(replacement));
@@ -153,9 +154,11 @@ const optionsPt: Record<string, string> = {
 };
 
 export function translateLabel(locale: Locale, value: string) {
+  if (locale === 'es') { const pt = labelsPt[value]; return pt ? ES[pt] ?? value : value; }
   return locale === 'pt' ? labelsPt[value] ?? value : value;
 }
 
 export function translateOption(locale: Locale, value: string) {
+  if (locale === 'es') { const pt = optionsPt[value.toLowerCase()]; return pt ? ES[pt] ?? value : value; }
   return locale === 'pt' ? optionsPt[value.toLowerCase()] ?? value : value;
 }

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useUIStore } from '@/store/useUIStore';
+import { tx } from '@/lib/tx';
 
 const SEEN_KEY = 'motion-welcome-seen';
 
@@ -35,29 +36,29 @@ export default function WelcomeDialog() {
     <div className="modal-backdrop welcome-backdrop">
       <div className="modal welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" onClick={(e) => e.stopPropagation()}>
         <div className="welcome-body">
-          <span className="eyebrow">{pt?'Boas-vindas':'Welcome'}</span>
+          <span className="eyebrow">{tx(pt, 'Boas-vindas', 'Welcome')}</span>
           <h1 className="welcome-title" id="welcome-title">RP MotionStudio</h1>
 
           <p>
-            {pt?'Componha fotos, vídeos, texto e áudio com modelos de movimento. Desenvolvimento da versão RP e direção do produto por Rafael Posada.':'Compose photos, video, text and audio with motion templates. RP edition development and product direction by Rafael Posada.'}
+            {tx(pt, 'Componha fotos, vídeos, texto e áudio com modelos de movimento. Desenvolvimento da versão RP e direção do produto por Rafael Posada.', 'Compose photos, video, text and audio with motion templates. RP edition development and product direction by Rafael Posada.')}
           </p>
           <p>
-            {pt?'Esta edição é distribuída sob Apache 2.0. Componentes de terceiros mantêm suas próprias licenças e atribuições em LICENSE e NOTICE.':'This edition is distributed under Apache 2.0. Third-party components retain their own licenses and attribution in LICENSE and NOTICE.'}
+            {tx(pt, 'Esta edição é distribuída sob Apache 2.0. Componentes de terceiros mantêm suas próprias licenças e atribuições em LICENSE e NOTICE.', 'This edition is distributed under Apache 2.0. Third-party components retain their own licenses and attribution in LICENSE and NOTICE.')}
           </p>
 
           <ul className="welcome-list">
-            <li>{pt?'Escolha um modelo e adicione suas mídias.':'Choose a template and add your media.'}</li>
-            <li>{pt?'T e clique adicionam texto; duplo clique edita.':'Press T and click to add text; double-click to edit.'}</li>
-            <li>{pt?'O salvamento automático mantém a composição neste aplicativo.':'Autosave keeps your composition in this app.'}</li>
-            <li>{pt?'Salve um rascunho .motion.zip para guardar uma cópia com as mídias.':'Save a .motion.zip draft for an independent copy including media.'}</li>
-            <li>{pt?'Importe seus rascunhos da instalação anterior para continuar.':'Import drafts from your previous installation to continue.'}</li>
+            <li>{tx(pt, 'Escolha um modelo e adicione suas mídias.', 'Choose a template and add your media.')}</li>
+            <li>{tx(pt, 'T e clique adicionam texto; duplo clique edita.', 'Press T and click to add text; double-click to edit.')}</li>
+            <li>{tx(pt, 'O salvamento automático mantém a composição neste aplicativo.', 'Autosave keeps your composition in this app.')}</li>
+            <li>{tx(pt, 'Salve um rascunho .motion.zip para guardar uma cópia com as mídias.', 'Save a .motion.zip draft for an independent copy including media.')}</li>
+            <li>{tx(pt, 'Importe seus rascunhos da instalação anterior para continuar.', 'Import drafts from your previous installation to continue.')}</li>
           </ul>
 
           <p className="welcome-love">
-            {pt?'Sua instalação anterior e os projetos originais permanecem independentes.':'Your previous installation and original projects remain independent.'}
+            {tx(pt, 'Sua instalação anterior e os projetos originais permanecem independentes.', 'Your previous installation and original projects remain independent.')}
           </p>
 
-          <button className="btn primary full" onClick={enter}>{pt?'Começar':'Get started'}</button>
+          <button className="btn primary full" onClick={enter}>{tx(pt, 'Começar', 'Get started')}</button>
         </div>
       </div>
     </div>

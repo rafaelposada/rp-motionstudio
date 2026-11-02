@@ -6,6 +6,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { useI18n } from '@/lib/useI18n';
 import { AddIcon, LibraryIcon, ProjectsIcon } from './EditorIcons';
 import { showHome } from '@/lib/homeNavigation';
+import { tx } from '@/lib/tx';
 
 const NAV = [
   { id: 'projects', labelKey: 'projects' as const, icon: (
@@ -34,14 +35,14 @@ export default function IconRail() {
   // An ACTION, not a nav section — so it never takes the active state. The +
   // icon at the top of the rail now creates what it looks like it creates.
   const newProject = () => {
-    createProject(`${locale === 'pt' ? 'Projeto' : 'Project'} ${projectCount + 1}`);
+    createProject(`${tx(locale === 'pt', 'Projeto', 'Project')} ${projectCount + 1}`);
     openLibrary('library');
   };
 
   return (
     <aside className="card rail">
       <div className="rail-top">
-        <button className="rail-logo" onClick={() => void showHome()} aria-label={locale === 'pt' ? 'RP MotionStudio — Início' : 'RP MotionStudio — Home'} title={locale === 'pt' ? 'Ir para o início' : 'Go home'}>
+        <button className="rail-logo" onClick={() => void showHome()} aria-label={tx(locale === 'pt', 'RP MotionStudio — Início', 'RP MotionStudio — Home')} title={tx(locale === 'pt', 'Ir para o início', 'Go home')}>
           <img src={`/rp-motionstudio-${theme}.svg`} alt="RP MotionStudio" width="40" height="40" />
         </button>
         <button className="rail-item rail-action" onClick={newProject} title={t('createProject')} aria-label={t('createProject')}>
@@ -61,11 +62,11 @@ export default function IconRail() {
         <button
           className="rail-item rail-settings"
           onClick={() => openSettings(true)}
-          aria-label={locale === 'pt' ? 'Configurações' : 'Settings'}
-          title={locale === 'pt' ? 'Configurações (⌘,)' : 'Settings (⌘,)'}
+          aria-label={tx(locale === 'pt', 'Configurações', 'Settings')}
+          title={tx(locale === 'pt', 'Configurações (⌘,)', 'Settings (⌘,)')}
         >
           <span className="rail-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9.4 3-.5 2.2-1.5.9-2.2-.7L3 9.2l1.7 1.5v1.7L3 14l2.2 3.8 2.2-.7 1.5.9.5 2.2h4.4l.5-2.2 1.5-.9 2.2.7 2.2-3.8-1.7-1.5v-1.7l1.7-1.5L18 5.5l-2.2.7-1.5-.9-.5-2.3H9.4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><circle cx="11.6" cy="11.6" r="3" stroke="currentColor" strokeWidth="1.5"/></svg></span>
-          <span className="rail-label">{locale === 'pt' ? 'Ajustes' : 'Settings'}</span>
+          <span className="rail-label">{tx(locale === 'pt', 'Ajustes', 'Settings')}</span>
         </button>
       </div>
     </aside>

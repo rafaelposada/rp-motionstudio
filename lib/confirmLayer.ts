@@ -1,3 +1,4 @@
+import { tx } from '@/lib/tx';
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 // In-app confirmation avoids browser-owned alerts and keeps keyboard focus
 // trapped until the user explicitly confirms or cancels.
@@ -6,12 +7,12 @@ export function confirmLayer(message: string, pt = true): Promise<boolean> {
     if (document.querySelector('dialog[open]')) { resolve(false); return; }
     const prior = document.activeElement as HTMLElement | null;
     const dialog = document.createElement('dialog'); dialog.className = 'layer-confirm';
-    dialog.setAttribute('aria-label', pt ? 'Confirmar exclusão' : 'Confirm deletion');
+    dialog.setAttribute('aria-label', tx(pt, 'Confirmar exclusão', 'Confirm deletion'));
     const text = document.createElement('p'); text.textContent = message;
     const actions = document.createElement('div');
     const cancel = document.createElement('button'), confirm = document.createElement('button');
-    cancel.className = 'btn'; cancel.textContent = pt ? 'Cancelar' : 'Cancel';
-    confirm.className = 'btn primary'; confirm.textContent = pt ? 'Confirmar' : 'Confirm';
+    cancel.className = 'btn'; cancel.textContent = tx(pt, 'Cancelar', 'Cancel');
+    confirm.className = 'btn primary'; confirm.textContent = tx(pt, 'Confirmar', 'Confirm');
     const finish = (approved: boolean) => { dialog.close(); dialog.remove(); prior?.focus(); resolve(approved); };
     cancel.onclick = () => finish(false); confirm.onclick = () => finish(true);
     dialog.addEventListener('cancel', (event) => { event.preventDefault(); finish(false); });

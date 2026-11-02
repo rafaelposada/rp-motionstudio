@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { FIT_VIEW, zoomPreview, panPreview, type PreviewView } from '@/lib/previewNavigation';
 import { useUIStore } from '@/store/useUIStore';
+import { tx } from '@/lib/tx';
 
 export default function PreviewNavigation({ stage }: { stage: RefObject<HTMLDivElement | null> }) {
   const view = useRef<PreviewView>({ ...FIT_VIEW }), [percent, setPercent] = useState(100);
@@ -84,10 +85,10 @@ export default function PreviewNavigation({ stage }: { stage: RefObject<HTMLDivE
     element.addEventListener('pointerdown', pointerDown, true); window.addEventListener('pointermove', pointerMove, { passive: false, capture: true }); window.addEventListener('pointerup', pointerUp, true); window.addEventListener('pointercancel', pointerUp, true); window.addEventListener('blur', blur);
     return () => { window.removeEventListener('motion-text-tool',textTool);cancelAnimationFrame(paint); window.removeEventListener('keyup', keyUp, true); document.removeEventListener('wheel', wheel, true); window.removeEventListener('keydown', key, true); document.removeEventListener('gesturestart', gestureStart); document.removeEventListener('gesturechange', gestureChange); document.removeEventListener('gestureend', gestureEnd); element.removeEventListener('pointerdown', pointerDown, true); window.removeEventListener('pointermove', pointerMove, true); window.removeEventListener('pointerup', pointerUp, true); window.removeEventListener('pointercancel', pointerUp, true); window.removeEventListener('blur', blur); };
   }, [stage]);
-  return <div className="preview-navigation" aria-label={pt ? 'Zoom da visualização' : 'Preview zoom'} onPointerDown={e => e.stopPropagation()}>
-    <button title={pt ? 'Diminuir zoom · ⌘/Ctrl −' : 'Zoom out · ⌘/Ctrl −'} aria-label={pt ? 'Diminuir zoom da prévia' : 'Zoom out preview'} onClick={() => change.current(view.current.zoom / 1.2)}>−</button>
+  return <div className="preview-navigation" aria-label={tx(pt, 'Zoom da visualização', 'Preview zoom')} onPointerDown={e => e.stopPropagation()}>
+    <button title={tx(pt, 'Diminuir zoom · ⌘/Ctrl −', 'Zoom out · ⌘/Ctrl −')} aria-label={tx(pt, 'Diminuir zoom da prévia', 'Zoom out preview')} onClick={() => change.current(view.current.zoom / 1.2)}>−</button>
     <output aria-live="polite">{percent}%</output>
-    <button title={pt ? 'Aumentar zoom · ⌘/Ctrl +' : 'Zoom in · ⌘/Ctrl +'} aria-label={pt ? 'Aumentar zoom da prévia' : 'Zoom in preview'} onClick={() => change.current(view.current.zoom * 1.2)}>+</button>
-    <button title={pt ? 'Centralizar e ajustar ao painel · ⌘/Ctrl 0. ' : 'Center and fit to panel · ⌘/Ctrl 0. '} onClick={() => fit.current()}>{pt ? 'Ajustar' : 'Fit'}</button>
+    <button title={tx(pt, 'Aumentar zoom · ⌘/Ctrl +', 'Zoom in · ⌘/Ctrl +')} aria-label={tx(pt, 'Aumentar zoom da prévia', 'Zoom in preview')} onClick={() => change.current(view.current.zoom * 1.2)}>+</button>
+    <button title={tx(pt, 'Centralizar e ajustar ao painel · ⌘/Ctrl 0. ', 'Center and fit to panel · ⌘/Ctrl 0. ')} onClick={() => fit.current()}>{tx(pt, 'Ajustar', 'Fit')}</button>
   </div>;
 }

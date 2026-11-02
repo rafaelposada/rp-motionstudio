@@ -12,6 +12,7 @@ import { previewResolution } from '@/lib/previewResolution';
 import { prepareTextFonts, releaseOverlayOriginals } from '@/lib/textLayers';
 import { useI18n } from '@/lib/useI18n';
 import DestinationFolder from './DestinationFolder';
+import { tx } from '@/lib/tx';
 
 type Fmt = 'mp4' | 'gif' | 'both';
 type Res = '1080p' | '2k' | '4k' | 'exact';
@@ -217,7 +218,7 @@ export default function ExportDialog({ onClose }: { onClose: () => void }) {
       <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <button className="icon-btn export-mobile-back" onClick={onClose} aria-label="Back to editor"><BackIcon /></button>
-          <span>{pt ? 'Exportar' : 'Export'}</span>
+          <span>{tx(pt, 'Exportar', 'Export')}</span>
           <button className="icon-btn" disabled={busy} onClick={onClose}>✕</button>
         </div>
 
@@ -256,7 +257,7 @@ npm run dev`}</code></pre>
           <>
           <div className="ctl-row">
             <label className="ctl-label">
-              <span className="export-label-desktop">{pt ? 'Formato' : 'Format'}</span>
+              <span className="export-label-desktop">{tx(pt, 'Formato', 'Format')}</span>
               <span className="export-label-mobile">Output</span>
             </label>
             <div className="ctl-input">
@@ -269,7 +270,7 @@ npm run dev`}</code></pre>
           </div>
 
           <div className="ctl-row">
-            <label className="ctl-label">{pt ? 'Resolução' : 'Resolution'}</label>
+            <label className="ctl-label">{tx(pt, 'Resolução', 'Resolution')}</label>
             <div className="ctl-input">
               <div className="pills pills-fit">
                 {(Object.keys(RES_SHORT) as Exclude<Res, 'exact'>[]).map((r) => (
@@ -296,7 +297,7 @@ npm run dev`}</code></pre>
           {phase === 'idle' && !confirmDemo && (
             <button className="btn primary full export-primary-action" onClick={() => demoSlots > 0 ? setConfirmDemo(true) : run()}>
               <ExportIcon size={16} />
-              <span className="export-action-desktop">{pt ? 'Iniciar exportação' : 'Start export'}</span>
+              <span className="export-action-desktop">{tx(pt, 'Iniciar exportação', 'Start export')}</span>
               <span className="export-action-mobile">Export</span>
             </button>
           )}
@@ -304,15 +305,15 @@ npm run dev`}</code></pre>
           {phase === 'idle' && confirmDemo && (
             <div className="export-demo-warning" role="alert">
               <strong>{demoSlots} demo {demoSlots === 1 ? 'slot is' : 'slots are'} still in use</strong>
-              <p>{pt ? 'Os cartões de demonstração aparecerão no arquivo exportado. Você pode substituí-los em Mídia.' : 'Demo images will appear in the exported file unless you replace them in Media.'}</p>
+              <p>{tx(pt, 'Os cartões de demonstração aparecerão no arquivo exportado. Você pode substituí-los em Mídia.', 'Demo images will appear in the exported file unless you replace them in Media.')}</p>
               <div className="export-demo-actions">
-                <button className="btn" onClick={() => setConfirmDemo(false)}>{pt ? 'Cancelar' : 'Cancel'}</button>
-                <button className="btn primary" onClick={run}>{pt ? 'Exportar mesmo assim' : 'Export anyway'}</button>
+                <button className="btn" onClick={() => setConfirmDemo(false)}>{tx(pt, 'Cancelar', 'Cancel')}</button>
+                <button className="btn primary" onClick={run}>{tx(pt, 'Exportar mesmo assim', 'Export anyway')}</button>
               </div>
             </div>
           )}
 
-          {phase === 'preparing' && <div className="progress"><span>{pt?'Preparando imagens originais e vídeos…':'Preparing original images and videos…'}</span></div>}
+          {phase === 'preparing' && <div className="progress"><span>{tx(pt, 'Preparando imagens originais e vídeos…', 'Preparing original images and videos…')}</span></div>}
 
           {phase === 'capturing' && (
             <div className="progress">
@@ -327,7 +328,7 @@ npm run dev`}</code></pre>
 
           {phase === 'done' && (
             <div className="export-done">
-              <p>{pt ? 'Concluído. Salvo automaticamente em:' : 'Done. Saved automatically to:'}</p>
+              <p>{tx(pt, 'Concluído. Salvo automaticamente em:', 'Done. Saved automatically to:')}</p>
               <p><code>{outputDirectory}</code></p>
               <button className="btn" onClick={() => fetch('/api/diagnostics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder: 'exports' }) })}>Abrir pasta de exportações</button>
               <ul>
@@ -340,7 +341,7 @@ npm run dev`}</code></pre>
 
           {phase === 'error' && (
             <div className="export-error">
-              {pt ? 'A exportação falhou:' : 'Export failed:'} {err}
+              {tx(pt, 'A exportação falhou:', 'Export failed:')} {err}
               <button className="btn" onClick={() => { setPhase('idle'); setCaptured(0); }}>Tentar novamente</button>
               {/ffmpeg|ENOENT/i.test(err) && (
                 <div className="export-hint">

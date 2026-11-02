@@ -23,6 +23,7 @@ import InspectorIcon from './InspectorIcon';
 import { useSceneStore } from '@/store/useSceneStore';
 import { fitPanelLayout } from '@/lib/panelLayout';
 import {desktopAPI} from '@/lib/desktop';
+import { tx } from '@/lib/tx';
 
 const PreviewStage = dynamic(() => import('@/components/PreviewStage'), { ssr: false });
 const SettingsDialog = dynamic(() => import('@/components/SettingsDialog'), { ssr: false });
@@ -58,6 +59,7 @@ export default function DesktopEditor() {
   const layoutStyle = { '--rail-w': `${layout.rail}px`, '--templates-col': `${layout.library}px`, '--right-col': `${layout.inspector}px`, gridTemplateRows: `minmax(0, 1fr) ${layout.timelineHeight}px` } as CSSProperties;
   const isProjects = nav === 'projects';
   const [inspectorTab, setInspectorTab] = useState<'motion' | 'canvas' | 'media' | 'text' | 'layers'>('motion');
+  useEffect(() => { const open = (e: Event) => { const tab = (e as CustomEvent).detail; if (['motion', 'canvas', 'media', 'text', 'layers'].includes(tab)) setInspectorTab(tab); }; window.addEventListener('rp-inspector-tab', open); return () => window.removeEventListener('rp-inspector-tab', open); }, []);
   const selectedTextId = useUIStore((s) => s.selectedTextId);
   const selectedMotionId = useUIStore((s) => s.selectedMotionId);
   useEffect(() => { if (selectedMotionId && useUIStore.getState().selectionOrigin !== 'layers') setInspectorTab(tab => tab === 'layers' ? tab : 'motion'); }, [selectedMotionId]);
@@ -73,8 +75,8 @@ export default function DesktopEditor() {
         <PreviewStage />
         <button
           className="stage-fs"
-          title={previewExpanded ? (pt?'Restaurar painéis · Esc':'Restore panels · Esc') : (pt?'Ampliar preview':'Expand preview')}
-          aria-label={previewExpanded ? (pt?'Restaurar painéis':'Restore panels') : (pt?'Ampliar preview':'Expand preview')}
+          title={previewExpanded ? (tx(pt, 'Restaurar painéis · Esc', 'Restore panels · Esc')) : (tx(pt, 'Ampliar preview', 'Expand preview'))}
+          aria-label={previewExpanded ? (tx(pt, 'Restaurar painéis', 'Restore panels')) : (tx(pt, 'Ampliar preview', 'Expand preview'))}
           aria-pressed={previewExpanded}
           onClick={() => setPreviewExpanded(value=>!value)}
         >

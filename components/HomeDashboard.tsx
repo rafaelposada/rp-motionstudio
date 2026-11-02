@@ -12,6 +12,7 @@ import { loadProjectPreview } from '@/lib/projectPreviews';
 import { enterProject } from '@/lib/homeNavigation';
 import { flushScene } from '@/lib/scenePersist';
 import { AddIcon, BackIcon, LibraryIcon, ProjectsIcon } from './EditorIcons';
+import { tx } from '@/lib/tx';
 
 const SettingsDialog = dynamic(() => import('./SettingsDialog'), { ssr: false });
 
@@ -38,15 +39,15 @@ function ProjectCard({ project, active, summary, pt, busy }: {
     }).catch(() => {});
     return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
   }, [project.id, project.updatedAt]);
-  const edited = new Date(project.updatedAt).toLocaleString(pt ? 'pt-BR' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' });
-  return <button type="button" className={`home-project ${active ? 'is-current' : ''}`} disabled={busy} onClick={() => enterProject(project.id)} aria-label={`${pt ? 'Abrir projeto' : 'Open project'}: ${project.name}`}>
+  const edited = new Date(project.updatedAt).toLocaleString(tx(pt, 'pt-BR', 'en-US'), { dateStyle: 'medium', timeStyle: 'short' });
+  return <button type="button" className={`home-project ${active ? 'is-current' : ''}`} disabled={busy} onClick={() => enterProject(project.id)} aria-label={`${tx(pt, 'Abrir projeto', 'Open project')}: ${project.name}`}>
     <div className="home-project-preview">
-      {preview ? <img src={preview} alt="" loading="lazy" /> : <div className="home-preview-empty"><span className="home-preview-mark">{project.name.trim().slice(0, 2).toLocaleUpperCase()}</span><small>{pt ? 'Prévia disponível ao voltar do editor' : 'Preview available after returning from the editor'}</small></div>}
+      {preview ? <img src={preview} alt="" loading="lazy" /> : <div className="home-preview-empty"><span className="home-preview-mark">{project.name.trim().slice(0, 2).toLocaleUpperCase()}</span><small>{tx(pt, 'Prévia disponível ao voltar do editor', 'Preview available after returning from the editor')}</small></div>}
       <span className="home-format">{summary.aspect}</span>
     </div>
     <div className="home-project-info">
-      <div className="home-project-title"><strong title={project.name}>{project.name}</strong>{active && <span className="home-current-dot" title={pt ? 'Projeto em edição' : 'Current project'} />}</div>
-      <span className="home-project-details">{summary.duration !== null ? `${summary.duration}s · ` : ''}{summary.layers} {pt ? (summary.layers === 1 ? 'camada' : 'camadas') : (summary.layers === 1 ? 'layer' : 'layers')}</span>
+      <div className="home-project-title"><strong title={project.name}>{project.name}</strong>{active && <span className="home-current-dot" title={tx(pt, 'Projeto em edição', 'Current project')} />}</div>
+      <span className="home-project-details">{summary.duration !== null ? `${summary.duration}s · ` : ''}{summary.layers} {summary.layers === 1 ? tx(pt, 'camada', 'layer') : tx(pt, 'camadas', 'layers')}</span>
       <span className="home-project-date"><HomeSymbol type="device" />{edited}</span>
     </div>
   </button>;
@@ -56,7 +57,7 @@ function NewProjectDialog({ pt, onClose }: { pt: boolean; onClose: () => void })
   const dialog = useRef<HTMLDialogElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const count = useProjectStore(s => s.projects.length);
-  const [name, setName] = useState(`${pt ? 'Projeto' : 'Project'} ${count + 1}`);
+  const [name, setName] = useState(`${tx(pt, 'Projeto', 'Project')} ${count + 1}`);
   const [aspect, setAspect] = useState('9:16');
   useEffect(() => { dialog.current?.showModal(); nameInput.current?.focus(); nameInput.current?.select(); }, []);
   return <dialog ref={dialog} className="home-new-dialog" aria-labelledby="home-new-title" onClose={onClose} onClick={e => {
@@ -66,18 +67,18 @@ function NewProjectDialog({ pt, onClose }: { pt: boolean; onClose: () => void })
   }}>
     <form onSubmit={e => {
       e.preventDefault();
-      useProjectStore.getState().create(name.trim() || (pt ? 'Novo projeto' : 'New project'));
+      useProjectStore.getState().create(name.trim() || (tx(pt, 'Novo projeto', 'New project')));
       useSceneStore.getState().setAspect(aspect);
       flushScene();
       const id = useProjectStore.getState().activeId;
       if (id) enterProject(id);
       onClose();
     }}>
-      <div className="home-dialog-heading"><div><span className="eyebrow">RP MotionStudio</span><h2 id="home-new-title">{pt ? 'Nova composição' : 'New composition'}</h2></div><button type="button" className="home-icon-button" aria-label={pt ? 'Fechar' : 'Close'} onClick={() => dialog.current?.close()}>×</button></div>
-      <label>{pt ? 'Nome do projeto' : 'Project name'}<input ref={nameInput} className="field" value={name} maxLength={160} onChange={e => setName(e.target.value)} /></label>
-      <label>{pt ? 'Formato da composição' : 'Composition format'}<select className="field" value={aspect} onChange={e => setAspect(e.target.value)}><option value="9:16">{pt ? 'Vertical · 9:16' : 'Portrait · 9:16'}</option><option value="1:1">{pt ? 'Quadrado · 1:1' : 'Square · 1:1'}</option><option value="16:9">{pt ? 'Horizontal · 16:9' : 'Landscape · 16:9'}</option><option value="4:5">{pt ? 'Retrato · 4:5' : 'Portrait · 4:5'}</option></select></label>
-      <p>{pt ? 'Você pode ajustar o formato e adicionar suas mídias no editor.' : 'You can change the format and add media in the editor.'}</p>
-      <div className="home-dialog-actions"><button type="button" className="btn" onClick={() => dialog.current?.close()}>{pt ? 'Cancelar' : 'Cancel'}</button><button className="btn solid" type="submit">{pt ? 'Criar projeto' : 'Create project'}</button></div>
+      <div className="home-dialog-heading"><div><span className="eyebrow">RP MotionStudio</span><h2 id="home-new-title">{tx(pt, 'Nova composição', 'New composition')}</h2></div><button type="button" className="home-icon-button" aria-label={tx(pt, 'Fechar', 'Close')} onClick={() => dialog.current?.close()}>×</button></div>
+      <label>{tx(pt, 'Nome do projeto', 'Project name')}<input ref={nameInput} className="field" value={name} maxLength={160} onChange={e => setName(e.target.value)} /></label>
+      <label>{tx(pt, 'Formato da composição', 'Composition format')}<select className="field" value={aspect} onChange={e => setAspect(e.target.value)}><option value="9:16">{tx(pt, 'Vertical · 9:16', 'Portrait · 9:16')}</option><option value="1:1">{tx(pt, 'Quadrado · 1:1', 'Square · 1:1')}</option><option value="16:9">{tx(pt, 'Horizontal · 16:9', 'Landscape · 16:9')}</option><option value="4:5">{tx(pt, 'Retrato · 4:5', 'Portrait · 4:5')}</option></select></label>
+      <p>{tx(pt, 'Você pode ajustar o formato e adicionar suas mídias no editor.', 'You can change the format and add media in the editor.')}</p>
+      <div className="home-dialog-actions"><button type="button" className="btn" onClick={() => dialog.current?.close()}>{tx(pt, 'Cancelar', 'Cancel')}</button><button className="btn solid" type="submit">{tx(pt, 'Criar projeto', 'Create project')}</button></div>
     </form>
   </dialog>;
 }
@@ -101,31 +102,31 @@ export default function HomeDashboard() {
   }, []);
   return <div className="home-shell">
     <header className="home-topbar">
-      <button className="home-brand" onClick={resetHome} aria-label={pt ? 'RP MotionStudio — Início' : 'RP MotionStudio — Home'}><img src={`/rp-motionstudio-${theme}.svg`} alt="" width="38" height="38" /><span>RP <b>MotionStudio</b></span></button>
-      <div className="home-top-actions">{active && <button className="home-return" disabled={busy} onClick={() => enterProject(active.id)}><BackIcon size={16} /><span>{pt ? 'Voltar ao editor' : 'Back to editor'}</span></button>}<button className="home-icon-button" onClick={() => useUIStore.getState().setSettingsOpen(true)} aria-label={pt ? 'Configurações' : 'Settings'} title={pt ? 'Configurações (⌘,)' : 'Settings (⌘,)'}><HomeSymbol type="settings" /></button></div>
+      <button className="home-brand" onClick={resetHome} aria-label={tx(pt, 'RP MotionStudio — Início', 'RP MotionStudio — Home')}><img src={`/rp-motionstudio-${theme}.svg`} alt="" width="38" height="38" /><span>RP <b>MotionStudio</b></span></button>
+      <div className="home-top-actions">{active && <button className="home-return" disabled={busy} onClick={() => enterProject(active.id)}><BackIcon size={16} /><span>{tx(pt, 'Voltar ao editor', 'Back to editor')}</span></button>}<button className="home-icon-button" onClick={() => useUIStore.getState().setSettingsOpen(true)} aria-label={tx(pt, 'Configurações', 'Settings')} title={tx(pt, 'Configurações (⌘,)', 'Settings (⌘,)')}><HomeSymbol type="settings" /></button></div>
     </header>
-    <aside className="home-sidebar" aria-label={pt ? 'Navegação inicial' : 'Home navigation'}>
-      <div className="home-file-actions"><button className="btn solid" disabled={busy || !booted} onClick={() => setCreating(true)}><AddIcon size={18} />{pt ? 'Novo projeto' : 'New project'}</button><button className="btn home-open-file" disabled={busy} onClick={() => input.current?.click()}><ProjectsIcon size={18} />{pt ? 'Abrir projeto…' : 'Open project…'}</button></div>
-      <nav><button className={view === 'recent' ? 'active' : ''} aria-current={view === 'recent' ? 'page' : undefined} onClick={resetHome}><HomeSymbol type="home" />{pt ? 'Início' : 'Home'}</button><button className={view === 'all' ? 'active' : ''} aria-current={view === 'all' ? 'page' : undefined} onClick={() => { setView('all'); setSearch(''); }}><ProjectsIcon />{pt ? 'Seus projetos' : 'Your projects'}<span className="home-count">{projects.length}</span></button><button disabled={busy || !active} onClick={() => active && enterProject(active.id)}><LibraryIcon />{pt ? 'Biblioteca de modelos' : 'Template library'}</button></nav>
-      <div className="home-local-note"><HomeSymbol type="device" /><div><strong>{pt ? 'Neste dispositivo' : 'On this device'}</strong><span>{pt ? 'Projetos salvos localmente' : 'Projects saved locally'}</span></div></div>
+    <aside className="home-sidebar" aria-label={tx(pt, 'Navegação inicial', 'Home navigation')}>
+      <div className="home-file-actions"><button className="btn solid" disabled={busy || !booted} onClick={() => setCreating(true)}><AddIcon size={18} />{tx(pt, 'Novo projeto', 'New project')}</button><button className="btn home-open-file" disabled={busy} onClick={() => input.current?.click()}><ProjectsIcon size={18} />{tx(pt, 'Abrir projeto…', 'Open project…')}</button></div>
+      <nav><button className={view === 'recent' ? 'active' : ''} aria-current={view === 'recent' ? 'page' : undefined} onClick={resetHome}><HomeSymbol type="home" />{tx(pt, 'Início', 'Home')}</button><button className={view === 'all' ? 'active' : ''} aria-current={view === 'all' ? 'page' : undefined} onClick={() => { setView('all'); setSearch(''); }}><ProjectsIcon />{tx(pt, 'Seus projetos', 'Your projects')}<span className="home-count">{projects.length}</span></button><button disabled={busy || !active} onClick={() => active && enterProject(active.id)}><LibraryIcon />{tx(pt, 'Biblioteca de modelos', 'Template library')}</button></nav>
+      <div className="home-local-note"><HomeSymbol type="device" /><div><strong>{tx(pt, 'Neste dispositivo', 'On this device')}</strong><span>{tx(pt, 'Projetos salvos localmente', 'Projects saved locally')}</span></div></div>
     </aside>
     <main ref={main} className="home-main" id="home-main">
-      <section className="home-welcome"><span className="eyebrow">{pt ? 'SEU ESPAÇO CRIATIVO' : 'YOUR CREATIVE WORKSPACE'}</span><h1>{pt ? 'Bom te ver por aqui.' : 'Welcome to your next idea.'}</h1><p>{pt ? 'Uma nova ideia ou de onde você parou. Seu próximo movimento começa aqui.' : 'Start something new or pick up where you left off. Your next move starts here.'}</p>
-        {active && <button className="home-resume" disabled={busy} onClick={() => enterProject(active.id)}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m6 3 9 6-9 6Z" fill="currentColor" /></svg></span><span><small>{pt ? 'CONTINUAR EDITANDO' : 'CONTINUE EDITING'}</small><strong>{active.name}</strong></span><span aria-hidden="true">↗</span></button>}
+      <section className="home-welcome"><span className="eyebrow">{tx(pt, 'SEU ESPAÇO CRIATIVO', 'YOUR CREATIVE WORKSPACE')}</span><h1>{tx(pt, 'Bom te ver por aqui.', 'Welcome to your next idea.')}</h1><p>{tx(pt, 'Uma nova ideia ou de onde você parou. Seu próximo movimento começa aqui.', 'Start something new or pick up where you left off. Your next move starts here.')}</p>
+        {active && <button className="home-resume" disabled={busy} onClick={() => enterProject(active.id)}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m6 3 9 6-9 6Z" fill="currentColor" /></svg></span><span><small>{tx(pt, 'CONTINUAR EDITANDO', 'CONTINUE EDITING')}</small><strong>{active.name}</strong></span><span aria-hidden="true">↗</span></button>}
       </section>
       <section className="home-recents" aria-labelledby="home-projects-title">
-        <div className="home-section-heading"><div><h2 id="home-projects-title">{view === 'all' ? (pt ? 'Seus projetos' : 'Your projects') : (pt ? 'Recentes' : 'Recent projects')}</h2><span>{projects.length} {pt ? (projects.length === 1 ? 'projeto salvo neste dispositivo' : 'projetos salvos neste dispositivo') : (projects.length === 1 ? 'project saved on this device' : 'projects saved on this device')}</span></div>{view === 'recent' && <button className="home-all-projects" onClick={() => setView('all')}>{pt ? 'Exibir todos os projetos' : 'View all projects'}<span aria-hidden="true">→</span></button>}</div>
-        <div className="home-project-toolbar"><label className="home-search"><HomeSymbol type="search" /><input type="search" aria-label={pt ? 'Buscar projetos' : 'Search projects'} placeholder={pt ? 'Buscar pelo nome do projeto' : 'Search by project name'} value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setSearch(''); }} /></label><div className="home-view-tools"><select aria-label={pt ? 'Ordenar projetos' : 'Sort projects'} value={sort} onChange={e => setSort(e.target.value as typeof sort)}><option value="recent">{pt ? 'Última edição' : 'Last edited'}</option><option value="name">{pt ? 'Nome' : 'Name'}</option></select><div className="home-view-toggle" role="group" aria-label={pt ? 'Visualização dos projetos' : 'Project view'}>{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={mode === 'grid' ? (pt ? 'Visualizar em grade' : 'Grid view') : (pt ? 'Visualizar em lista' : 'List view')} aria-pressed={layout === mode} onClick={() => setLayout(mode)}><HomeSymbol type={mode} /></button>)}</div></div></div>
-        <p className="home-message" role="status">{busy ? (pt ? 'Abrindo o pacote de projeto…' : 'Opening project package…') : message}</p>
-        {visible.length ? <div className={`home-projects home-projects-${layout}`}>{visible.map(project => <ProjectCard key={project.id} project={project} summary={summaries.get(project.id)!} active={project.id === activeId} pt={pt} busy={busy} />)}</div> : <div className="home-no-projects"><ProjectsIcon size={32} /><h3>{search.trim() ? (pt ? 'Nenhum projeto encontrado' : 'No matching projects') : (pt ? 'Sua primeira ideia começa aqui' : 'Your first idea starts here')}</h3><p>{search.trim() ? (pt ? 'Tente outro nome ou limpe a busca.' : 'Try another name or clear your search.') : (pt ? 'Crie uma composição ou abra um pacote de projeto.' : 'Create a composition or open a project package.')}</p><button className="btn" onClick={() => search.trim() ? setSearch('') : setCreating(true)}>{search.trim() ? (pt ? 'Limpar busca' : 'Clear search') : (pt ? 'Criar projeto' : 'Create project')}</button></div>}
+        <div className="home-section-heading"><div><h2 id="home-projects-title">{view === 'all' ? (tx(pt, 'Seus projetos', 'Your projects')) : (tx(pt, 'Recentes', 'Recent projects'))}</h2><span>{projects.length} {projects.length === 1 ? tx(pt, 'projeto salvo neste dispositivo', 'project saved on this device') : tx(pt, 'projetos salvos neste dispositivo', 'projects saved on this device')}</span></div>{view === 'recent' && <button className="home-all-projects" onClick={() => setView('all')}>{tx(pt, 'Exibir todos os projetos', 'View all projects')}<span aria-hidden="true">→</span></button>}</div>
+        <div className="home-project-toolbar"><label className="home-search"><HomeSymbol type="search" /><input type="search" aria-label={tx(pt, 'Buscar projetos', 'Search projects')} placeholder={tx(pt, 'Buscar pelo nome do projeto', 'Search by project name')} value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setSearch(''); }} /></label><div className="home-view-tools"><select aria-label={tx(pt, 'Ordenar projetos', 'Sort projects')} value={sort} onChange={e => setSort(e.target.value as typeof sort)}><option value="recent">{tx(pt, 'Última edição', 'Last edited')}</option><option value="name">{tx(pt, 'Nome', 'Name')}</option></select><div className="home-view-toggle" role="group" aria-label={tx(pt, 'Visualização dos projetos', 'Project view')}>{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={mode === 'grid' ? (tx(pt, 'Visualizar em grade', 'Grid view')) : (tx(pt, 'Visualizar em lista', 'List view'))} aria-pressed={layout === mode} onClick={() => setLayout(mode)}><HomeSymbol type={mode} /></button>)}</div></div></div>
+        <p className="home-message" role="status">{busy ? (tx(pt, 'Abrindo o pacote de projeto…', 'Opening project package…')) : message}</p>
+        {visible.length ? <div className={`home-projects home-projects-${layout}`}>{visible.map(project => <ProjectCard key={project.id} project={project} summary={summaries.get(project.id)!} active={project.id === activeId} pt={pt} busy={busy} />)}</div> : <div className="home-no-projects"><ProjectsIcon size={32} /><h3>{search.trim() ? (tx(pt, 'Nenhum projeto encontrado', 'No matching projects')) : (tx(pt, 'Sua primeira ideia começa aqui', 'Your first idea starts here'))}</h3><p>{search.trim() ? (tx(pt, 'Tente outro nome ou limpe a busca.', 'Try another name or clear your search.')) : (tx(pt, 'Crie uma composição ou abra um pacote de projeto.', 'Create a composition or open a project package.'))}</p><button className="btn" onClick={() => search.trim() ? setSearch('') : setCreating(true)}>{search.trim() ? (tx(pt, 'Limpar busca', 'Clear search')) : (tx(pt, 'Criar projeto', 'Create project'))}</button></div>}
       </section>
-      <footer className="home-footer"><span>RP MotionStudio</span><span>{pt ? 'Fotos, vídeos, texto. Tudo no seu ritmo.' : 'Photos, video, text. All at your own pace.'}</span></footer>
+      <footer className="home-footer"><span>RP MotionStudio</span><span>{tx(pt, 'Fotos, vídeos, texto. Tudo no seu ritmo.', 'Photos, video, text. All at your own pace.')}</span></footer>
     </main>
-    <input ref={input} type="file" hidden accept=".motion.zip,.zip" aria-label={pt ? 'Arquivo de projeto Motion Studio' : 'Motion Studio project file'} onChange={async e => {
+    <input ref={input} type="file" hidden accept=".motion.zip,.zip" aria-label={tx(pt, 'Arquivo de projeto Motion Studio', 'Motion Studio project file')} onChange={async e => {
       const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
       setBusy(true); setMessage('');
       try { const { importProjectPackage } = await import('@/lib/projectPackage'); const project = await importProjectPackage(file); enterProject(project.id); }
-      catch (error) { setMessage(error instanceof Error ? error.message : (pt ? 'Não foi possível abrir o projeto.' : 'Could not open the project.')); }
+      catch (error) { setMessage(error instanceof Error ? error.message : (tx(pt, 'Não foi possível abrir o projeto.', 'Could not open the project.'))); }
       finally { setBusy(false); }
     }} />
     {creating && <NewProjectDialog pt={pt} onClose={() => setCreating(false)} />}

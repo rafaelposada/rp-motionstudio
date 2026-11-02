@@ -14,6 +14,7 @@ import { useAudioPreview } from '@/lib/useAudioPreview';
 import CanvasTextSelection from './CanvasTextSelection';
 import ModelVisibilityNotice from './ModelVisibilityNotice';
 import PreviewNavigation from './PreviewNavigation';
+import { tx } from '@/lib/tx';
 
 export default function PreviewStage() {
   useAudioPreview();
@@ -205,6 +206,6 @@ export default function PreviewStage() {
   }, [width, height]);
 
   return (
-    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /><PreviewNavigation stage={stageRef}/>{initializationError&&<div className="preview-init-error" role="alert"><span>{pt?'Não foi possível iniciar a prévia. A edição permanece nesta janela; salve um rascunho antes de sair.':'The preview could not start. Your editing data remains in this window; save a draft before leaving.'}</span><button type="button" className="btn" onClick={()=>setAttempt(value=>value+1)}>{pt?'Tentar novamente':'Try again'}</button></div>}</div>
+    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /><PreviewNavigation stage={stageRef}/>{initializationError&&<div className="preview-init-error" role="alert"><span>{tx(pt, 'Não foi possível iniciar a prévia. A edição permanece nesta janela; salve um rascunho antes de sair.', 'The preview could not start. Your editing data remains in this window; save a draft before leaving.')}</span><button type="button" className="btn" onClick={()=>setAttempt(value=>value+1)}>{tx(pt, 'Tentar novamente', 'Try again')}</button></div>}</div>
   );
 }

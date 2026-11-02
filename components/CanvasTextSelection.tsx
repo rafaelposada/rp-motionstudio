@@ -18,6 +18,7 @@ import CanvasInlineTextEditor from './CanvasInlineTextEditor';
 import {textBackdropBox} from '@/lib/textPadding';
 import {addCompositionText,textToolShortcut} from '@/lib/textActions';
 import {layoutText,boxLeft,anchorAlign} from '@/lib/textLayout';
+import { tx } from '@/lib/tx';
 
 let measureContext: CanvasRenderingContext2D | null = null;
 interface LocalBounds { width: number; height: number; left: number; top?:number }
@@ -58,6 +59,61 @@ interface Gesture {
 }
 const sameFrame = (a: TransformFrame, b: TransformFrame) => (Object.keys(a) as (keyof TransformFrame)[]).every(key => Math.abs(a[key] - b[key]) < .01);
 
+type ArrangeKind = 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom' | 'distribute-h' | 'distribute-v';
+const ARRANGE: { kind: ArrangeKind; pt: string; en: string }[] = [
+  { kind: 'left', pt: 'Alinhar à esquerda', en: 'Align left' }, { kind: 'hcenter', pt: 'Centralizar na horizontal', en: 'Align horizontal centers' },
+  { kind: 'right', pt: 'Alinhar à direita', en: 'Align right' }, { kind: 'top', pt: 'Alinhar ao topo', en: 'Align top' },
+  { kind: 'vcenter', pt: 'Centralizar na vertical', en: 'Align vertical centers' }, { kind: 'bottom', pt: 'Alinhar à base', en: 'Align bottom' },
+  { kind: 'distribute-h', pt: 'Distribuir na horizontal (3 ou mais)', en: 'Distribute horizontally (3 or more)' }, { kind: 'distribute-v', pt: 'Distribuir na vertical (3 ou mais)', en: 'Distribute vertically (3 or more)' },
+];
+function ArrangeIcon({ kind }: { kind: ArrangeKind }) {
+  const p = { stroke: 'currentColor', strokeWidth: 1.3, fill: 'none', strokeLinecap: 'round' as const };
+  const shapes: Record<ArrangeKind, React.ReactNode> = {
+    left: <><path d="M2.5 2v12" {...p}/><rect x="5" y="6" width="8" height="4" rx="1.2" {...p}/></>,
+    hcenter: <><path d="M8 2v12" {...p}/><rect x="3.5" y="6" width="9" height="4" rx="1.2" {...p}/></>,
+    right: <><path d="M13.5 2v12" {...p}/><rect x="3" y="6" width="8" height="4" rx="1.2" {...p}/></>,
+    top: <><path d="M2 2.5h12" {...p}/><rect x="6" y="5" width="4" height="8" rx="1.2" {...p}/></>,
+    vcenter: <><path d="M2 8h12" {...p}/><rect x="6" y="3.5" width="4" height="9" rx="1.2" {...p}/></>,
+    bottom: <><path d="M2 13.5h12" {...p}/><rect x="6" y="3" width="4" height="8" rx="1.2" {...p}/></>,
+    'distribute-h': <><path d="M2.5 2v12M13.5 2v12" {...p}/><rect x="6" y="5" width="4" height="6" rx="1.2" {...p}/></>,
+    'distribute-v': <><path d="M2 2.5h12M2 13.5h12" {...p}/><rect x="5" y="6" width="6" height="4" rx="1.2" {...p}/></>,
+  };
+  return <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{shapes[kind]}</svg>;
+}
+// Align or distribute the selection: one element aligns to the composition,
+// several align to their shared bounds. Distribution keeps the outer elements
+// in place and evens the gaps between them. Locked layers stay put.
+function arrangeSelection(kind: ArrangeKind) {
+  const s = useSceneStore.getState(), ids = useUIStore.getState().selectedLayerIds, seconds = s.frame / s.fps;
+  type Item = { id: string; overlay?: TextLayer; track?: MotionTrack; box: { x: number; y: number; width: number; height: number } };
+  const items = ids.flatMap((id): Item[] => {
+    const overlay = s.textLayers.find((l) => l.id === id);
+    if (overlay) return overlay.locked ? [] : [{ id, overlay, box: frameAABB(layerFrame(overlay, s.width, seconds)) }];
+    const track = s.tracks.find((t) => t.id === id), frame = track && modelFrame(id);
+    return track && frame ? [{ id, track, box: frameAABB(frame) }] : [];
+  });
+  if (!items.length || (kind.startsWith('distribute') && items.length < 3)) return;
+  const x0 = Math.min(...items.map((i) => i.box.x)), y0 = Math.min(...items.map((i) => i.box.y));
+  const ref = items.length === 1 ? { x: 0, y: 0, width: s.width, height: s.height } : { x: x0, y: y0, width: Math.max(...items.map((i) => i.box.x + i.box.width)) - x0, height: Math.max(...items.map((i) => i.box.y + i.box.height)) - y0 };
+  const offsets = new Map<string, { dx: number; dy: number }>();
+  if (kind === 'distribute-h' || kind === 'distribute-v') {
+    const h = kind === 'distribute-h', key = h ? 'x' : 'y', size = h ? 'width' : 'height';
+    const sorted = [...items].sort((a, b) => (a.box[key] + a.box[size] / 2) - (b.box[key] + b.box[size] / 2));
+    const gap = (ref[size] - sorted.reduce((sum, i) => sum + i.box[size], 0)) / (sorted.length - 1);
+    let cursor = ref[key];
+    for (const item of sorted) { const d = cursor - item.box[key]; offsets.set(item.id, h ? { dx: d, dy: 0 } : { dx: 0, dy: d }); cursor += item.box[size] + gap; }
+  } else for (const { id, box } of items) offsets.set(id, {
+    dx: kind === 'left' ? ref.x - box.x : kind === 'hcenter' ? ref.x + ref.width / 2 - (box.x + box.width / 2) : kind === 'right' ? ref.x + ref.width - (box.x + box.width) : 0,
+    dy: kind === 'top' ? ref.y - box.y : kind === 'vcenter' ? ref.y + ref.height / 2 - (box.y + box.height / 2) : kind === 'bottom' ? ref.y + ref.height - (box.y + box.height) : 0,
+  });
+  const history = useHistoryStore.getState(); history.beginGesture();
+  for (const item of items) {
+    const o = offsets.get(item.id); if (!o || (Math.abs(o.dx) < .01 && Math.abs(o.dy) < .01)) continue;
+    if (item.overlay) s.patchTextLayer(item.id, { x: item.overlay.x + o.dx, y: item.overlay.y + o.dy });
+    else if (item.track) s.patchTrack(item.id, { transform: { ...item.track.transform, x: item.track.transform.x + o.dx, y: item.track.transform.y + o.dy } });
+  }
+  history.endGesture();
+}
 export default function CanvasTextSelection() {
   const root = useRef<HTMLDivElement>(null), drag = useRef<Gesture | null>(null);
   const layers = useSceneStore(s => s.textLayers), tracks = useSceneStore(s => s.tracks);
@@ -313,27 +369,28 @@ export default function CanvasTextSelection() {
     }
     apply(d, p, e.shiftKey, e.altKey);
   }} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} onLostPointerCapture={() => finish()}>
-    <div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',pt?'Réguas':'Rulers',pt?'Exibe réguas em pixels nas bordas da composição.':'Show pixel rulers at the edges of the composition.'],['smartGuides',pt?'Guias':'Guides',pt?'Mostra linhas de alinhamento ao mover ou redimensionar elementos.':'Show alignment guides while moving or resizing elements.'],['snapEnabled',pt?'Encaixar':'Snap',pt?'Encaixa elementos nas bordas e centros próximos. Alt suspende o encaixe durante o arraste.':'Snap elements to nearby edges and centers. Alt temporarily disables snapping.']] as const).map(([key,label,help])=><button key={key} title={help} aria-label={`${label}: ${help}`} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}<button title={pt?'Mostra ou oculta a caixa delimitadora e as alças de transformação da seleção.':'Show or hide the selection bounding box and transform handles.'} aria-label="BBox" aria-pressed={show} onClick={()=>useUIStore.getState().setShowSelectionBox(!show)}>BBox</button></div>
-    {rulers&&rect.width>0&&<svg className="editor-rulers" aria-label={pt?'Réguas em pixels da composição':'Composition pixel rulers'}><rect x={rect.x} y={Math.max(0,rect.y-20)} width={rect.width} height="20"/><rect x={Math.max(0,rect.x-28)} y={rect.y} width="28" height={rect.height}/>{Array.from({length:11},(_,i)=>{const x=rect.x+rect.width*i/10,y=rect.y+rect.height*i/10;return <g key={i}><text x={x+2} y={Math.max(10,rect.y-7)}>{Math.round(width*i/10)}</text><path d={`M${x} ${rect.y-4}v4`}/><text x={Math.max(1,rect.x-26)} y={y+10}>{Math.round(height*i/10)}</text><path d={`M${rect.x-4} ${y}h4`}/></g>;})}</svg>}
+    <div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',tx(pt, 'Réguas', 'Rulers'),tx(pt, 'Exibe réguas em pixels nas bordas da composição.', 'Show pixel rulers at the edges of the composition.')],['smartGuides',tx(pt, 'Guias', 'Guides'),tx(pt, 'Mostra linhas de alinhamento ao mover ou redimensionar elementos.', 'Show alignment guides while moving or resizing elements.')],['snapEnabled',tx(pt, 'Encaixar', 'Snap'),tx(pt, 'Encaixa elementos nas bordas e centros próximos. Alt suspende o encaixe durante o arraste.', 'Snap elements to nearby edges and centers. Alt temporarily disables snapping.')]] as const).map(([key,label,help])=><button key={key} title={help} aria-label={`${label}: ${help}`} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}<button title={tx(pt, 'Mostra ou oculta a caixa delimitadora e as alças de transformação da seleção.', 'Show or hide the selection bounding box and transform handles.')} aria-label="BBox" aria-pressed={show} onClick={()=>useUIStore.getState().setShowSelectionBox(!show)}>BBox</button></div>
+    {selectedIds.length>0&&<div className="arrange-toolbar" role="toolbar" aria-label={tx(pt,'Alinhar e distribuir','Align and distribute')} onPointerDown={e=>e.stopPropagation()}>{ARRANGE.map((item,index)=><span key={item.kind} className="arrange-slot">{index===6&&<span className="alignment-sep" aria-hidden="true"/>}<button className="arrange-btn" disabled={item.kind.startsWith('distribute')&&selectedIds.length<3} title={tx(pt,item.pt,item.en)} aria-label={tx(pt,item.pt,item.en)} onClick={()=>arrangeSelection(item.kind)}><ArrangeIcon kind={item.kind}/></button></span>)}</div>}
+    {rulers&&rect.width>0&&<svg className="editor-rulers" aria-label={tx(pt, 'Réguas em pixels da composição', 'Composition pixel rulers')}><rect x={rect.x} y={Math.max(0,rect.y-20)} width={rect.width} height="20"/><rect x={Math.max(0,rect.x-28)} y={rect.y} width="28" height={rect.height}/>{Array.from({length:11},(_,i)=>{const x=rect.x+rect.width*i/10,y=rect.y+rect.height*i/10;return <g key={i}><text x={x+2} y={Math.max(10,rect.y-7)}>{Math.round(width*i/10)}</text><path d={`M${x} ${rect.y-4}v4`}/><text x={Math.max(1,rect.x-26)} y={y+10}>{Math.round(height*i/10)}</text><path d={`M${rect.x-4} ${y}h4`}/></g>;})}</svg>}
     {(guide.x!==null||guide.y!==null)&&<svg className="editor-guides">{guide.x!==null&&<line x1={rect.x+guide.x/width*rect.width} x2={rect.x+guide.x/width*rect.width} y1={rect.y} y2={rect.y+rect.height}/>} {guide.y!==null&&<line y1={rect.y+guide.y/height*rect.height} y2={rect.y+guide.y/height*rect.height} x1={rect.x} x2={rect.x+rect.width}/>}</svg>}
 
-    {show && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={pt ? 'Transformar camada selecionada' : 'Transform selected layer'} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
-      <span className="canvas-selection-label">{selectedIds.length > 1 ? `${selectedIds.length} ${pt ? 'camadas' : 'layers'}` : active?.text.slice(0, 30) || layerDisplayName(track?.name ?? '', pt)}{active?.locked ? ' 🔒' : ''}</span>
+    {show && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={tx(pt, 'Transformar camada selecionada', 'Transform selected layer')} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
+      <span className="canvas-selection-label">{selectedIds.length > 1 ? `${selectedIds.length} ${tx(pt, 'camadas', 'layers')}` : active?.text.slice(0, 30) || layerDisplayName(track?.name ?? '', pt)}{active?.locked ? ' 🔒' : ''}</span>
       {(!active?.locked || selectedIds.length > 1) && <>
-        {RESIZE_ANCHORS.map(anchor => { const [x, y] = ANCHOR_AXES[anchor]; const label = `${pt ? 'Redimensionar' : 'Resize'}: ${names[anchor]}`; return <button key={anchor} type="button" className="transform-handle" aria-label={label} title={label + (pt ? '. Shift mantém proporção; Alt redimensiona pelo centro.' : '. Shift preserves aspect; Alt scales from the center.')} style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, cursor: resizeCursor(anchor, selection.rotation) }} onPointerDown={e => begin(e, 'resize', anchor)} onKeyDown={e => handleKey(e, 'resize', anchor)} />; })}
-        {RESIZE_ANCHORS.map(anchor=>{const [x,y]=ANCHOR_AXES[anchor]; return <button key={`rotate-${anchor}`} type="button" className="transform-rotate-zone" aria-label={`${pt?'Rotacionar':'Rotate'}: ${names[anchor]}`} title={pt?'Arraste por fora da alça para girar. Shift: 15°. Esc: cancelar.':'Drag outside the handle to rotate. Shift: 15°. Esc: cancel.'} style={{left:`calc(${(x+1)*50}% + ${x*18}px)`,top:`calc(${(y+1)*50}% + ${y*18}px)`}} onPointerDown={e=>begin(e,'rotate')} onKeyDown={e=>handleKey(e,'rotate')}/>;})}
+        {RESIZE_ANCHORS.map(anchor => { const [x, y] = ANCHOR_AXES[anchor]; const label = `${tx(pt, 'Redimensionar', 'Resize')}: ${names[anchor]}`; return <button key={anchor} type="button" className="transform-handle" aria-label={label} title={label + (tx(pt, '. Shift mantém proporção; Alt redimensiona pelo centro.', '. Shift preserves aspect; Alt scales from the center.'))} style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, cursor: resizeCursor(anchor, selection.rotation) }} onPointerDown={e => begin(e, 'resize', anchor)} onKeyDown={e => handleKey(e, 'resize', anchor)} />; })}
+        {RESIZE_ANCHORS.map(anchor=>{const [x,y]=ANCHOR_AXES[anchor]; return <button key={`rotate-${anchor}`} type="button" className="transform-rotate-zone" aria-label={`${tx(pt, 'Rotacionar', 'Rotate')}: ${names[anchor]}`} title={tx(pt, 'Arraste por fora da alça para girar. Shift: 15°. Esc: cancelar.', 'Drag outside the handle to rotate. Shift: 15°. Esc: cancel.')} style={{left:`calc(${(x+1)*50}% + ${x*18}px)`,top:`calc(${(y+1)*50}% + ${y*18}px)`}} onPointerDown={e=>begin(e,'rotate')} onKeyDown={e=>handleKey(e,'rotate')}/>;})}
         {radiusEnabled && selection.width * ratio > 64 && selection.height * ratio > 64 && CORNERS.map((corner, i) => {
           const [x, y] = ANCHOR_AXES[corner], r = cornerValue(i);
           const rx = active ? r * bounded(active.scaleX ?? 1, .05, 20) * ratio : r / 100 * selection.width * ratio / 2;
           const ry = active ? r * bounded(active.scaleY ?? 1, .05, 20) * ratio : r / 100 * selection.height * ratio / 2;
           const ix = Math.min(selection.width * ratio / 2 - 10, Math.max(16, rx)), iy = Math.min(selection.height * ratio / 2 - 10, Math.max(16, ry));
-          const label = `${pt ? 'Arredondar' : 'Round'}: ${names[corner]}`;
-          return <button key={corner} type="button" className="transform-corner" aria-label={label} title={label + (active?.media ? (pt ? '. Alt ajusta só este canto.' : '. Alt changes this corner only.') : active ? (pt ? '. Ajusta os cantos do fundo do texto.' : '. Changes the text backdrop corners.') : (pt ? '. Ajusta os cantos de todos os cartões do modelo.' : '. Changes every card in the model.'))} style={{ left: x < 0 ? ix : selection.width * ratio - ix, top: y < 0 ? iy : selection.height * ratio - iy }} onPointerDown={e => begin(e, 'radius', undefined, i)} onKeyDown={e => handleKey(e, 'radius', undefined, i)} />;
+          const label = `${tx(pt, 'Arredondar', 'Round')}: ${names[corner]}`;
+          return <button key={corner} type="button" className="transform-corner" aria-label={label} title={label + (active?.media ? (tx(pt, '. Alt ajusta só este canto.', '. Alt changes this corner only.')) : active ? (tx(pt, '. Ajusta os cantos do fundo do texto.', '. Changes the text backdrop corners.')) : (tx(pt, '. Ajusta os cantos de todos os cartões do modelo.', '. Changes every card in the model.')))} style={{ left: x < 0 ? ix : selection.width * ratio - ix, top: y < 0 ? iy : selection.height * ratio - iy }} onPointerDown={e => begin(e, 'radius', undefined, i)} onKeyDown={e => handleKey(e, 'radius', undefined, i)} />;
         })}
       </>}
     </div>}
     {editingLayer && editFrame && ratio>0 && <CanvasInlineTextEditor key={editingLayer.id} layer={editingLayer} left={rect.x+editFrame.cx*ratio} top={rect.y+editFrame.cy*ratio} width={editFrame.width*ratio} height={editFrame.height*ratio} ratio={ratio} pt={pt} onDone={()=>setEditingId(null)}/>}
     {rotationReadout && <output className="transform-angle-readout" style={{left:rotationReadout.x,top:rotationReadout.y}}>{((rotationReadout.angle%360+360)%360).toFixed(1)}°</output>}
-    {drag.current && <div className="transform-gesture-hint" role="status">{pt ? 'Shift: proporção / 15° · Alt: centro / canto individual · Esc: cancelar' : 'Shift: aspect / 15° · Alt: center / individual corner · Esc: cancel'}</div>}
+    {drag.current && <div className="transform-gesture-hint" role="status">{tx(pt, 'Shift: proporção / 15° · Alt: centro / canto individual · Esc: cancelar', 'Shift: aspect / 15° · Alt: center / individual corner · Esc: cancel')}</div>}
   </div>;
 }

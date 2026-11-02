@@ -1,4 +1,5 @@
 // RP MotionStudio — Rafael Posada, 2026. Apache-2.0.
+import { tx } from './tx';
 // Layer blend modes shared by motion tracks, text and absolute images. The ids
 // are the CSS/PixiJS names; 'add' keeps its legacy id and is shown as
 // "Plus lighter", as in Framer.
@@ -35,7 +36,7 @@ const LABELS: Record<BlendMode, { en: string; pt: string }> = {
   color: { en: 'Color', pt: 'Cor' },
   luminosity: { en: 'Luminosity', pt: 'Luminosidade' },
 };
-export const blendLabel = (mode: BlendMode, pt: boolean) => LABELS[mode][pt ? 'pt' : 'en'];
+export const blendLabel = (mode: BlendMode, pt: boolean) => tx(pt, LABELS[mode].pt, LABELS[mode].en);
 
 // GLSL for the 3D compositor. Inputs are straight (non-premultiplied) colors;
 // the result is mixed over the backdrop by the layer's alpha. Formulas follow

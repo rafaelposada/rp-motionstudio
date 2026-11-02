@@ -6,6 +6,7 @@ import { getTemplate } from '@/templates';
 import { cardAspectFor, coverCrop, DEFAULT_FOCUS } from '@/lib/crop';
 import { useI18n } from '@/lib/useI18n';
 import { ControlRow } from './Controls';
+import { tx } from '@/lib/tx';
 
 export default function MediaFraming({ asset }: { asset: AssetItem }) {
   const { locale } = useI18n();
@@ -57,15 +58,15 @@ export default function MediaFraming({ asset }: { asset: AssetItem }) {
   }, [asset.url, asset.kind, aspect, focus]);
   if ((asset.fit ?? 'fill') !== 'fill') return null;
   return <div className="media-framing">
-    {template.slotAspect && <label className="text-edit-label">{locale === 'pt' ? 'Prévia do cartão' : 'Card preview'}<select className="field" value={slot} onChange={(e) => setSlot(Number(e.target.value))}>{Array.from({ length: slotCount }, (_, index) => <option key={index} value={index}>{index + 1}</option>)}</select></label>}
-    {asset.kind !== 'video' && <canvas ref={canvas} aria-label={locale === 'pt' ? 'Arraste para enquadrar' : 'Drag to reframe'} style={{ aspectRatio: String(aspect) }}
+    {template.slotAspect && <label className="text-edit-label">{tx(locale === 'pt', 'Prévia do cartão', 'Card preview')}<select className="field" value={slot} onChange={(e) => setSlot(Number(e.target.value))}>{Array.from({ length: slotCount }, (_, index) => <option key={index} value={index}>{index + 1}</option>)}</select></label>}
+    {asset.kind !== 'video' && <canvas ref={canvas} aria-label={tx(locale === 'pt', 'Arraste para enquadrar', 'Drag to reframe')} style={{ aspectRatio: String(aspect) }}
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.clientX, y: e.clientY, fx: focus.x, fy: focus.y }; }}
       onPointerMove={(e) => { const start = drag.current; if (!start) return; const rect = e.currentTarget.getBoundingClientRect(); setCrop(asset.id, { ...focus, x: Math.max(0, Math.min(1, start.fx - (e.clientX - start.x) / rect.width)), y: Math.max(0, Math.min(1, start.fy - (e.clientY - start.y) / rect.height)) }); }}
       onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} />}
-    <span className="ctl-hint">{locale === 'pt' ? 'Arraste a imagem para reposicionar. O enquadramento pode variar conforme a proporção de cada cartão.' : 'Drag to reposition. Framing may vary with each card’s aspect.'}</span>
-    {asset.kind !== 'video' && <div className="inspector-actions"><button className="link-btn" onClick={() => void transformImage('rotate')}>↻ 90°</button><button className="link-btn" onClick={() => void transformImage('flipX')}>{locale === 'pt' ? 'Espelhar H' : 'Flip H'}</button><button className="link-btn" onClick={() => void transformImage('flipY')}>{locale === 'pt' ? 'Espelhar V' : 'Flip V'}</button></div>}
+    <span className="ctl-hint">{tx(locale === 'pt', 'Arraste a imagem para reposicionar. O enquadramento pode variar conforme a proporção de cada cartão.', 'Drag to reposition. Framing may vary with each card’s aspect.')}</span>
+    {asset.kind !== 'video' && <div className="inspector-actions"><button className="link-btn" onClick={() => void transformImage('rotate')}>↻ 90°</button><button className="link-btn" onClick={() => void transformImage('flipX')}>{tx(locale === 'pt', 'Espelhar H', 'Flip H')}</button><button className="link-btn" onClick={() => void transformImage('flipY')}>{tx(locale === 'pt', 'Espelhar V', 'Flip V')}</button></div>}
     {status && <p role="status" className="ctl-hint">{status}</p>}
     <ControlRow def={{ key: 'cropZoom', label: 'Zoom', type: 'slider', min: 1, max: 4, step: 0.01, default: 1 }} value={focus.zoom ?? 1} onChange={(zoom) => setCrop(asset.id, { ...focus, zoom })} />
-    <button className="link-btn" onClick={() => setCrop(asset.id, { ...DEFAULT_FOCUS, zoom: 1 })}>{locale === 'pt' ? 'Redefinir enquadramento' : 'Reset framing'}</button>
+    <button className="link-btn" onClick={() => setCrop(asset.id, { ...DEFAULT_FOCUS, zoom: 1 })}>{tx(locale === 'pt', 'Redefinir enquadramento', 'Reset framing')}</button>
   </div>;
 }

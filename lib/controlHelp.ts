@@ -1,9 +1,11 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { ControlDef } from '@/lib/types';
+import { esText } from './tx';
 import type { Locale } from '@/lib/i18n';
 import { EDITOR_HELP } from './editorHelp';
 
 type HelpPair = { en: string; pt: string };
+const pick = (pair: HelpPair, locale: Locale) => locale === 'es' ? esText(pair.pt, pair.en) : pair[locale];
 
 const CONTROL_HELP: Record<string, HelpPair> = {
   count: {
@@ -254,33 +256,37 @@ function normalize(value: string): string {
 export function controlHelp(def: ControlDef, locale: Locale, displayLabel: string): string {
   const editorKey = def.key === 'size' && !/text|texto|font|fonte/i.test(def.label) ? '' : def.key;
   const known = EDITOR_HELP[editorKey] ?? CONTROL_HELP[normalize(def.label)] ?? CONTROL_HELP[normalize(displayLabel)];
-  if (known) return known[locale];
+  if (known) return pick(known, locale);
   if (locale === 'en' && def.description) {
     return def.description;
   }
   if (def.type === 'slider') {
+    if (locale === 'es') return `Ajusta ${displayLabel.toLowerCase()} en esta plantilla, de ${def.min ?? 0} a ${def.max ?? 100}${def.unit ?? ''}. Compara el resultado en la vista previa al cambiar el valor.`;
     return locale === 'pt'
       ? `Ajusta ${displayLabel.toLowerCase()} neste modelo, de ${def.min ?? 0} a ${def.max ?? 100}${def.unit ?? ''}. Compare o resultado na prévia ao alterar o valor.`
       : `Adjusts ${displayLabel.toLowerCase()} in this model, from ${def.min ?? 0} to ${def.max ?? 100}${def.unit ?? ''}. Compare the preview while changing it.`;
   }
   if (def.type === 'xypad') {
+    if (locale === 'es') return `Ajusta ${displayLabel.toLowerCase()} en dos ejes. Moverlo en horizontal cambia X; en vertical cambia Y.`;
     return locale === 'pt'
       ? `Ajusta ${displayLabel.toLowerCase()} em dois eixos. Mover horizontalmente altera X; mover verticalmente altera Y.`
       : `Adjusts ${displayLabel.toLowerCase()} on two axes. Horizontal movement changes X; vertical movement changes Y.`;
   }
   if (def.type === 'color') {
-    return CONTROL_HELP.colour[locale];
+    return pick(CONTROL_HELP.colour, locale);
   }
   if (def.type === 'upload') {
+    if (locale === 'es') return `Elige el archivo usado en ${displayLabel.toLowerCase()}. Subir otro archivo reemplaza el actual.`;
     return locale === 'pt'
       ? `Escolhe o arquivo usado em ${displayLabel.toLowerCase()}. Enviar outro arquivo substitui o atual.`
       : `Chooses the file used for ${displayLabel.toLowerCase()}. Uploading another file replaces the current one.`;
   }
+  if (locale === 'es') return `Elige cómo funciona ${displayLabel.toLowerCase()}. Las opciones cambian el comportamiento; este elemento no usa una escala de aumentar o disminuir.`;
   return locale === 'pt'
     ? `Escolhe como ${displayLabel.toLowerCase()} funciona. As opções mudam o comportamento; este item não usa uma escala de aumentar ou diminuir.`
     : `Chooses how ${displayLabel.toLowerCase()} behaves. The options change the mode rather than a higher/lower scale.`;
 }
 
 export function uiHelp(key: keyof typeof UI_HELP, locale: Locale): string {
-  return UI_HELP[key][locale];
+  return pick(UI_HELP[key], locale);
 }

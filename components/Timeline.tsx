@@ -7,12 +7,14 @@ import ExportDialog from './ExportDialog';
 import TrackLane from './TrackLane';
 import SaveStatus from './SaveStatus';
 import TextTrackLane from './TextTrackLane';
+import AudioTrackLane from './AudioTrackLane';
 import { ExportIcon, PauseIcon, PlayIcon } from './EditorIcons';
 import { useI18n } from '@/lib/useI18n';
 import { useUIStore } from '@/store/useUIStore';
 import { compositionOrder } from '@/lib/composition';
 import LayerDropTarget from './LayerDropTarget';
 import {numericKeyValue} from '@/lib/numericKeyboard';
+import { tx } from '@/lib/tx';
 
 function fmt(sec: number) {
   const s = Math.max(0, sec);
@@ -55,7 +57,7 @@ export default function Timeline({
   const setFrame = useSceneStore((s) => s.setFrame);
   const setDuration = useSceneStore((s) => s.setDuration);
   const tracks = useSceneStore((s) => s.tracks);
-  const textLayers = useSceneStore((s) => s.textLayers);
+  const textLayers = useSceneStore((s) => s.textLayers), audioUrl = useSceneStore((s) => s.audioUrl);
   const addTrack = useSceneStore((s) => s.addTrack);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const lanesOpen = useUIStore((state) => state.timelineExpanded);
@@ -170,7 +172,7 @@ export default function Timeline({
       >
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.8l6 3-6 3-6-3 6-3z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M2 8.2l6 3 6-3" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
         {t('layers')}
-        <span className="tl-lanes-count">{tracks.length + textLayers.length}</span>
+        <span className="tl-lanes-count">{tracks.length + textLayers.length + (audioUrl ? 1 : 0)}</span>
       </button>
 
       {extra}
@@ -191,10 +193,10 @@ export default function Timeline({
             the store's array is bottom-to-top, the UI shows it reversed. */}
         {compositionOrder(tracks, textLayers).reverse().map((item, index) => {
           const layer = textLayers.find(l => l.id === item.id), track = tracks.find(t => t.id === item.id);
-          const modeControl = index === 0 ? <label className="tl-composition-control" data-mode={compositeMode} onPointerDown={e=>e.stopPropagation()} title={locale === 'pt' ? 'Único: exibe só o modelo ativo. Compor: sobrepõe todos os modelos visíveis. Textos e imagens absolutas continuam independentes.' : 'Single: show only the active model. Stack: overlay all visible models. Text and absolute images remain independent.'}>
-            <select aria-label={locale === 'pt' ? 'Composição dos modelos' : 'Model composition'} value={compositeMode} onChange={e=>setCompositeMode(e.target.value as 'single' | 'stack')}>
-              <option value="single">{locale === 'pt' ? 'Único' : 'Single'}</option>
-              <option value="stack">{locale === 'pt' ? 'Compor' : 'Stack'}</option>
+          const modeControl = index === 0 ? <label className="tl-composition-control" data-mode={compositeMode} onPointerDown={e=>e.stopPropagation()} title={tx(locale === 'pt', 'Único: exibe só o modelo ativo. Compor: sobrepõe todos os modelos visíveis. Textos e imagens absolutas continuam independentes.', 'Single: show only the active model. Stack: overlay all visible models. Text and absolute images remain independent.')}>
+            <select aria-label={tx(locale === 'pt', 'Composição dos modelos', 'Model composition')} value={compositeMode} onChange={e=>setCompositeMode(e.target.value as 'single' | 'stack')}>
+              <option value="single">{tx(locale === 'pt', 'Único', 'Single')}</option>
+              <option value="stack">{tx(locale === 'pt', 'Compor', 'Stack')}</option>
             </select>
           </label> : undefined;
           return <LayerDropTarget key={item.id} id={item.id} name={layer?.text ?? track?.name ?? ''}>{layer ? <TextTrackLane layer={layer} duration={duration} leadingControl={modeControl} /> : track ? <TrackLane
@@ -203,6 +205,8 @@ export default function Timeline({
             leadingControl={modeControl}
           /> : null}</LayerDropTarget>;
         })}
+
+        {audioUrl && <AudioTrackLane duration={duration} />}
 
         {/* one playhead across every lane, in the shared axis space */}
         <div className="tl-lanes-playhead" style={{ left: `calc(var(--tl-axis-left) + var(--tl-axis-w) * ${progress / 100})` }} />

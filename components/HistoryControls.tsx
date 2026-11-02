@@ -4,6 +4,7 @@
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { RedoIcon, UndoIcon } from './EditorIcons';
 import { useUIStore } from '@/store/useUIStore';
+import { tx } from '@/lib/tx';
 
 // Undo / redo, floating over the stage. It sits here rather than in the
 // transport row because it acts on the scene, not on the clock — and the stage
@@ -21,8 +22,8 @@ export default function HistoryControls() {
         className="stage-hist-btn"
         onClick={undo}
         disabled={!canUndo}
-        title={pt ? 'Desfazer (Ctrl/⌘Z)' : 'Undo (Ctrl/⌘Z)'}
-        aria-label={pt ? 'Desfazer' : 'Undo'}
+        title={tx(pt, 'Desfazer (Ctrl/⌘Z)', 'Undo (Ctrl/⌘Z)')}
+        aria-label={tx(pt, 'Desfazer', 'Undo')}
       >
         <UndoIcon size={15} />
       </button>
@@ -31,8 +32,8 @@ export default function HistoryControls() {
         className="stage-hist-btn"
         onClick={redo}
         disabled={!canRedo}
-        title={pt ? 'Refazer (Ctrl/⌘⇧Z)' : 'Redo (Ctrl/⌘⇧Z)'}
-        aria-label={pt ? 'Refazer' : 'Redo'}
+        title={tx(pt, 'Refazer (Ctrl/⌘⇧Z)', 'Redo (Ctrl/⌘⇧Z)')}
+        aria-label={tx(pt, 'Refazer', 'Redo')}
       >
         <RedoIcon size={15} />
       </button>

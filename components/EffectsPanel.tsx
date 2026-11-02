@@ -13,6 +13,7 @@ import { useI18n } from '@/lib/useI18n';
 import InfoHint from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
 import { effectHelp } from '@/lib/effectHelp';
+import { tx } from '@/lib/tx';
 
 function MobileEffectCard({
   effect,
@@ -80,13 +81,15 @@ export default function EffectsPanel() {
       </div>
       <div className="section-body">
         <div className="effect-add">
-          <select className="field" value={pick} onChange={(e) => setPick(e.target.value)}>
-            {effectList.map((e) => <option key={e.meta.id} value={e.meta.id}>{label(e.meta.name)}</option>)}
-          </select>
+          <div className="field-with-hint">
+            <select className="field" value={pick} onChange={(e) => setPick(e.target.value)}>
+              {effectList.map((e) => <option key={e.meta.id} value={e.meta.id}>{label(e.meta.name)}</option>)}
+            </select>
+            <InfoHint text={effectHelp(pick, locale)} name={label(getEffect(pick)?.meta.name ?? '')} />
+          </div>
           <button className="btn" disabled={effects.length >= 8} onClick={() => pick && addEffect(pick, effectDefaults(pick))}>{t('add')}</button>
         </div>
-        <p className="ctl-hint">{effectHelp(pick, locale)}</p>
-        <p className="ctl-hint">{locale === 'pt' ? 'Aplicados ao quadro composto, de cima para baixo. Desative o olho para comparar. Até 8 efeitos por composição.' : 'Applied to the composed frame, top to bottom. Toggle the eye to compare. Up to 8 effects per composition.'}</p>
+        <p className="ctl-hint">{tx(locale === 'pt', 'Aplicados ao quadro composto, de cima para baixo. Desative o olho para comparar. Até 8 efeitos por composição.', 'Applied to the composed frame, top to bottom. Toggle the eye to compare. Up to 8 effects per composition.')}</p>
 
         {mobile ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={finishMobileDrag}>
@@ -115,17 +118,17 @@ export default function EffectsPanel() {
               onDrop={(ev) => { if (!ev.dataTransfer.types.includes('application/x-rp-effect')) return; ev.preventDefault(); if (dragIdx !== null && dragIdx !== i) reorderEffects(dragIdx, i); setDragIdx(null); }}
             >
               <div className="effect-card-head">
-                <button type="button" className="drag-grip icon-btn" draggable aria-label={locale === 'pt' ? 'Arrastar para ordenar efeito' : 'Drag to reorder effect'}
+                <button type="button" className="drag-grip icon-btn" draggable aria-label={tx(locale === 'pt', 'Arrastar para ordenar efeito', 'Drag to reorder effect')}
                   onDragStart={ev => { ev.dataTransfer.setData('application/x-rp-effect', e.instanceId); ev.dataTransfer.effectAllowed = 'move'; setDragIdx(i); }} onDragEnd={() => setDragIdx(null)}>⣿</button>
                 <span className="effect-title">{label(def.meta.name)}</span>
-                <button className="icon-btn" aria-label={`${e.enabled ? (locale === 'pt' ? 'Desativar' : 'Disable') : (locale === 'pt' ? 'Ativar' : 'Enable')} ${label(def.meta.name)}`} onClick={() => toggleEffect(e.instanceId)}>
+                <button className="icon-btn" aria-label={`${e.enabled ? (tx(locale === 'pt', 'Desativar', 'Disable')) : (tx(locale === 'pt', 'Ativar', 'Enable'))} ${label(def.meta.name)}`} onClick={() => toggleEffect(e.instanceId)}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                     <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" stroke="currentColor" strokeWidth="1.3"/>
                     <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/>
                     {!e.enabled && <path d="M2.5 13.5l11-11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>}
                   </svg>
                 </button>
-                <button className="icon-btn" aria-label={`${locale === 'pt' ? 'Remover' : 'Remove'} ${label(def.meta.name)}`} onClick={() => removeEffect(e.instanceId)}>
+                <button className="icon-btn" aria-label={`${tx(locale === 'pt', 'Remover', 'Remove')} ${label(def.meta.name)}`} onClick={() => removeEffect(e.instanceId)}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 </button>
               </div>

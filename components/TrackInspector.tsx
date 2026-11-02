@@ -7,6 +7,7 @@ import { ControlRow } from './Controls';
 import { BlendRow } from './BlendSelect';
 import { useUIStore } from '@/store/useUIStore';
 import { layerDisplayName } from '@/lib/compositionActions';
+import { tx, txf } from '@/lib/tx';
 
 // The active track's own properties — everything that is about the LAYER rather
 // than about the motion template inside it. The template's own controls stay in
@@ -38,12 +39,12 @@ export default function TrackInspector() {
   return (
     <>
       <div className="section-head">
-        <span className="eyebrow">{pt ? 'Camada' : 'Layer'}</span>
+        <span className="eyebrow">{tx(pt, 'Camada', 'Layer')}</span>
         <input
           className="badge trk-name"
           value={layerDisplayName(track.name, pt)}
           onChange={(e) => renameTrack(track.id, e.target.value)}
-          aria-label={pt ? 'Nome da camada' : 'Layer name'}
+          aria-label={tx(pt, 'Nome da camada', 'Layer name')}
         />
       </div>
 
@@ -73,13 +74,13 @@ export default function TrackInspector() {
           onChange={(v) => patch({ fade: Number(v) })}
         />
         <div className="ctl-hint">
-          {pt ? 'Intervalo' : 'Window'} {(inFrame / fps).toFixed(1)}s → {(outFrame / fps).toFixed(1)}s ({length} {pt ? 'quadros' : 'frames'})
+          {tx(pt, 'Intervalo', 'Window')} {(inFrame / fps).toFixed(1)}s → {(outFrame / fps).toFixed(1)}s ({length} {tx(pt, 'quadros', 'frames')})
         </div>
       </div>
 
       <div className="hairline" />
 
-      <div className="section-head"><span className="eyebrow">{pt ? 'Transformação da camada' : 'Layer transform'}</span></div>
+      <div className="section-head"><span className="eyebrow">{tx(pt, 'Transformação da camada', 'Layer transform')}</span></div>
       <div className="section-body">
         <ControlRow
           def={{ key: '_xy', label: 'Position', type: 'xypad', max: 400, default: { x: 0, y: 0 } }}
@@ -104,14 +105,14 @@ export default function TrackInspector() {
           into one scene: layer A drifts the backdrop images, layer B runs the
           foreground carousel. */}
       <div className="section-head">
-        <span className="eyebrow">{pt ? 'Imagens da camada' : 'Layer images'}</span>
+        <span className="eyebrow">{tx(pt, 'Imagens da camada', 'Layer images')}</span>
         {!usesAll && (
-          <button className="badge" onClick={() => patch({ assetIds: [] })}>{pt ? 'Todas' : 'All'}</button>
+          <button className="badge" onClick={() => patch({ assetIds: [] })}>{tx(pt, 'Todas', 'All')}</button>
         )}
       </div>
       <div className="section-body">
         {realAssets.length === 0 ? (
-          <div className="ctl-hint">{pt ? 'Adicione imagens na aba Mídia para usá-las nesta camada.' : 'Add images from the Media tab to assign them to this layer.'}</div>
+          <div className="ctl-hint">{tx(pt, 'Adicione imagens na aba Mídia para usá-las nesta camada.', 'Add images from the Media tab to assign them to this layer.')}</div>
         ) : (
           <>
             <div className="trk-assets">
@@ -130,7 +131,7 @@ export default function TrackInspector() {
               })}
             </div>
             <div className="ctl-hint">
-              {usesAll ? (pt ? 'Usando todas as imagens adicionadas.' : 'Using every added image.') : pt ? `${selectedRealCount} de ${realAssets.length} selecionadas.` : `${selectedRealCount} of ${realAssets.length} selected.`}
+              {usesAll ? (tx(pt, 'Usando todas as imagens adicionadas.', 'Using every added image.')) : txf(pt, '{a} de {b} selecionadas.', '{a} of {b} selected.', { a: selectedRealCount, b: realAssets.length })}
             </div>
           </>
         )}

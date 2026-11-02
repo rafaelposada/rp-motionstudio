@@ -10,6 +10,7 @@ import { controlHelp } from '@/lib/controlHelp';
 import { parseNumericExpression } from '@/lib/numericExpression';
 import { xyPadPoint } from '@/lib/xyPad';
 import {integerNumericKey,numericDecimals,numericKeyValue} from '@/lib/numericKeyboard';
+import { tx } from '@/lib/tx';
 
 interface RowProps {
   def: ControlDef;
@@ -175,10 +176,10 @@ function SliderControl({ def, value, onChange }: RowProps) {
       {editing && (
         <output className={`calc-feedback ${parsedDraft === null ? 'invalid' : ''}`} aria-live="polite">
           {parsedDraft === null
-            ? (locale === 'pt' ? 'Cálculo inválido' : 'Invalid calculation')
+            ? (tx(locale === 'pt', 'Cálculo inválido', 'Invalid calculation'))
             : isCalculation
-              ? `= ${calculated?.toFixed(Math.max(decimals,numericDecimals(calculated??0)))}${def.unit ?? ''}${adjustedToControl ? (locale === 'pt' ? ' · ajustado ao limite/passo' : ' · adjusted to range/step') : ''}`
-              : (locale === 'pt' ? 'Enter para aplicar' : 'Press Enter to apply')}
+              ? `= ${calculated?.toFixed(Math.max(decimals,numericDecimals(calculated??0)))}${def.unit ?? ''}${adjustedToControl ? (tx(locale === 'pt', ' · ajustado ao limite/passo', ' · adjusted to range/step')) : ''}`
+              : (tx(locale === 'pt', 'Enter para aplicar', 'Press Enter to apply'))}
         </output>
       )}
     </div>

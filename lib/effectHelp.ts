@@ -1,5 +1,6 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import type { Locale } from './i18n';
+import { esText } from './tx';
 const help: Record<string, [string, string]> = {
   grain: ['Textura de filme. Quantidade intensifica o ruído; tamanho aumenta os grãos. Animar troca o padrão ao longo do vídeo.', 'Film texture. Amount increases noise; size makes the grains larger. Animate changes the pattern over time.'],
   vignette: ['Escurece as bordas sem tornar as imagens transparentes. Quantidade escurece mais; raio maior preserva uma área central maior; suavidade amplia a transição.', 'Darkens edges without making images transparent. Amount darkens more; a larger radius protects more of the center; softness widens the transition.'],
@@ -14,4 +15,4 @@ const help: Record<string, [string, string]> = {
   'rgb-split': ['Separa os canais vermelho e azul em direções opostas. Deslocamento amplia a separação; ângulo muda sua direção.', 'Offsets red and blue in opposite directions. Offset increases separation; angle changes its direction.'],
   wave: ['Ondula o quadro horizontalmente. Quantidade aumenta o deslocamento; frequência adiciona ondas; velocidade acelera o movimento. Pode abrir transparência nas bordas.', 'Waves the frame horizontally. Amount increases displacement; frequency adds waves; speed accelerates motion. Can expose transparency at the edges.'],
 };
-export const effectHelp = (id: string, locale: Locale) => help[id]?.[locale === 'pt' ? 0 : 1] ?? '';
+export const effectHelp = (id: string, locale: Locale) => { const pair = help[id]; return !pair ? '' : locale === 'pt' ? pair[0] : locale === 'es' ? esText(pair[0], pair[1]) : pair[1]; };

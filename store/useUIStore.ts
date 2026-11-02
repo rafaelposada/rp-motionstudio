@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { DEFAULT_ACCENT, sanitizeAccent, accentTokens } from '@/lib/accentColor';
 import type { Locale } from '@/lib/i18n';
+import { setCurrentLocale } from '@/lib/localeState';
 import type {TextRange} from '@/lib/richText';
 import { DEFAULT_PANELS, panelDimension, sanitizePanels, type PanelId, type PanelAxis, type PanelLayout, type PanelWidthPriority } from '@/lib/panelLayout';
 
@@ -95,7 +96,8 @@ function savePreferences(prefs: UIPreferences) {
   document.documentElement.dataset.theme = prefs.theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', prefs.theme === 'dark' ? '#0c0d0f' : '#eef1f5');
   for (const [name, color] of Object.entries(accentTokens(prefs.accentColor))) document.documentElement.style.setProperty(name, color);
-  document.documentElement.lang = prefs.locale === 'pt' ? 'pt-BR' : 'en';
+  setCurrentLocale(prefs.locale);
+  document.documentElement.lang = prefs.locale === 'pt' ? 'pt-BR' : prefs.locale === 'es' ? 'es' : 'en';
   return saved;
 }
 
@@ -175,7 +177,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     return { theme: next.theme, appearance: next.theme };
   }),
   toggleLocale: () => set((state) => {
-    const locale: Locale = state.locale === 'en' ? 'pt' : 'en';
+    const locale: Locale = state.locale === 'en' ? 'pt' : state.locale === 'pt' ? 'es' : 'en';
     const next = { ...state, locale };
     savePreferences(next);
     return { locale };
@@ -216,7 +218,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       autosaveDelay: Math.max(250, Math.min(10000, Number(saved.autosaveDelay) || 500)),
       showSelectionBox: saved.showSelectionBox !== false,
       accentColor: sanitizeAccent(saved.accentColor),
-      locale: saved.locale === 'pt' ? 'pt' as const : 'en' as const,
+      locale: saved.locale === 'pt' ? 'pt' as const : saved.locale === 'es' ? 'es' as const : 'en' as const,
       leftCollapsed: typeof saved.leftCollapsed === 'boolean' ? saved.leftCollapsed : state.leftCollapsed,
       rightCollapsed: typeof saved.rightCollapsed === 'boolean' ? saved.rightCollapsed : state.rightCollapsed,
       tplCollapsed: typeof saved.tplCollapsed === 'boolean' ? saved.tplCollapsed : state.tplCollapsed,

@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode, type PointerEvent, type KeyboardEven
 import { useUIStore } from '@/store/useUIStore';
 import { DEFAULT_PANELS, PANEL_LIMITS, type PanelId, type PanelAxis } from '@/lib/panelLayout';
 import { useI18n } from '@/lib/useI18n';
+import { tx } from '@/lib/tx';
 
 export function panelName(panel: PanelId, pt: boolean) {
   return (pt ? { rail: 'Navegação', library: 'Biblioteca / Projetos', inspector: 'Inspetor', timeline: 'Linha do tempo' } : { rail: 'Navigation', library: 'Library / Projects', inspector: 'Inspector', timeline: 'Timeline' })[panel];
@@ -34,8 +35,8 @@ function ResizeHandle({ panel, axis }: { panel: PanelId; axis: PanelAxis }) {
     event.preventDefault(); const rect = event.currentTarget.parentElement!.getBoundingClientRect();
     setSize((axis === 'width' ? rect.width : rect.height) + (event.key === increase ? 1 : -1) * (reverse ? -1 : 1) * (event.shiftKey ? 1 : 10));
   };
-  const label = `${pt ? (axis === 'width' ? 'Largura' : 'Altura') : (axis === 'width' ? 'Width' : 'Height')} — ${panelName(panel, pt)}`;
-  return <div className={`panel-resizer resize-${axis} ${reverse ? 'resize-reverse' : ''}`} role="separator" tabIndex={0} aria-label={label} aria-orientation={axis === 'width' ? 'vertical' : 'horizontal'} aria-valuemin={value ? min : 0} aria-valuemax={max} aria-valuenow={value} aria-valuetext={value ? `${value}px` : pt ? 'Automático' : 'Automatic'} title={`${label}. ${pt ? 'Arraste ou use as setas. Clique duas vezes para restaurar.' : 'Drag or use arrow keys. Double-click to reset.'}`} onPointerDown={down} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish} onKeyDown={key} onDoubleClick={() => setSize(DEFAULT_PANELS[panel][axis])} />;
+  const label = `${axis === 'width' ? tx(pt, 'Largura', 'Width') : tx(pt, 'Altura', 'Height')} — ${panelName(panel, pt)}`;
+  return <div className={`panel-resizer resize-${axis} ${reverse ? 'resize-reverse' : ''}`} role="separator" tabIndex={0} aria-label={label} aria-orientation={axis === 'width' ? 'vertical' : 'horizontal'} aria-valuemin={value ? min : 0} aria-valuemax={max} aria-valuenow={value} aria-valuetext={value ? `${value}px` : tx(pt, 'Automático', 'Automatic')} title={`${label}. ${tx(pt, 'Arraste ou use as setas. Clique duas vezes para restaurar.', 'Drag or use arrow keys. Double-click to reset.')}`} onPointerDown={down} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish} onKeyDown={key} onDoubleClick={() => setSize(DEFAULT_PANELS[panel][axis])} />;
 }
 export default function PanelDock({ panel, children, collapsed = false, strip = false }: { panel: PanelId; children: ReactNode; collapsed?: boolean; strip?: boolean }) {
   const height = useUIStore((state) => state.panels[panel].height); const width = useUIStore((state) => state.panels[panel].width);
