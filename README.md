@@ -186,6 +186,9 @@ dependem do último salvamento automático, sem garantia de diálogo.
 Os dados desktop ficam em `RP MotionStudio Desktop` dentro de Application Support
 no macOS, AppData/Roaming no Windows e a pasta de dados do usuário no Linux. A
 origem interna é fixa, mesmo que a porta do serviço local mude entre aberturas.
+O serviço executa uma cópia descartável do runtime na subpasta `Runtime` desses
+dados, mantendo o pacote do aplicativo intacto. Essa cópia ocupa cerca de 100 MB;
+versões antigas identificadas como geradas pelo próprio app são limpas ao abrir.
 Para transferir a edição antiga, salve pacotes `.motion.zip` nela e importe-os
 na edição desktop. Confira as mídias e a exportação antes de substituir a instalação
 antiga. O original permanece preservado. Nunca remova os dados do navegador para

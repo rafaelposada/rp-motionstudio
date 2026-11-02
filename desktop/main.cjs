@@ -2,13 +2,15 @@
 const {app, BrowserWindow, Menu, dialog, ipcMain, protocol, net, shell, utilityProcess, nativeImage} = require('electron');
 const fs = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto'), nodeNet = require('node:net');
 const {APP_ORIGIN, trustedURL, externalURL, closeCoordinator} = require('./policy.cjs');
+const {prepareRuntime}=require('./runtime.cjs');
 protocol.registerSchemesAsPrivileged([{scheme:'rp-motion',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,codeCache:true}}]);
 const profile = process.env.RP_DESKTOP_PROFILE;
 if (profile && !path.isAbsolute(profile)) throw Error('RP_DESKTOP_PROFILE must be absolute.');
 app.setName('RP MotionStudio Desktop');
 app.setPath('userData', profile || path.join(app.getPath('appData'), 'RP MotionStudio Desktop'));
 app.setPath('sessionData', path.join(app.getPath('userData'), 'Browser'));
-const runtime = app.isPackaged ? path.join(process.resourcesPath,'runtime') : path.join(__dirname,'..','dist-desktop','runtime');
+const bundledRuntime = app.isPackaged ? path.join(process.resourcesPath,'runtime') : path.join(__dirname,'..','dist-desktop','runtime');
+let runtime=bundledRuntime;
 let win, server, serverOrigin, closing = false, exiting = false, ready = false;
 const requests = new Map();
 const validSender = event => !!win && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame && trustedURL(event.senderFrame?.url || '');
@@ -50,6 +52,7 @@ async function freePort() {
   return new Promise((resolve,reject) => {const socket=nodeNet.createServer();socket.once('error',reject);socket.listen(0,'127.0.0.1',()=>{const port=socket.address().port;socket.close(error=>error?reject(error):resolve(port));});});
 }
 async function startServer() {
+  runtime=await prepareRuntime(bundledRuntime,path.join(app.getPath('userData'),'Runtime'));
   const port = await freePort(), instance = crypto.randomUUID();serverOrigin=`http://127.0.0.1:${port}`;
   const safePath = [process.env.PATH || '', '/opt/homebrew/bin','/usr/local/bin','/usr/bin','/bin'].join(path.delimiter);
   server = utilityProcess.fork(path.join(runtime,'server.js'),[],{cwd:runtime,stdio:'pipe',serviceName:'RP MotionStudio · arquivos e exportação',env:{

@@ -1,7 +1,25 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {trustedURL,externalURL,closeCoordinator,closeCopy}=require('../desktop/policy.cjs');
+const {prepareRuntime}=require('../desktop/runtime.cjs');
 async function main(){
+  const temporary=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'rp-runtime-verification-'));
+  try{
+    const source=path.join(temporary,'bundle'),root=path.join(temporary,'data');
+    for(const dir of ['.next/cache','.next/server/route-cache','public/exports'])fs.mkdirSync(path.join(source,dir),{recursive:true});
+    fs.writeFileSync(path.join(source,'server.js'),'fixture service');fs.writeFileSync(path.join(source,'.next/BUILD_ID'),'fixture-1');
+    fs.writeFileSync(path.join(source,'.next/cache/test'),'discardable cache');fs.writeFileSync(path.join(source,'public/exports/test'),'private proxy');
+    const first=await prepareRuntime(source,root);
+    assert.notEqual(first,source);assert.equal(fs.readFileSync(path.join(first,'server.js'),'utf8'),'fixture service');
+    assert.equal(fs.existsSync(path.join(first,'public/exports/test')),false);assert.equal(fs.existsSync(path.join(first,'.next/cache/test')),false);
+    fs.mkdirSync(path.join(first,'.next/server/route-cache'),{recursive:true});fs.writeFileSync(path.join(first,'.next/server/route-cache/new'),'new cache');
+    assert.equal(fs.existsSync(path.join(source,'.next/server/route-cache/new')),false,'Runtime writes must leave the bundled source intact');
+    assert.equal(await prepareRuntime(source,root),first,'Reopen must reuse the generated copy');
+    fs.mkdirSync(path.join(root,'user-files'));fs.writeFileSync(path.join(root,'user-files/project'),'preserve');
+    fs.writeFileSync(path.join(source,'.next/BUILD_ID'),'fixture-2');const second=await prepareRuntime(source,root);
+    assert.notEqual(first,second);assert.equal(fs.existsSync(first),false);assert.equal(fs.readFileSync(path.join(root,'user-files/project'),'utf8'),'preserve');
+    fs.writeFileSync(path.join(second,'.rp-runtime.json'),'{}');await assert.rejects(()=>prepareRuntime(source,root),/não identificados/);
+  }finally{fs.rmSync(temporary,{recursive:true,force:true});}
   for(const u of ['rp-motion://app/','rp-motion://app/?x=1'])assert.ok(trustedURL(u));
   for(const u of ['https://app/','rp-motion://evil/','rp-motion://user@app/','rp-motion://app:80/','file:///tmp/test','javascript:alert(1)'])assert.equal(trustedURL(u),false);
   for(const u of ['https://rafaelposada.com','mailto:contato@rafaelposada.com'])assert.ok(externalURL(u));
@@ -32,6 +50,6 @@ async function main(){
   const renderer=fs.readFileSync(path.join(__dirname,'../lib/renderer.ts'),'utf8');
   assert.match(renderer,/if \(desktopAPI\(\)\) await import\('pixi.js\/unsafe-eval'\)/);
   assert.doesNotMatch(source,/script-src[^";]*'unsafe-eval'/,'The desktop must keep runtime code generation blocked');
-  console.log('Desktop checks passed: URL/IPC policy, all close choices, duplicate close, disk failure, busy guard and isolated renderer.');
+  console.log('Desktop checks passed: immutable bundled runtime, marked cache cleanup, URL/IPC policy, all close choices, duplicate close, disk failure, busy guard and isolated renderer.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
