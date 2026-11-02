@@ -50,7 +50,8 @@ function createUpdater({net, app, root, onProgress}) {
     const mount = path.join(root, 'mount'), stagedApp = path.join(root, 'staged', 'RP MotionStudio Desktop.app');
     await fsp.rm(path.dirname(stagedApp), {recursive: true, force: true}); await fsp.mkdir(path.dirname(stagedApp), {recursive: true}); await fsp.mkdir(mount, {recursive: true});
     await exec('/usr/bin/hdiutil', ['attach', '-nobrowse', '-readonly', '-noautoopen', '-mountpoint', mount, file]);
-    try { await exec('/usr/bin/ditto', [path.join(mount, 'RP MotionStudio Desktop.app'), stagedApp]); }
+    // Finder metadata from the disk image is not part of the signed bundle.
+    try { await exec('/usr/bin/ditto', ['--norsrc', '--noextattr', '--noacl', path.join(mount, 'RP MotionStudio Desktop.app'), stagedApp]); }
     finally { await exec('/usr/bin/hdiutil', ['detach', mount, '-force']).catch(() => {}); }
     await exec('/usr/bin/codesign', ['--verify', '--deep', '--strict', stagedApp]);
     const {stdout} = await exec('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleShortVersionString', path.join(stagedApp, 'Contents/Info.plist')]);

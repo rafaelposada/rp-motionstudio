@@ -8,7 +8,9 @@ app_name = Path(application).name
 files = [application, (guide, 'Leia-me.txt')]
 symlinks = {'Aplicativos': '/Applications'}
 hide = ['Leia-me.txt']
-hide_extensions = [app_name]
+# No hidden-extension flag: it is stored as com.apple.FinderInfo on the bundle,
+# which strict signature checks (and the in-app updater) reject.
+hide_extensions = []
 icon = str(Path(application) / 'Contents/Resources/electron.icns')
 background = defines['background']
 format = 'UDZO'
