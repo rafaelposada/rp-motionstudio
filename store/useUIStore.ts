@@ -21,8 +21,6 @@ export interface UIState {
   setAccentColor: (color: string) => void;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
-  timelineHidden: boolean;
-  toggleTimelinePanel: () => void;
   tplCollapsed: boolean;    // left column folded to the original compact strip
   panels: PanelLayout;
   panelWidthPriority: PanelWidthPriority;
@@ -72,13 +70,13 @@ export interface UIState {
 
 const PREFS_KEY = 'motion-ui-preferences';
 
-type UIPreferences = Pick<UIState, 'theme' | 'appearance' | 'autosaveEnabled' | 'autosaveDelay' | 'showSelectionBox' | 'locale' | 'accentColor' | 'leftCollapsed' | 'rightCollapsed' | 'timelineHidden' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled'>;
+type UIPreferences = Pick<UIState, 'theme' | 'appearance' | 'autosaveEnabled' | 'autosaveDelay' | 'showSelectionBox' | 'locale' | 'accentColor' | 'leftCollapsed' | 'rightCollapsed' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled'>;
 
 function savePreferences(prefs: UIPreferences) {
   if (typeof window === 'undefined') return;
   let saved = true;
   try { localStorage.setItem(PREFS_KEY, JSON.stringify({
-    version: 6,
+    version: 7,
     appearance: prefs.appearance,
     autosaveEnabled: prefs.autosaveEnabled, autosaveDelay: prefs.autosaveDelay,
     showSelectionBox: prefs.showSelectionBox,
@@ -87,7 +85,6 @@ function savePreferences(prefs: UIPreferences) {
     locale: prefs.locale,
     leftCollapsed: prefs.leftCollapsed,
     rightCollapsed: prefs.rightCollapsed,
-    timelineHidden: prefs.timelineHidden,
     tplCollapsed: prefs.tplCollapsed,
     panels: prefs.panels,
     panelWidthPriority: prefs.panelWidthPriority,
@@ -126,11 +123,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   }),
   leftCollapsed: false,
   rightCollapsed: false,
-  timelineHidden: false,
-  toggleTimelinePanel: () => set(state => {
-    const timelineHidden = !state.timelineHidden;
-    savePreferences({...state, timelineHidden}); return {timelineHidden};
-  }),
   tplCollapsed: false,
   panels: sanitizePanels(DEFAULT_PANELS),
   panelWidthPriority: null,
@@ -168,7 +160,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   }),
   persistPreferences: () => set({ preferencesError: savePreferences(get()) === false ? 'storage' : null }),
   resetPanelLayout: () => set((state) => {
-    const next = { panels: sanitizePanels(DEFAULT_PANELS), panelWidthPriority: null, timelineExpanded: false, timelineHidden: false, leftCollapsed: false, rightCollapsed: false, tplCollapsed: false };
+    const next = { panels: sanitizePanels(DEFAULT_PANELS), panelWidthPriority: null, timelineExpanded: false, leftCollapsed: false, rightCollapsed: false, tplCollapsed: false };
     savePreferences({ ...state, ...next }); return next;
   }),
   setTimelineExpanded: (timelineExpanded) => set((state) => { savePreferences({ ...state, timelineExpanded }); return { timelineExpanded }; }),
@@ -227,7 +219,6 @@ export const useUIStore = create<UIState>((set, get) => ({
       locale: saved.locale === 'pt' ? 'pt' as const : 'en' as const,
       leftCollapsed: typeof saved.leftCollapsed === 'boolean' ? saved.leftCollapsed : state.leftCollapsed,
       rightCollapsed: typeof saved.rightCollapsed === 'boolean' ? saved.rightCollapsed : state.rightCollapsed,
-      timelineHidden: saved.timelineHidden === true,
       tplCollapsed: typeof saved.tplCollapsed === 'boolean' ? saved.tplCollapsed : state.tplCollapsed,
       panels: sanitizePanels(saved.panels),
       panelWidthPriority: saved.panelWidthPriority === 'library' || saved.panelWidthPriority === 'inspector' ? saved.panelWidthPriority : null,

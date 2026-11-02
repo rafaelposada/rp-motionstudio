@@ -25,7 +25,7 @@ export function sanitizePanels(value: unknown): PanelLayout {
   const source = value as Partial<PanelLayout> | null;
   return Object.fromEntries((Object.keys(DEFAULT_PANELS) as PanelId[]).map((id) => [id, Object.fromEntries((['width', 'height'] as const).map((axis) => [axis, panelDimension(id, axis, typeof source?.[id]?.[axis] === 'number' ? source[id]![axis] : DEFAULT_PANELS[id][axis])]))])) as PanelLayout;
 }
-export function fitPanelLayout(panels: PanelLayout, viewportWidth: number, viewportHeight: number, leftHidden: boolean, rightHidden: boolean, strip: boolean, expanded: boolean, priority: PanelWidthPriority = null, timelineHidden = false) {
+export function fitPanelLayout(panels: PanelLayout, viewportWidth: number, viewportHeight: number, leftHidden: boolean, rightHidden: boolean, strip: boolean, expanded: boolean, priority: PanelWidthPriority = null) {
   const width = Math.max(920, viewportWidth), height = Math.max(360, viewportHeight);
   const rail = panels.rail.width;
   let left = leftHidden ? 0 : strip ? 40 : panels.library.width;
@@ -50,7 +50,7 @@ export function fitPanelLayout(panels: PanelLayout, viewportWidth: number, viewp
   const preferredTimeline = panels.timeline.height;
   // Collapsing lanes returns to the compact transport without forgetting the
   // expanded height; opening lanes must never trap them in a 56px container.
-  const requestedTimeline = expanded ? (preferredTimeline > 96 ? preferredTimeline : 280) : (preferredTimeline > 0 && preferredTimeline <= 96 ? Math.max(84, preferredTimeline) : 84);
-  const timelineHeight = timelineHidden ? 0 : Math.min(requestedTimeline, height - 210);
+  const requestedTimeline = expanded ? (preferredTimeline > 96 ? preferredTimeline : 280) : (preferredTimeline > 0 && preferredTimeline <= 96 ? preferredTimeline : 56);
+  const timelineHeight = Math.min(requestedTimeline, height - 210);
   return { rail: Math.round(rail), library: Math.floor(left), inspector: Math.floor(right), timelineHeight: Math.round(timelineHeight) };
 }

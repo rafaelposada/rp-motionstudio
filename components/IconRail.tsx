@@ -6,7 +6,6 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { useI18n } from '@/lib/useI18n';
 import { AddIcon, LibraryIcon, ProjectsIcon } from './EditorIcons';
 import { showHome } from '@/lib/homeNavigation';
-import PanelVisibility from './PanelVisibility';
 
 const NAV = [
   { id: 'projects', labelKey: 'projects' as const, icon: (
@@ -57,10 +56,6 @@ export default function IconRail() {
             <span className="rail-label">{t(n.labelKey)}</span>
           </button>
         ))}
-        <div className="rail-panels" role="group" aria-label={locale==='pt'?'Mostrar ou ocultar painéis':'Show or hide panels'}>
-          <span className="rail-panels-label">{locale==='pt'?'Painéis':'Panels'}</span>
-          <PanelVisibility panel="library" compact/><PanelVisibility panel="inspector" compact/><PanelVisibility panel="timeline" compact/>
-        </div>
       </div>
       <div className="rail-bottom">
         <button

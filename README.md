@@ -187,7 +187,7 @@ npm run desktop:package
 A saída fica em `dist-desktop/packages`, para o sistema e arquitetura que executam
 o comando. No Windows, gere e valide o pacote em uma máquina Windows. O projeto
 não declara que um pacote Windows foi testado apenas porque compilou no macOS.
-Os pacotes desktop 1.4.3 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
+Os pacotes desktop 1.4.4 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
 para o sistema e arquitetura. A exportação usa esses executáveis por caminho
 absoluto; não depende de Homebrew ou FFmpeg instalado no computador do usuário.
 Os programas de mídia são agregados separados: FFmpeg/x264 mantêm GPL versão 2
@@ -238,11 +238,9 @@ vezes menor; ⌘/Ctrl+Shift+↑/↓ usa um passo cem vezes menor. Contagens, qua
 e dimensões inteiras preservam valores válidos. Os decimais finos são mantidos
 ao sair do campo, salvar e exportar.
 
-Biblioteca/Projetos, Propriedades e Linha do tempo podem ser ocultados pelo
-cabeçalho de cada painel. Os três ícones da seção Painéis, na barra lateral,
-permitem mostrar e ocultar cada um sem perder suas dimensões. A visibilidade é
-lembrada entre sessões; clicar em Projetos ou Biblioteca também reabre o painel
-correspondente. Ocultar a linha do tempo mantém a reprodução e a composição.
+As setas laterais do preview recolhem e reabrem os painéis esquerdo e direito,
+preservando seus tamanhos. A linha do tempo permanece disponível. A barra lateral
+mantém somente as ações e a navegação principais.
 
 Selecione letras ou palavras no campo Conteúdo, ou durante a edição na tela,
 para aplicar fonte, peso, cor e opacidade do preenchimento somente ao trecho.
