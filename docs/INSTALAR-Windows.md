@@ -1,6 +1,6 @@
 # RP MotionStudio · Windows x64
 
-Versão 1.4.12 · Rafael Posada
+Versão 1.4.13 · Rafael Posada
 
 Este é o primeiro pacote Windows, gerado a partir do Mac. Os executáveis foram
 inspecionados e o instalador foi compilado; a execução completa do aplicativo,
@@ -10,7 +10,7 @@ Trate esta distribuição Windows como versão de teste.
 ## Requisitos e instalação
 
 - Windows 10 de 64 bits ou mais recente; processador Intel/AMD x64.
-- Abra RP-MotionStudio-1.4.12-Windows-x64-Setup-Preview.exe.
+- Abra RP-MotionStudio-1.4.13-Windows-x64-Setup-Preview.exe.
 - Escolha a pasta de instalação e conclua o assistente. O destino padrão é
   %LOCALAPPDATA%\Programs\RP MotionStudio. A instalação é por usuário.
 - Abra RP MotionStudio pelo menu Iniciar ou pelo atalho na área de trabalho.

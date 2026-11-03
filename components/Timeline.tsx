@@ -246,6 +246,9 @@ export default function Timeline({
 
     {lanesOpen && (
       <div className="tl-lanes">
+        {/* The stack grows with its lanes, so the playhead and markers span
+            every layer even when the list scrolls. */}
+        <div className="tl-lanes-stack">
         {/* Topmost lane = topmost layer, so the list reads like the stack looks:
             the store's array is bottom-to-top, the UI shows it reversed. */}
         {compositionOrder(tracks, textLayers).reverse().map((item, index) => {
@@ -268,6 +271,7 @@ export default function Timeline({
         {/* one playhead across every lane, in the shared axis space */}
         {viewPct(progress / 100) >= 0 && viewPct(progress / 100) <= 1 && <div className="tl-lanes-playhead" style={{ left: `calc(var(--tl-axis-left) + var(--tl-axis-w) * ${viewPct(progress / 100)})` }} />}
         {markers.map((marker, index) => { const v = viewPct(marker.t / duration); return v >= 0 && v <= 1 ? <div key={`m${index}`} className="tl-lanes-marker" style={{ left: `calc(var(--tl-axis-left) + var(--tl-axis-w) * ${v})` }} /> : null; })}
+        </div>
 
         <div className="tl-lanes-foot">
           <button className="tl-add-track" onClick={() => addTrack()}>

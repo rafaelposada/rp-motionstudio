@@ -12,6 +12,8 @@ import LayerAnimationControls from './LayerAnimationControls';
 import MaskControl from './MaskControl';
 import { tx } from '@/lib/tx';
 import Tilt3DControls from './Tilt3DControls';
+import ShapeMediaFill from './ShapeMediaFill';
+import { useState } from 'react';
 import { INNER, POINTS, SIDES, regularAspect, reshapePointed } from '@/lib/shapeGeometry';
 
 const KINDS: { kind: ShapeSpec['kind']; pt: string; en: string; icon: string }[] = [
@@ -21,6 +23,9 @@ const KINDS: { kind: ShapeSpec['kind']; pt: string; en: string; icon: string }[]
   { kind: 'star', pt: 'Estrela', en: 'Star', icon: 'M12 4.2l2.12 5.69 6.06.25-4.76 3.77 1.63 5.85L12 16.4l-5.05 3.36 1.63-5.85-4.76-3.77 6.06-.25z' },
   { kind: 'line', pt: 'Linha', en: 'Line', icon: 'M5 19 19 5' },
 ];
+
+type FillMode = 'none' | 'color' | 'media';
+const FILL_MODES: { mode: FillMode; pt: string; en: string }[] = [{ mode: 'none', pt: 'Nenhum', en: 'None' }, { mode: 'color', pt: 'Cor', en: 'Color' }, { mode: 'media', pt: 'Foto ou vídeo', en: 'Photo or video' }];
 
 const ShapeIcon = ({ d, size = 20 }: { d: string; size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
@@ -47,6 +52,16 @@ export default function ShapePanel() {
   const patch = (change: Partial<TextLayer>) => shapeLayer && useSceneStore.getState().patchTextLayer(shapeLayer.id, change);
   const patchShape = (change: Partial<ShapeSpec>) => shapeLayer?.shape && patch({ shape: { ...shapeLayer.shape, ...change } });
   const live = shapeLayer ? animatedLayer(shapeLayer, seconds) : undefined;
+  // Fill is one of: none, a colour, or a photo/video. Choosing media keeps the
+  // colour until a file arrives, so an empty choice never blanks the shape.
+  const [pickingMedia, setPickingMedia] = useState<string | null>(null);
+  const fillMode: FillMode = shapeLayer?.shape?.media || pickingMedia === shapeLayer?.id ? 'media' : shapeLayer?.shape?.fill ? 'color' : 'none';
+  const chooseFill = (mode: FillMode) => {
+    if (!shapeLayer?.shape) return;
+    setPickingMedia(mode === 'media' ? shapeLayer.id : null);
+    if (mode === 'none') patchShape({ fill: undefined, media: undefined });
+    else if (mode === 'color') patchShape({ fill: shapeLayer.shape.fill ?? '#ffffff', media: undefined });
+  };
   return <section className="shape-panel">
     <h3>{tx(pt, 'Formas', 'Shapes')}</h3>
     <div className="shape-add" role="group" aria-label={tx(pt, 'Adicionar forma', 'Add shape')}>{KINDS.map((k) => <button key={k.kind} type="button" className="shape-tile" title={tx(pt, `Adicionar ${k.pt.toLowerCase()}`, `Add ${k.en.toLowerCase()}`)} onClick={() => addShape(k.kind, pt)}>
@@ -64,8 +79,18 @@ export default function ShapePanel() {
         <ControlRow def={{ key: 'shapeCorners', label: tx(pt, 'Arredondar todos os cantos', 'Round all corners'), type: 'slider', min: 0, max: Math.floor(Math.min(Math.abs(shapeLayer.shape.width), Math.abs(shapeLayer.shape.height)) / 2), step: 1, unit: 'px', default: 0 }} value={shapeRadii(shapeLayer.shape)[0]} onChange={(v) => { const r = Number(v); patchShape({ cornerRadii: [r, r, r, r], radius: undefined }); }} />
         <p className="ctl-hint">{tx(pt, 'Na tela, arraste os pontos dentro dos cantos para arredondar. Alt ajusta um canto só.', 'On the canvas, drag the dots inside the corners to round them. Alt changes one corner only.')}</p>
       </>}
-      {shapeLayer.shape.kind !== 'line' && <label className="text-edit-label"><span><input type="checkbox" checked={!!shapeLayer.shape.fill} onChange={(e) => patchShape({ fill: e.target.checked ? '#ffffff' : undefined })} /> {tx(pt, 'Preenchimento', 'Fill')}</span></label>}
-      {shapeLayer.shape.fill && shapeLayer.shape.kind !== 'line' && <ColorField pt={pt} label={tx(pt, 'Cor do preenchimento', 'Fill color')} color={shapeLayer.shape.fill} opacity={shapeLayer.shape.fillOpacity ?? 1} onChange={(fill, fillOpacity) => patchShape({ fill, fillOpacity })} />}
+      {(shapeLayer.shape.kind === 'polygon' || shapeLayer.shape.kind === 'star') && <ControlRow def={{ key: 'shapeRound', label: tx(pt, 'Arredondar cantos', 'Round corners'), type: 'slider', min: 0, max: Math.max(1, Math.floor(Math.min(Math.abs(shapeLayer.shape.width), Math.abs(shapeLayer.shape.height)) / 2)), step: 1, unit: 'px', default: 0 }} value={shapeLayer.shape.radius ?? 0} onChange={(v) => patchShape({ radius: Number(v) })} />}
+      {shapeLayer.shape.kind !== 'line' && <>
+        <span className="ctl-label shape-fill-label">{tx(pt, 'Preenchimento', 'Fill')}</span>
+        <div className="media-fit-pills shape-fill-mode" role="group" aria-label={tx(pt, 'Tipo de preenchimento', 'Fill type')}>
+          {FILL_MODES.map((m) => <button key={m.mode} type="button" className={fillMode === m.mode ? 'active' : ''} aria-pressed={fillMode === m.mode} onClick={() => chooseFill(m.mode)}>{tx(pt, m.pt, m.en)}</button>)}
+        </div>
+        {fillMode === 'color' && shapeLayer.shape.fill && <ColorField pt={pt} label={tx(pt, 'Cor do preenchimento', 'Fill color')} color={shapeLayer.shape.fill} opacity={shapeLayer.shape.fillOpacity ?? 1} onChange={(fill, fillOpacity) => patchShape({ fill, fillOpacity })} />}
+        {fillMode === 'media' && <>
+          <ShapeMediaFill layer={shapeLayer} pt={pt} />
+          {shapeLayer.shape.media && <ControlRow def={{ key: 'shapeMediaOpacity', label: tx(pt, 'Opacidade da mídia', 'Media opacity'), type: 'slider', min: 0, max: 100, step: 1, unit: '%', default: 100 }} value={Math.round((shapeLayer.shape.fillOpacity ?? 1) * 100)} onChange={(v) => patchShape({ fillOpacity: Number(v) / 100 })} />}
+        </>}
+      </>}
       <label className="text-edit-label"><span><input type="checkbox" checked={!!shapeLayer.shape.stroke} onChange={(e) => patchShape({ stroke: e.target.checked ? '#ffffff' : undefined, strokeWidth: shapeLayer.shape!.strokeWidth || 2 })} /> {tx(pt, 'Contorno', 'Stroke')}</span></label>
       {shapeLayer.shape.stroke && <>
         <ColorField pt={pt} label={tx(pt, 'Cor do contorno', 'Stroke color')} color={shapeLayer.shape.stroke} opacity={shapeLayer.shape.strokeOpacity ?? 1} onChange={(stroke, strokeOpacity) => patchShape({ stroke, strokeOpacity })} />

@@ -27,7 +27,7 @@ export function BrandKitSettings({ pt }: { pt: boolean }) {
   const kit = editing;
   const update = (change: Partial<BrandKit>) => kit && setEditing({ ...kit, ...change });
   return <>
-    <h3>{tx(pt, 'Kit de marca', 'Brand kit')}</h3>
+    <h3>{tx(pt, 'Suas marcas', 'Your brands')}</h3>
     <p className="settings-description">{tx(pt, 'Guarde cores, fontes e logo de cada marca neste computador e aplique em qualquer composição pela aba Tela.', 'Keep each brand’s colors, fonts and logo on this computer and apply them to any composition from the Canvas tab.')}</p>
     <div className="brandkit-actions">
       <button type="button" className="btn primary" onClick={() => setEditing(kitFromComposition(tx(pt, 'Nova marca', 'New brand')))}>{tx(pt, 'Criar a partir desta composição', 'Create from this composition')}</button>

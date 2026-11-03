@@ -48,3 +48,26 @@ export function reshapePointed<T extends Pointed & { width: number; height: numb
   const next = { ...shape, ...change }, stretch = Math.abs(shape.height) / (Math.abs(shape.width) * regularAspect(shape));
   return { ...next, height: Math.max(1, Math.round(Math.abs(shape.width) * regularAspect(next) * stretch)) };
 }
+
+// Outline path with every corner rounded by `radius` px. Each corner's radius
+// is capped so neighbouring arcs never overlap on short edges.
+type PathSink = { moveTo(x: number, y: number): void; lineTo(x: number, y: number): void; arcTo(x1: number, y1: number, x2: number, y2: number, r: number): void; closePath(): void };
+export function vertexRadii(points: [number, number][], radius: number) {
+  const n = points.length;
+  return points.map(([x, y], i) => {
+    const [px, py] = points[(i + n - 1) % n], [nx, ny] = points[(i + 1) % n];
+    const ax = px - x, ay = py - y, bx = nx - x, by = ny - y, la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    if (!la || !lb || radius <= 0) return 0;
+    const angle = Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb))));
+    return Math.max(0, Math.min(radius, Math.min(la, lb) / 2 * Math.tan(angle / 2)));
+  });
+}
+export function tracePointed(path: PathSink, points: [number, number][], radius = 0) {
+  const n = points.length; if (n < 3) return;
+  const radii = vertexRadii(points, radius);
+  if (!radii.some((r) => r > 0)) { points.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath(); return; }
+  const [lx, ly] = points[n - 1], [fx, fy] = points[0];
+  path.moveTo((lx + fx) / 2, (ly + fy) / 2);
+  points.forEach(([x, y], i) => { const [nx, ny] = points[(i + 1) % n]; path.arcTo(x, y, nx, ny, radii[i]); });
+  path.closePath();
+}

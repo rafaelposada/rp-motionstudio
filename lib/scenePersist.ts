@@ -25,7 +25,7 @@ export function buildScenePartial(s: SceneState) {
     // projection, kept for scenes saved before tracks existed (hydrate folds a
     // trackless save back into a single track).
     tracks: s.tracks,
-    textLayers: s.textLayers.map((layer) => layer.media ? { ...layer, media: { ...layer.media, url: '' } } : layer),
+    textLayers: s.textLayers.map((layer) => layer.media ? { ...layer, media: { ...layer.media, url: '' } } : layer.shape?.media ? { ...layer, shape: { ...layer.shape, media: { ...layer.shape.media, url: '' } } } : layer),
     compositeMode: s.compositeMode,
     guides: s.guides,
     markers: s.markers,

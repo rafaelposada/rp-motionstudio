@@ -1,5 +1,6 @@
 // RP MotionStudio — Rafael Posada, 2026. Apache-2.0.
 'use client';
+import { SpeakerIcon, TrashIcon } from './LaneIcons';
 import { useRef } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
@@ -38,8 +39,8 @@ export default function AudioTrackLane({ duration }: { duration: number }) {
   return <div className={`tl-lane tl-audio-lane ${s.muted ? 'hidden' : ''}`}>
     <div className="tl-lane-gutter">
       <span className="tl-audio-icon" aria-hidden="true">♪</span>
-      <button className="tl-lane-btn" title={s.muted ? (tx(pt, 'Ativar som', 'Unmute')) : (tx(pt, 'Silenciar', 'Mute'))} aria-pressed={!!s.muted} onClick={() => patch({ muted: !s.muted })}>{s.muted ? '○' : '◉'}</button>
-      <button className="tl-lane-btn danger" title={tx(pt, 'Remover áudio', 'Remove audio')} onClick={() => void remove()}>×</button>
+      <button className="tl-lane-btn" title={s.muted ? (tx(pt, 'Ativar som', 'Unmute')) : (tx(pt, 'Silenciar', 'Mute'))} aria-pressed={!!s.muted} onClick={() => patch({ muted: !s.muted })}><SpeakerIcon muted={s.muted} /></button>
+      <button className="tl-lane-btn danger" title={tx(pt, 'Remover áudio', 'Remove audio')} onClick={() => void remove()}><TrashIcon /></button>
     </div>
     <div className="tl-lane-bars"><div className="tl-zoom" ref={axis}>
       <div className="tl-bar tl-audio-bar" style={{ left: 0, width: '100%' }}

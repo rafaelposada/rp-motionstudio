@@ -1,6 +1,6 @@
 # RP MotionStudio Desktop · instalação no Mac
 
-Versão 1.4.12 · Rafael Posada
+Versão 1.4.13 · Rafael Posada
 
 ## Compatibilidade deste pacote
 
@@ -11,9 +11,9 @@ Versão 1.4.12 · Rafael Posada
 
 ## Instalação
 
-1. Abra o arquivo RP-MotionStudio-1.4.12-macOS-Apple-Silicon.dmg.
+1. Abra o arquivo RP-MotionStudio-1.4.13-macOS-Apple-Silicon.dmg.
 2. Arraste RP MotionStudio Desktop para o atalho Aplicativos.
-3. Aguarde a cópia, ejete o disco RP MotionStudio 1.4.12 e abra o aplicativo
+3. Aguarde a cópia, ejete o disco RP MotionStudio 1.4.13 e abra o aplicativo
    pela pasta Aplicativos. Evite executá-lo diretamente do disco de instalação.
 
 Node.js, npm e um navegador separado não são necessários para executar o pacote.

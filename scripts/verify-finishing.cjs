@@ -35,7 +35,7 @@ const filter=audioFilter({volume:.8,fadeIn:.5,fadeOut:.5},4,2);assert.match(filt
 useSceneStore.getState().hydrate({audioSettings:{volume:.4,fadeIn:1,fadeOut:2}});const saved=buildScenePartial(useSceneStore.getState());assert.equal(saved.audioSettings.fadeOut,2);
 useSceneStore.getState().hydrate({});assert.equal(useSceneStore.getState().audioSettings.volume,1,'Old projects must not inherit previous audio settings');
 const help=controlHelp({key:'lineHeight',label:'Entrelinha',type:'slider',default:1.2},'pt','Entrelinha');assert.ok(help.length<180&&!help.includes('cálculo'));assert.match(help,/linhas/);
-const {pointedVertices,regularAspect,reshapePointed}=require('../lib/shapeGeometry');
+const {pointedVertices,regularAspect,reshapePointed,vertexRadii,tracePointed}=require('../lib/shapeGeometry');
 for(const shape of [{kind:'polygon',sides:3},{kind:'polygon',sides:6},{kind:'polygon',sides:7},{kind:'star',points:5,innerRadius:.38},{kind:'star',points:8,innerRadius:.6}]){
   const box={...shape,width:300,height:180},v=pointedVertices(box),xs=v.map(p=>p[0]),ys=v.map(p=>p[1]);
   assert.equal(v.length,shape.kind==='star'?shape.points*2:shape.sides);
@@ -49,4 +49,29 @@ const traced=[];const pathCtx=new Proxy({save(){},restore(){},beginPath(){traced
 global.document={fonts:{check:()=>true},createElement:()=>({width:200,height:200,style:{setProperty(){},removeProperty(){}},getContext:()=>pathCtx,remove(){}})};
 new TextCompositor().render(document.createElement('canvas'),[{...base,opacity:1,shape:{kind:'star',points:5,innerRadius:.38,width:120,height:100,fill:'#fff'}}],200,200,2);
 assert.equal(traced.length,10,'The compositor traces every star vertex');
-console.log('Finishing checks passed: polygon and star geometry, independent/legacy entrances and exits, raster opacity including zero, GPU alpha contract, shared gradients, audio envelopes and persistence, concise contextual help.');
+// Rounded corners: each corner keeps the requested radius until the edge is
+// too short, then shrinks so neighbouring arcs never overlap.
+const hexagon=pointedVertices({kind:'polygon',sides:6,width:200,height:Math.round(200*regularAspect({kind:'polygon',sides:6}))});
+const small=vertexRadii(hexagon,10);small.forEach(r=>near(r,10));
+vertexRadii(hexagon,1000).forEach((r,i)=>{
+  const p=hexagon[(i+5)%6],v=hexagon[i],n=hexagon[(i+1)%6],a=[p[0]-v[0],p[1]-v[1]],b=[n[0]-v[0],n[1]-v[1]],la=Math.hypot(...a),lb=Math.hypot(...b);
+  const tangent=r/Math.tan(Math.acos((a[0]*b[0]+a[1]*b[1])/(la*lb))/2);
+  assert.ok(r>0&&r<1000&&tangent<=Math.min(la,lb)/2+1e-6,'A huge radius is capped by the shorter edge');
+});
+const arcs=[];tracePointed({moveTo(){},lineTo(){arcs.push('line');},arcTo(...a){arcs.push(a[4]);},closePath(){}},pointedVertices({kind:'star',points:5,innerRadius:.38,width:120,height:114}),6);
+assert.equal(arcs.length,10);assert.ok(arcs.every(r=>typeof r==='number'&&r>0),'Every star point and notch is rounded');
+const sharp=[];tracePointed({moveTo(){sharp.push('m');},lineTo(){sharp.push('l');},arcTo(){sharp.push('a');},closePath(){}},hexagon,0);assert.ok(!sharp.includes('a'),'Radius 0 keeps sharp corners');
+// Media inside a shape: fill crops around the focal point, fit letterboxes,
+// stretch covers the box; all draw centred on the layer origin.
+const {drawShapeMedia}=require('../lib/shapeFill');
+const draws=[];const mediaCtx={drawImage:(...a)=>draws.push(a)};const photo={width:400,height:200};
+drawShapeMedia(mediaCtx,photo,{kind:'image',fit:'fill',crop:{x:1,y:.5}},100,100);
+assert.deepEqual(draws.at(-1).slice(1),[200,0,200,200,-50,-50,100,100],'Fill crops the right side when the focal point is right');
+drawShapeMedia(mediaCtx,photo,{kind:'image',fit:'fill',crop:{x:.5,y:.5,zoom:2}},100,100);
+assert.deepEqual(draws.at(-1).slice(1),[150,50,100,100,-50,-50,100,100],'Zoom narrows the crop around the focal point');
+drawShapeMedia(mediaCtx,photo,{kind:'image',fit:'fit'},100,100);assert.deepEqual(draws.at(-1).slice(1),[-50,-25,100,50],'Fit shows the whole photo');
+drawShapeMedia(mediaCtx,photo,{kind:'image',fit:'stretch'},100,100);assert.deepEqual(draws.at(-1).slice(1),[-50,-50,100,100],'Stretch fills the box');
+const filled={...base,id:'fill',shape:{kind:'star',points:5,width:100,height:95,media:{blobId:'shapefill_a',url:'blob:live',kind:'video',width:640,height:360}}};
+const persisted=buildScenePartial({...useSceneStore.getState(),textLayers:[filled]}).textLayers[0];
+assert.equal(persisted.shape.media.url,'',"Saved projects keep the shape media's bytes key, never a session blob URL");assert.equal(persisted.shape.media.blobId,'shapefill_a');
+console.log('Finishing checks passed: polygon and star geometry, rounded corners, media fill framing, independent/legacy entrances and exits, raster opacity including zero, GPU alpha contract, shared gradients, audio envelopes and persistence, concise contextual help.');

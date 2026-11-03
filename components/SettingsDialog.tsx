@@ -64,6 +64,22 @@ function DimensionField({ panel, axis, pt }: { panel: PanelId; axis: PanelAxis; 
   return <div className="settings-dimension"><div className="settings-dimension-input"><input aria-label={label} aria-invalid={invalid} type="text" inputMode="decimal" value={draft} title={`${min}–${max}px. ${tx(pt, 'Aceita cálculos, como 300+20.', 'Accepts calculations, such as 300+20.')}`} onFocus={() => { focused.current = true; }} onChange={(event) => { setDraft(event.target.value); setInvalid(false); }} onBlur={commit} onKeyDown={(event) => {const next=numericKeyValue(event,parseNumericExpression(draft,'px')??value,{min,max,integer:true});if(next!==null){event.preventDefault();event.stopPropagation();useUIStore.getState().setPanelDimension(panel,axis,next);setDraft(String(next));setInvalid(false);return;} if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); discard.current = true; focused.current = false; setDraft(String(value || 'Auto')); setInvalid(false); event.currentTarget.blur(); } }} /><span>px</span></div>{automatic && <button type="button" className="settings-auto" aria-label={`${tx(pt, 'Automático', 'Automatic')} — ${label}`} onClick={() => { useUIStore.getState().setPanelDimension(panel, axis, 0); setDraft('Auto'); setInvalid(false); }}>Auto</button>}{invalid && <small role="alert">{tx(pt, 'Valor inválido', 'Invalid value')}</small>}</div>;
 }
 
+// Sidebar sections laid out like System Settings on the Mac: the brand kit on
+// top, then groups of related preferences.
+interface Section { id: string; pt: string; en: string; group: number; icon: string; featured?: boolean }
+const SECTIONS: Section[] = [
+  { id: 'brand', pt: 'Kit de marca', en: 'Brand kit', group: 0, featured: true, icon: 'M12 3.5a8.5 8.5 0 0 0 0 17c1.3 0 1.9-1 1.4-2.1-.6-1.4.3-2.9 1.8-2.9h1.8a3.5 3.5 0 0 0 3.5-3.5c0-4.7-3.8-8.5-8.5-8.5zM7.6 11h.01M10 7.4h.01M14.4 7.6h.01' },
+  { id: 'interface', pt: 'Interface', en: 'Interface', group: 1, icon: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM12 3.5v17M12 8h5.6M12 12h8.4M12 16h5.6' },
+  { id: 'panels', pt: 'Painéis', en: 'Panels', group: 1, icon: 'M4 5h16v14H4zM9.5 5v14M9.5 11.5H20' },
+  { id: 'preview', pt: 'Prévia', en: 'Preview', group: 1, icon: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9.2a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6z' },
+  { id: 'saving', pt: 'Salvamento', en: 'Saving', group: 2, icon: 'M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6' },
+  { id: 'files', pt: 'Arquivos', en: 'Files', group: 2, icon: 'M3.5 6.5h6l2 2h9v10h-17z' },
+  { id: 'updates', pt: 'Atualizações', en: 'Updates', group: 2, icon: 'M19.2 8.5A8 8 0 1 0 20 14M19.5 4v4.5H15' },
+  { id: 'shortcuts', pt: 'Atalhos', en: 'Shortcuts', group: 3, icon: 'M3 7h18v10H3zM6.5 10.5h1M10 10.5h1M13.5 10.5h1M17 10.5h.5M7 14h10' },
+  { id: 'support', pt: 'Apoio e contato', en: 'Support & contact', group: 4, icon: 'M12 19s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 7.5a3.8 3.8 0 0 1 7 2.3C19 14.6 12 19 12 19z' },
+  { id: 'phantom', pt: 'Phantom Supply', en: 'Phantom Supply', group: 4, icon: 'M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8' },
+];
+
 export default function SettingsDialog() {
   const { locale } = useI18n(); const pt = locale === 'pt';
   const appearance = useUIStore((s) => s.appearance); const grid = useUIStore((s) => s.showStageGrid);
@@ -88,16 +104,26 @@ export default function SettingsDialog() {
     storageReport().then((report) => { if (active) setStorage(`${(report.total / 1048576).toFixed(1)} MB · ${report.count} ${tx(pt, 'arquivos de mídia locais', 'local media files')}`); }).catch(() => { if (active) setStorage(tx(pt, 'Armazenamento indisponível.', 'Storage unavailable.')); });
     return () => { active = false; };
   }, [tab, pt]);
-  const ptTabs = [['interface', 'Interface'], ['panels', 'Painéis'], ['preview', 'Prévia'], ['saving', 'Salvamento'], ['files', 'Arquivos'], ['updates','Atualizações'], ['brand', 'Kit de marca'], ['shortcuts', 'Atalhos'], ['support', 'Apoio e contato'], ['phantom', 'Phantom Supply']], enTabs = [['interface', 'Interface'], ['panels', 'Panels'], ['preview', 'Preview'], ['saving', 'Saving'], ['files', 'Files'], ['updates','Updates'], ['brand', 'Brand kit'], ['shortcuts', 'Shortcuts'], ['support', 'Support & contact'], ['phantom', 'Phantom Supply']];
-  const tabs = ptTabs.map(([id, label], i) => [id, tx(pt, label, enTabs[i][1])]);
+  const tabs = SECTIONS.map((section) => [section.id, tx(pt, section.pt, section.en)]);
+  const current = SECTIONS.find((section) => section.id === tab) ?? SECTIONS[0];
+  const choose = (id: string) => { setTab(id); setMessage(''); };
   return <dialog className="settings-dialog" ref={dialog} aria-labelledby="settings-title" onCancel={(event) => { event.preventDefault(); close(); }} onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
-    <div className="settings-surface"><header className="settings-header"><div><span className="eyebrow">RP MotionStudio</span><h2 id="settings-title">{tx(pt, 'Configurações', 'Settings')}</h2></div><button className="settings-close" aria-label={tx(pt, 'Fechar configurações', 'Close settings')} onClick={close} autoFocus>×</button></header>
-      <nav className="settings-tabs" role="tablist" aria-label={tx(pt, 'Seções de configurações', 'Settings sections')} onKeyDown={(event) => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault(); const index = tabs.findIndex(([id]) => id === tab);
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-        setTab(tabs[next][0]); setMessage(''); document.getElementById(`settings-tab-${tabs[next][0]}`)?.focus();
-      }}>{tabs.map(([id, label]) => <button role="tab" tabIndex={tab === id ? 0 : -1} id={`settings-tab-${id}`} aria-controls="settings-content" aria-selected={tab === id} key={id} onClick={() => { setTab(id); setMessage(''); }}>{label}</button>)}</nav>
+    <div className="settings-surface">
+      <aside className="settings-sidebar">
+        <div className="settings-sidebar-title"><span className="eyebrow">RP MotionStudio</span><h2 id="settings-title">{tx(pt, 'Configurações', 'Settings')}</h2></div>
+        <nav className="settings-tabs" role="tablist" aria-orientation="vertical" aria-label={tx(pt, 'Seções de configurações', 'Settings sections')} onKeyDown={(event) => {
+          if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault(); const index = tabs.findIndex(([id]) => id === tab), forward = event.key === 'ArrowDown' || event.key === 'ArrowRight';
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (forward ? 1 : -1) + tabs.length) % tabs.length;
+          choose(tabs[next][0]); document.getElementById(`settings-tab-${tabs[next][0]}`)?.focus();
+        }}>{SECTIONS.map((section, i) => <button role="tab" type="button" key={section.id} id={`settings-tab-${section.id}`} tabIndex={tab === section.id ? 0 : -1} aria-controls="settings-content" aria-selected={tab === section.id}
+          className={`settings-tab ${section.featured ? 'featured' : ''} ${i > 0 && section.group !== SECTIONS[i - 1].group ? 'group-start' : ''}`} onClick={() => choose(section.id)}>
+          <span className="settings-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d={section.icon} stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+          <span className="settings-tab-text"><span>{tx(pt, section.pt, section.en)}</span></span>
+        </button>)}</nav>
+      </aside>
+      <div className="settings-main">
+      <header className="settings-header"><h2 className="settings-section-title">{tx(pt, current.pt, current.en)}</h2><button className="settings-close" aria-label={tx(pt, 'Fechar configurações', 'Close settings')} onClick={close} autoFocus>×</button></header>
       <div className="settings-body" role="tabpanel" id="settings-content" aria-labelledby={`settings-tab-${tab}`}>
         {tab === 'interface' && <><h3>{tx(pt, 'Seu espaço de trabalho', 'Your workspace')}</h3><p className="settings-description">{tx(pt, 'Preferências desta instalação. Seus projetos não são alterados.', 'Preferences for this installation. Your projects stay unchanged.')}</p>
           <div className="settings-row"><div><strong>{tx(pt, 'Aparência', 'Appearance')}</strong><p>{tx(pt, 'Sistema acompanha a aparência do macOS.', 'System follows the macOS appearance.')}</p></div><div className="settings-segment">{(['system', 'dark', 'light'] as const).map((value) => <button key={value} aria-pressed={appearance === value} onClick={() => useUIStore.getState().setAppearance(value)}>{value === 'system' ? (tx(pt, 'Sistema', 'System')) : value === 'dark' ? (tx(pt, 'Escuro', 'Dark')) : (tx(pt, 'Claro', 'Light'))}</button>)}</div></div>
@@ -149,6 +175,7 @@ export default function SettingsDialog() {
         {tab === 'brand' && <BrandKitSettings pt={pt}/>}
       </div>
       <footer className="settings-footer"><span role="status">{preferencesError ? (tx(pt, 'Não foi possível salvar as preferências neste dispositivo.', 'Could not save preferences on this device.')) : message || (tx(pt, 'Alterações salvas automaticamente neste Mac.', 'Changes saved automatically on this Mac.'))}</span><small>RP MotionStudio · {diagnostics?.version ?? '…'}</small></footer>
+      </div>
     </div>
   </dialog>;
 }

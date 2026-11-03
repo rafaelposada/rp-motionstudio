@@ -13,6 +13,8 @@ import { assetIndexForSlot, clamp, lerp } from '@/lib/motion';
 import { loadImage, loadPreviewImage } from '@/lib/textureLoad';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
+import { useUIStore } from '@/store/useUIStore';
+import { endShapeVideoExport, prepareShapeVideosForExport, seekShapeVideos, syncShapeVideos } from './shapeFill';
 import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
 import { cardAspectFor, coverCrop, cropKey } from '@/lib/crop';
@@ -116,6 +118,7 @@ export class SceneRenderer3D implements IRenderer {
   private textureCache = new Map<string, THREE.Texture>();
   private texturePromises = new Map<string, Promise<THREE.Texture | null>>();
   private croppedCache = new Map<string, THREE.Texture>(); // cover-crop clones (repeat/offset) of cached bases
+  private shapeVideoExport = false; // shape fills seek per export frame instead of playing
   private videoEls = new Map<string, HTMLVideoElement>();   // live <video> per url, for playback + cleanup
   private exportVideoFrames = new Map<string, { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; texture: THREE.CanvasTexture }>();
   private placeholders = new Map<string, THREE.CanvasTexture>();
@@ -1165,6 +1168,8 @@ export class SceneRenderer3D implements IRenderer {
     this.previewImageTextures.clear();this.invalidateTracks();this.syncAssets();this.onDirty?.();
   }
   async beginVideoExport() {
+    this.shapeVideoExport = true;
+    await prepareShapeVideosForExport(useSceneStore.getState().textLayers);
     if (this.videoEls.size === 0) return;
     await Promise.all([...this.videoEls.values()].map(prepareVideoForSequentialExport));
     this.videoEls.forEach((video, url) => {
@@ -1186,6 +1191,8 @@ export class SceneRenderer3D implements IRenderer {
   }
 
   endVideoExport() {
+    this.shapeVideoExport = false;
+    endShapeVideoExport();
     this.croppedCache.forEach((tex) => tex.dispose());
     this.croppedCache.clear();
     this.exportVideoFrames.forEach(({ texture }) => texture.dispose());
@@ -1195,8 +1202,9 @@ export class SceneRenderer3D implements IRenderer {
   }
 
   async seekVideos(frame: number) {
-    if (this.videoEls.size === 0) return;
     const s = useSceneStore.getState();
+    await seekShapeVideos(s.textLayers, frame / Math.max(1, s.fps), s.fps);
+    if (this.videoEls.size === 0) return;
     const t = frame / Math.max(1, s.fps);
     await Promise.all([...this.videoEls.entries()].map(([url, v]) => {
       const localTime = reelVideoTime(s, url, frame);
@@ -1243,6 +1251,8 @@ export class SceneRenderer3D implements IRenderer {
     let write = this.composeB;
     const composeMaterial = this.composeQuad.material;
     for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.texture.dispose(); rt.mask?.dispose(); rt.raster.destroy(); this.overlays.delete(id); }
+    const selected = useUIStore.getState().selectedLayerIds;
+    if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing);
     compositionOrder(s.tracks, s.textLayers).forEach((item) => {
       composeMaterial.uniforms.backdropBlur.value=0;
       composeMaterial.uniforms.sceneSize.value.set(s.width,s.height);
@@ -1258,12 +1268,13 @@ export class SceneRenderer3D implements IRenderer {
         const mask = layer.maskId ? s.textLayers.find((l) => l.id === layer.maskId && l.id !== layer.id) : undefined;
         if (!this.exportingImages && isCanvasEditing(layer.id)) return;
         if (!layer.visible || frame / s.fps < layer.start || frame / s.fps >= layer.end) return;
+        const live = { selected: selected.includes(layer.id), playing: s.playing };
         let rt = this.overlays.get(item.id);
-        if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages, mask); const texture = new THREE.CanvasTexture(raster.canvas); texture.colorSpace = THREE.SRGBColorSpace; rt = { raster, texture }; this.overlays.set(item.id, rt); }
+        if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages, mask, live); const texture = new THREE.CanvasTexture(raster.canvas); texture.colorSpace = THREE.SRGBColorSpace; rt = { raster, texture }; this.overlays.set(item.id, rt); }
         // The compositor consumes premultiplied layer RGB. Canvas textures
         // otherwise upload straight RGB, cancelling text opacity and fades.
         rt.texture.premultiplyAlpha = true;
-        const changed=rt.raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages, mask);
+        const changed=rt.raster.update(layer, s.width, s.height, this.resolution, frame / s.fps, this.exportingImages, mask, live);
         if (changed) rt.texture.needsUpdate = true;
         if(rt.raster.maskCanvas){
           if(!rt.mask){rt.mask=new THREE.CanvasTexture(rt.raster.maskCanvas);rt.mask.generateMipmaps=false;rt.mask.minFilter=THREE.LinearFilter;}

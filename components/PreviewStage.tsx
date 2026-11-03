@@ -10,6 +10,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { getTemplate } from '@/templates';
 import { previewResolution, setPreviewPlaying } from '@/lib/previewResolution';
 import { hasBackdropBlur, prepareTextFonts } from '@/lib/textLayers';
+import { MEDIA_READY_EVENT } from '@/lib/shapeFill';
 import { useAudioPreview } from '@/lib/useAudioPreview';
 import CanvasTextSelection from './CanvasTextSelection';
 import ModelVisibilityNotice from './ModelVisibilityNotice';
@@ -33,7 +34,9 @@ export default function PreviewStage() {
   const settingsOpen = useUIStore((state) => state.settingsOpen);
   // A paused canvas also needs repainting after UI-only changes. These don't
   // touch scene data, and must not restart the renderer or playback clock.
-  useEffect(() => { dirtyRef.current = true; }, [theme, settingsOpen]);
+  // Selection matters too: a selected layer hidden by its entrance shows at rest.
+  const selectedLayers = useUIStore((state) => state.selectedLayerIds);
+  useEffect(() => { dirtyRef.current = true; }, [theme, settingsOpen, selectedLayers]);
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -42,11 +45,13 @@ export default function PreviewStage() {
     observer.observe(stage);
     window.addEventListener('focus', redraw);
     window.addEventListener('motion-canvas-edit', redraw);
+    window.addEventListener(MEDIA_READY_EVENT, redraw);
     document.addEventListener('visibilitychange', redraw);
     return () => {
       observer.disconnect();
       window.removeEventListener('focus', redraw);
       window.removeEventListener('motion-canvas-edit', redraw);
+      window.removeEventListener(MEDIA_READY_EVENT, redraw);
       document.removeEventListener('visibilitychange', redraw);
     };
   }, []);

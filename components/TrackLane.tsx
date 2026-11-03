@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { templateList } from '@/templates';
 import { trackWindow, type MotionTrack } from '@/lib/tracks';
-import { deleteCompositionLayer, selectModelForEditing, moveCompositionLayer } from '@/lib/compositionActions';
+import { deleteCompositionLayer, selectModelForEditing } from '@/lib/compositionActions';
 import { compositionOrder } from '@/lib/composition';
 import { useUIStore } from '@/store/useUIStore';
 import { LayerDragHandle, timelineLayerDragProps } from './LayerDropTarget';
@@ -14,6 +14,7 @@ import { magnetOffset } from '@/lib/timelineSnap';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection, type TimelineWindow } from '@/lib/timelineSelection';
 import { tx } from '@/lib/tx';
+import { DuplicateIcon, EyeIcon, LaneOrder, TrashIcon } from './LaneIcons';
 
 type DragMode = 'move' | 'in' | 'out';
 
@@ -113,49 +114,18 @@ export default function TrackLane({
           className="tl-lane-btn"
           title={track.visible ? (tx(pt, 'Ocultar camada', 'Hide layer')) : (tx(pt, 'Mostrar camada', 'Show layer'))}
           onClick={(e) => { e.stopPropagation(); toggleTrackVisible(track.id); }}
-        >
-          {track.visible ? (
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8S12 12.5 8 12.5 1.5 8 1.5 8z" stroke="currentColor" strokeWidth="1.3"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg>
-          ) : (
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8S12 12.5 8 12.5 1.5 8 1.5 8z" stroke="currentColor" strokeWidth="1.3"/><path d="M3 13L13 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-          )}
-        </button>
-
-        {/* stacking order: up = drawn nearer the viewer (later in the array) */}
-        <div className="tl-lane-order">
-          <button
-            className="tl-lane-arrow"
-            title={tx(pt, 'Trazer à frente', 'Bring forward')}
-            disabled={index === order.length - 1}
-            onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, 1); }}
-          >
-            <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2.5 7.5L6 4l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-          <button
-            className="tl-lane-arrow"
-            title={tx(pt, 'Enviar atrás', 'Send backward')}
-            disabled={index === 0}
-            onClick={(e) => { e.stopPropagation(); moveCompositionLayer(track.id, -1); }}
-          >
-            <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-        </div>
-
+        ><EyeIcon off={!track.visible} /></button>
+        <LaneOrder id={track.id} index={index} count={order.length} pt={pt} />
         <button
           className="tl-lane-btn"
           title="Duplicar camada · ⌘/Ctrl+D"
           onClick={(e) => { e.stopPropagation(); duplicateCompositionLayers(selectedCompositionIds(track.id)); }}
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M5.5 13.5h6a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-        </button>
-
+        ><DuplicateIcon /></button>
         <button
           className="tl-lane-btn danger"
           title={tx(pt, 'Excluir camada', 'Delete layer')}
           onClick={(e) => { e.stopPropagation(); removeTrack(track.id); }}
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6.5 5V3.5h3V5M5 5l.6 8h4.8L11 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
+        ><TrashIcon /></button>
       </div>
 
       <div className="tl-lane-bars"><div className="tl-zoom" ref={barsRef}>

@@ -2,6 +2,8 @@
 import * as PIXI from 'pixi.js';
 import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
+import { useUIStore } from '@/store/useUIStore';
+import { endShapeVideoExport, prepareShapeVideosForExport, seekShapeVideos, syncShapeVideos } from './shapeFill';
 import { pixiBlend, registerPixiBlendModes } from './pixiBlendModes';
 import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
@@ -76,6 +78,7 @@ export class SceneRenderer {
   private textureCache = new Map<string, PIXI.Texture>();
   private texturePromises = new Map<string, Promise<PIXI.Texture | null>>();
   private croppedCache = new Map<string, PIXI.Texture>(); // cover-crop views over cached base textures
+  private shapeVideoExport = false; // shape fills seek per export frame instead of playing
   private videoEls = new Map<string, HTMLVideoElement>();  // live <video> per url, for playback + cleanup
   private exportVideoFrames = new Map<string, { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; texture: PIXI.Texture }>();
   private liveVideoTextures = new Map<string, PIXI.Texture>();
@@ -622,6 +625,8 @@ export class SceneRenderer {
     this.previewImageTextures.clear();this.invalidateTracks();this.syncAssets();this.onDirty?.();
   }
   async beginVideoExport() {
+    this.shapeVideoExport = true;
+    await prepareShapeVideosForExport(useSceneStore.getState().textLayers);
     if (this.videoEls.size === 0) return;
     await Promise.all([...this.videoEls.values()].map(prepareVideoForSequentialExport));
 
@@ -650,6 +655,8 @@ export class SceneRenderer {
   }
 
   endVideoExport() {
+    this.shapeVideoExport = false;
+    endShapeVideoExport();
     this.liveVideoTextures.forEach((texture, url) => this.textureCache.set(url, texture));
     this.liveVideoTextures.clear();
     this.croppedCache.forEach((tex) => tex.destroy(false));
@@ -664,8 +671,9 @@ export class SceneRenderer {
   // video card to the export time for `frame`, wait for the frame to decode, and
   // mark its GPU texture dirty so the next render uploads exactly that frame.
   async seekVideos(frame: number) {
-    if (this.videoEls.size === 0) return;
     const s = useSceneStore.getState();
+    await seekShapeVideos(s.textLayers, frame / Math.max(1, s.fps), s.fps);
+    if (this.videoEls.size === 0) return;
     const t = frame / Math.max(1, s.fps);
     await Promise.all([...this.videoEls.entries()].map(([url, v]) => {
       const localTime = reelVideoTime(s, url, frame);
@@ -712,14 +720,17 @@ export class SceneRenderer {
     const s = useSceneStore.getState();
     const order = compositionOrder(s.tracks, s.textLayers);
     const maskSources = new Set(s.textLayers.map((l) => l.maskId).filter((id): id is string => !!id));
+    const selected = useUIStore.getState().selectedLayerIds;
+    if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing);
     for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.sprite.destroy(); rt.texture.destroy(true); rt.raster.destroy(); this.overlays.delete(id); }
     for (const item of order) {
       if (item.kind === 'motion') { const rt = this.trackRTs.get(item.id); if (rt) rt.container.zIndex = item.z; continue; }
       const layer = s.textLayers.find((l) => l.id === item.id)!;
       const mask = layer.maskId ? s.textLayers.find((l) => l.id === layer.maskId && l.id !== layer.id) : undefined;
+      const live = { selected: selected.includes(layer.id), playing: s.playing };
       let rt = this.overlays.get(item.id);
-      if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages, mask); const texture = PIXI.Texture.from(raster.canvas); const sprite = new PIXI.Sprite(texture); this.motion.addChild(sprite); rt = { raster, texture, sprite }; this.overlays.set(item.id, rt); }
-      if (rt.raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages, mask)) {
+      if (!rt) { const raster = new OverlayRaster(); raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages, mask, live); const texture = PIXI.Texture.from(raster.canvas); const sprite = new PIXI.Sprite(texture); this.motion.addChild(sprite); rt = { raster, texture, sprite }; this.overlays.set(item.id, rt); }
+      if (rt.raster.update(layer, s.width, s.height, this.app.renderer.resolution, frame / s.fps, this.exportingImages, mask, live)) {
         const canvas = rt.raster.canvas;
         rt.texture.source.resize(canvas.width, canvas.height);
         rt.texture.frame.width = canvas.width; rt.texture.frame.height = canvas.height; rt.texture.update(); rt.texture.source.update();

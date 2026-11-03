@@ -11,10 +11,13 @@ import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelecti
 import { tx } from '@/lib/tx';
 import { keyTimes } from '@/lib/keyframes';
 import { magnetOffset } from '@/lib/timelineSnap';
+import { compositionOrder } from '@/lib/composition';
+import { EyeIcon, LaneOrder, LockIcon, TrashIcon } from './LaneIcons';
 export default function TextTrackLane({ layer, duration, leadingControl }: { layer: TextLayer; duration: number; leadingControl?:ReactNode }) {
   const selectedIds = useUIStore(s => s.selectedLayerIds), pt = useUIStore(s => s.locale) === 'pt';
   const patch = useSceneStore((s) => s.patchTextLayer); const remove = deleteCompositionLayer;
   const fps = useSceneStore((s) => s.fps); const axis = useRef<HTMLDivElement>(null);
+  const order = compositionOrder(useSceneStore((s) => s.tracks), useSceneStore((s) => s.textLayers)), index = order.findIndex((l) => l.id === layer.id);
   const drag = useRef<{ x: number; start: number; end: number; mode: 'move' | 'start' | 'end'; windows: TimelineWindow[] } | null>(null);
   useEffect(() => {
     const finish = () => { if (drag.current) { drag.current = null; useHistoryStore.getState().endGesture(); } };
@@ -32,9 +35,10 @@ export default function TextTrackLane({ layer, duration, leadingControl }: { lay
     else { const raw = snap(d.end + delta); patch(layer.id, { end: Math.min(duration, Math.max(d.start + 1 / fps, raw + magnet([raw]))) }); }
   };
   return <div className={`tl-lane ${selectedIds.includes(layer.id) ? 'active' : ''} ${layer.visible ? '' : 'hidden'}`}><div className="tl-lane-gutter">{leadingControl}<LayerDragHandle id={layer.id} name={layer.text}/>
-    <button className="tl-lane-btn" title={tx(pt, 'Mostrar / ocultar camada', 'Show / hide layer')} onClick={() => patch(layer.id, { visible: !layer.visible })}>{layer.visible ? '◉' : '○'}</button>
-    <button className="tl-lane-btn" title={tx(pt, 'Bloquear / desbloquear camada', 'Lock / unlock layer')} onClick={() => patch(layer.id, { locked: !layer.locked })}>{layer.locked ? '▣' : '□'}</button>
-    <button className="tl-lane-btn danger" title={tx(pt, 'Excluir camada', 'Delete layer')} disabled={layer.locked} onClick={() => remove(layer.id)}>×</button>
+    <button className="tl-lane-btn" title={layer.visible ? tx(pt, 'Ocultar camada', 'Hide layer') : tx(pt, 'Mostrar camada', 'Show layer')} onClick={() => patch(layer.id, { visible: !layer.visible })}><EyeIcon off={!layer.visible} /></button>
+    <LaneOrder id={layer.id} index={index} count={order.length} pt={pt} />
+    <button className={`tl-lane-btn ${layer.locked ? 'on' : ''}`} title={layer.locked ? tx(pt, 'Desbloquear camada', 'Unlock layer') : tx(pt, 'Bloquear camada', 'Lock layer')} aria-pressed={!!layer.locked} onClick={() => patch(layer.id, { locked: !layer.locked })}><LockIcon locked={layer.locked} /></button>
+    <button className="tl-lane-btn danger" title={tx(pt, 'Excluir camada', 'Delete layer')} disabled={layer.locked} onClick={() => remove(layer.id)}><TrashIcon /></button>
   </div><div className="tl-lane-bars"><div className="tl-zoom" ref={axis}><div className="tl-bar tl-text-bar" style={{ left: `${Math.max(0, layer.start) / duration * 100}%`, width: `${Math.max(0, Math.min(duration, layer.end) - layer.start) / duration * 100}%` }} {...timelineLayerDragProps(layer.id,e=>selectOverlayForEditing(layer.id,e.shiftKey,!e.shiftKey,'timeline'),begin('move'),move,finish)}>
     <span className="tl-bar-label"><b>{layer.media ? '▧' : layer.shape ? '◇' : 'T'} · {layer.text.slice(0, 40)}</b></span>
     <span className="tl-bar-edge in" onPointerDown={begin('start')} onPointerMove={move} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} />

@@ -634,9 +634,10 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     const epoch = uploadRestoreEpoch;
     const before = get();
     const overlays = await Promise.all(before.textLayers.map(async (layer) => {
-      if (!layer.media || layer.media.url) return null;
-      const blob = await idbGet(layer.media.blobId).catch(() => undefined);
-      return { id: layer.id, blobId: layer.media.blobId, previousUrl: layer.media.url, blob };
+      const media = layer.media ?? layer.shape?.media;
+      if (!media || media.url) return null;
+      const blob = await idbGet(media.blobId).catch(() => undefined);
+      return { id: layer.id, blobId: media.blobId, previousUrl: media.url, blob };
     }));
     const [audio, logo, background] = await Promise.all([!before.audioUrl && before.audioBlobId, !before.logo.url && before.logo.blobId, !before.background.imageUrl && before.background.blobId].map((id) => id ? idbGet(id).catch(() => undefined) : undefined));
     if (epoch !== uploadRestoreEpoch) return;
@@ -646,6 +647,10 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         const resolved = overlays.find(item => item?.id === layer.id);
         if(layer.media && resolved?.blob && layer.media.blobId === resolved.blobId && layer.media.url === resolved.previousUrl) {
           changed=true; return {...layer,media:{...layer.media,url:URL.createObjectURL(resolved.blob)}};
+        }
+        const fill = layer.shape?.media;
+        if(layer.shape && fill && resolved?.blob && fill.blobId === resolved.blobId && fill.url === resolved.previousUrl) {
+          changed=true; return {...layer,shape:{...layer.shape,media:{...fill,url:URL.createObjectURL(resolved.blob)}}};
         }
         return layer;
       });

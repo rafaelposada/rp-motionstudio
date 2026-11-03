@@ -39,9 +39,10 @@ export async function saveProjectPackage(id: string, kind: 'draft' | 'template' 
     if (!blob) throw new Error(`Arquivo ausente: ${asset.name}. Vincule-o novamente em Mídia.`);
     await add(asset.id, blob);
   }
-  await prepareTextFonts((scene.textLayers ?? []).filter((layer) => !layer.media).map((layer) => ({ ...layer, visible: true })));
+  await prepareTextFonts((scene.textLayers ?? []).filter((layer) => !layer.media && !layer.shape?.media).map((layer) => ({ ...layer, visible: true })));
   for (const layer of scene.textLayers ?? []) {
     if (layer.media) { const blob = await idbGet(layer.media.blobId); if (!blob) throw new Error(`Mídia ausente: ${layer.text}`); await add(layer.media.blobId, blob); continue; }
+    if (layer.shape?.media) { const blob = await idbGet(layer.shape.media.blobId); if (!blob) throw new Error(`Mídia ausente: ${layer.text}`); await add(layer.shape.media.blobId, blob); continue; }
     for(const variant of textFontVariants(layer)){
     const key = `font:${variant.font}:${variant.weight}`;
     const blob = await idbGet(key);
@@ -111,7 +112,7 @@ export async function importProjectPackage(file: File) {
       return { ...asset, id: key, origin: 'upload' as const, url: '' };
     });
     scene.tracks = scene.tracks.map((track) => ({ ...track, assetIds: track.assetIds.map((id) => mapping.get(id) ?? id) }));
-    scene.textLayers = (scene.textLayers ?? []).map((layer) => layer.media ? { ...layer, media: { ...layer.media, blobId: mapping.get(layer.media.blobId) ?? layer.media.blobId, url: '' } } : layer);
+    scene.textLayers = (scene.textLayers ?? []).map((layer) => layer.media ? { ...layer, media: { ...layer.media, blobId: mapping.get(layer.media.blobId) ?? layer.media.blobId, url: '' } } : layer.shape?.media ? { ...layer, shape: { ...layer.shape, media: { ...layer.shape.media, blobId: mapping.get(layer.shape.media.blobId) ?? layer.shape.media.blobId, url: '' } } } : layer);
     for (const [key, field] of [['aux:audio', 'audioUrl'], ['aux:logo', 'logo'], ['aux:background', 'background']] as const) {
       const blobKey = mapping.get(key);
       const blob = blobKey ? await idbGet(blobKey) : null;
@@ -142,7 +143,7 @@ export function referencedBlobKeys() {
     let scene: ScenePartial;
     try { scene = JSON.parse(raw); } catch { throw new Error('Há um projeto ou backup ilegível. Limpeza bloqueada para preservar seus arquivos.'); }
     for (const asset of scene.assets ?? []) if (asset.origin === 'upload') keys.add(asset.id);
-    for (const layer of scene.textLayers ?? []) {if(layer.media)keys.add(layer.media.blobId);else for(const variant of textFontVariants(layer))keys.add(`font:${variant.font}:${variant.weight}`);}
+    for (const layer of scene.textLayers ?? []) {if(layer.media)keys.add(layer.media.blobId);else if(layer.shape?.media)keys.add(layer.shape.media.blobId);else for(const variant of textFontVariants(layer))keys.add(`font:${variant.font}:${variant.weight}`);}
     for (const id of [scene.audioBlobId, scene.logo?.blobId, scene.background?.blobId]) if (id) keys.add(id);
   }
   return keys;
