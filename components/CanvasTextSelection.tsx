@@ -228,6 +228,11 @@ export default function CanvasTextSelection() {
       s.patchTrack(d.id, { transform: { ...t.transform, x: p.x - width / 2 - path.x, y: p.y - height / 2 - path.y, scale: t.transform.scale * next.width / d.frame.width, rotation: normalizedAngle(t.transform.rotation + next.rotation - d.frame.rotation) } });
     }
   };
+  // Edges and centers the smart guides (and dragged ruler guides) snap to.
+  const alignTargets = (excluded: string[] = []): AlignBox[] => {
+    const s = useSceneStore.getState();
+    return [{ x: 0, y: 0, width, height }, ...s.textLayers.filter(l => !excluded.includes(l.id) && l.visible && seconds >= l.start && seconds < l.end).map(l => frameAABB(layerFrame(l, width, seconds))), ...s.tracks.filter(t => !excluded.includes(t.id) && t.visible).map(t => getRendererInstance()?.selectionBounds?.(t.id)).filter((b): b is AlignBox => !!b)];
+  };
   const apply = (d: Gesture, p: TransformPoint, shift: boolean, alt: boolean, snapOff = false) => {
     const s = useSceneStore.getState(), delta = { x: p.x - d.start.x, y: p.y - d.start.y };
     if (d.kind === 'rotate') {
@@ -251,8 +256,7 @@ export default function CanvasTextSelection() {
       }
       return;
     }
-    const excluded = (d.members ?? [d]).map(m => m.id);
-    const targets: AlignBox[] = [{ x: 0, y: 0, width, height }, ...s.textLayers.filter(l => !excluded.includes(l.id) && l.visible && seconds >= l.start && seconds < l.end).map(l => frameAABB(layerFrame(l, width, seconds))), ...s.tracks.filter(t => !excluded.includes(t.id) && t.visible).map(t => getRendererInstance()?.selectionBounds?.(t.id)).filter((b): b is AlignBox => !!b)];
+    const targets = alignTargets((d.members ?? [d]).map(m => m.id));
     const box = frameAABB(d.frame);
     const match = snapAlignment(d.kind === 'move' ? { ...box, x: box.x + delta.x, y: box.y + delta.y } : { x: p.x, y: p.y, width: 0, height: 0 }, targets, 6 / Math.max(.01, ratio), s.guides);
     if (snap && !alt && !snapOff) { delta.x += match.dx; delta.y += match.dy; }
@@ -367,7 +371,7 @@ export default function CanvasTextSelection() {
   }} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} onLostPointerCapture={() => finish()}>
     {canvasTools&&<div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',tx(pt, 'Réguas', 'Rulers'),tx(pt, 'Exibe réguas em pixels nas bordas da composição.', 'Show pixel rulers at the edges of the composition.')],['smartGuides',tx(pt, 'Guias', 'Guides'),tx(pt, 'Mostra linhas de alinhamento ao mover ou redimensionar elementos.', 'Show alignment guides while moving or resizing elements.')],['snapEnabled',tx(pt, 'Encaixar', 'Snap'),tx(pt, 'Encaixa elementos nas bordas e centros próximos. Alt suspende o encaixe durante o arraste.', 'Snap elements to nearby edges and centers. Alt temporarily disables snapping.')]] as const).map(([key,label,help])=><button key={key} title={help} aria-label={`${label}: ${help}`} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}<button title={tx(pt, 'Mostra ou oculta a caixa delimitadora e as alças de transformação da seleção.', 'Show or hide the selection bounding box and transform handles.')} aria-label="BBox" aria-pressed={show} onClick={()=>useUIStore.getState().setShowSelectionBox(!show)}>BBox</button></div>}
     {arrangeTools&&selectedIds.length>0&&<div className={`arrange-toolbar ${canvasTools?'':'solo'}`} role="toolbar" aria-label={tx(pt,'Alinhar e distribuir','Align and distribute')} onPointerDown={e=>e.stopPropagation()}>{ARRANGE.map((item,index)=><span key={item.kind} className="arrange-slot">{index===6&&<span className="alignment-sep" aria-hidden="true"/>}<button className="arrange-btn" disabled={item.kind.startsWith('distribute')&&selectedIds.length<3} title={tx(pt,item.pt,item.en)} aria-label={tx(pt,item.pt,item.en)} onClick={()=>arrangeSelection(item.kind)}><ArrangeIcon kind={item.kind}/></button></span>)}</div>}
-    <EditorRulers root={root} rect={rect} width={width} height={height} rulers={rulers} pt={pt}/>
+    <EditorRulers root={root} rect={rect} width={width} height={height} rulers={rulers} pt={pt} targets={alignTargets} snap={snap} hit={guide}/>
     {(guide.x!==null||guide.y!==null)&&<svg className="editor-guides">{guide.x!==null&&<line x1={rect.x+guide.x/width*rect.width} x2={rect.x+guide.x/width*rect.width} y1={rect.y} y2={rect.y+rect.height}/>} {guide.y!==null&&<line y1={rect.y+guide.y/height*rect.height} y2={rect.y+guide.y/height*rect.height} x1={rect.x} x2={rect.x+rect.width}/>}</svg>}
 
     {show && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={tx(pt, 'Transformar camada selecionada', 'Transform selected layer')} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>

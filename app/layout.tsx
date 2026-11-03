@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(professionalIdentity).replace(/</g,'\\u003c')}}/>
         <meta name="theme-color" content="#0c0d0f" />

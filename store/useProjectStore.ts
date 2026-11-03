@@ -1,5 +1,7 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { create } from 'zustand';
+import { tx } from '@/lib/tx';
+import { currentLocale } from '@/lib/localeState';
 import {
   activeProjectId,
   createProject,
@@ -40,7 +42,7 @@ export interface ProjectState {
   remove: (id: string) => void;
 }
 
-const DEFAULT_NAME = 'Default project';
+const defaultName = () => tx(currentLocale() === 'pt', 'Projeto padrão', 'Default project');
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: [],
@@ -51,7 +53,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   bootstrap: () => {
     if (get().booted || typeof window === 'undefined') return;
-    const { meta, scene } = openInitialProject(DEFAULT_NAME);
+    const { meta, scene } = openInitialProject(defaultName());
     // A migrated/saved scene hydrates; a brand-new project keeps the store's
     // own defaults (openInitialProject returns null for it).
     if (scene) {
@@ -136,7 +138,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         // Deleted the last project — start a fresh default one rather than
         // leaving the app with nowhere to save.
         useSceneStore.getState().resetScene();
-        const meta = createProject(DEFAULT_NAME);
+        const meta = createProject(defaultName());
         setAutosaveTarget(meta.id, null);
         flushScene();
       }

@@ -2488,6 +2488,7 @@ select.field { padding-right: 26px; }
 .ruler-guide.x::after { top: 0; bottom: 0; left: 3px; width: 1px; }
 .ruler-guide.y::after { left: 0; right: 0; top: 3px; height: 1px; }
 .ruler-guide.active::after, .ruler-guide:hover::after { opacity: 1; box-shadow: 0 0 0 .5px #19c3ff; }
+.ruler-guide.snapped::after { opacity: 1; background: var(--accent-text); box-shadow: 0 0 0 .5px var(--accent-text); }
 .ruler-readout { position: absolute; z-index: 5; padding: 3px 6px; border-radius: 5px; background: var(--fg); color: var(--card); font: 10px/1.2 system-ui, sans-serif; font-variant-numeric: tabular-nums; pointer-events: none; }
 .canvas-selection.rulers-on .alignment-toolbar { top: 28px; }
 .canvas-selection.rulers-on .arrange-toolbar { top: 65px; }

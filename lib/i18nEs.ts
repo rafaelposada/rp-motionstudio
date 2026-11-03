@@ -2,6 +2,7 @@
 // Spanish UI strings keyed by their Portuguese source text. Used for the
 // inline pt/en pairs (tx), the label/option/message dictionaries and help texts.
 export const ES: Record<string, string> = {
+  'Projeto padrão': 'Proyecto predeterminado',
  "Novo": "Nuevo",
  "Projetos": "Proyectos",
  "Biblioteca": "Biblioteca",

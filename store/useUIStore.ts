@@ -122,7 +122,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     const saved = savePreferences({ ...state, autosaveEnabled, autosaveDelay });
     return { autosaveEnabled, autosaveDelay, preferencesError: saved === false ? 'storage' : null };
   }),
-  locale: 'en',
+  locale: 'pt',
   accentColor: DEFAULT_ACCENT,
   setAccentColor: (color) => set((state) => {
     const accentColor = sanitizeAccent(color);
@@ -232,7 +232,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       autosaveDelay: Math.max(250, Math.min(10000, Number(saved.autosaveDelay) || 500)),
       showSelectionBox: saved.showSelectionBox !== false,
       accentColor: sanitizeAccent(saved.accentColor),
-      locale: saved.locale === 'pt' ? 'pt' as const : saved.locale === 'es' ? 'es' as const : 'en' as const,
+      locale: saved.locale === 'en' || saved.locale === 'es' ? saved.locale : 'pt' as const,
       leftCollapsed: typeof saved.leftCollapsed === 'boolean' ? saved.leftCollapsed : state.leftCollapsed,
       rightCollapsed: typeof saved.rightCollapsed === 'boolean' ? saved.rightCollapsed : state.rightCollapsed,
       tplCollapsed: typeof saved.tplCollapsed === 'boolean' ? saved.tplCollapsed : state.tplCollapsed,

@@ -4,16 +4,19 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { tx } from '@/lib/tx';
+import { snapAlignment, type AlignBox } from '@/lib/alignment';
 
 const SIZE = 20; // ruler thickness in screen px
 const STEPS = [1, 2, 5, 10, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000];
 type Axis = 'x' | 'y';
-interface Drag { axis: Axis; index: number; value: number; pointerId: number }
+interface Drag { axis: Axis; index: number; value: number; pointerId: number; snapped: boolean }
 
 // Adobe-style rulers along the stage edges, in composition pixels at the
 // current zoom. Drag from a ruler to create a guide, drag a guide to move it,
 // drop it back on its ruler to remove it. Guides never appear in exports.
-export default function EditorRulers({ root, rect, width, height, rulers, pt }: { root: RefObject<HTMLDivElement | null>; rect: { x: number; y: number; width: number; height: number }; width: number; height: number; rulers: boolean; pt: boolean }) {
+// Like the smart guides, a dragged guide snaps to element edges and centers
+// (Alt drags freely), and a guide an element snaps onto lights up.
+export default function EditorRulers({ root, rect, width, height, rulers, pt, targets, snap, hit }: { root: RefObject<HTMLDivElement | null>; rect: { x: number; y: number; width: number; height: number }; width: number; height: number; rulers: boolean; pt: boolean; targets: () => AlignBox[]; snap: boolean; hit: { x: number | null; y: number | null } }) {
   const guides = useSceneStore((s) => s.guides);
   const [size, setSize] = useState({ w: 0, h: 0 }), [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -37,22 +40,28 @@ export default function EditorRulers({ root, rect, width, height, rulers, pt }: 
   const minor = step / (step % 5 === 0 ? 5 : step % 2 === 0 ? 2 : 1);
 
   const local = (e: React.PointerEvent | PointerEvent) => { const r = root.current!.getBoundingClientRect(); return { x: e.clientX - r.x, y: e.clientY - r.y }; };
+  const place = (axis: Axis, e: React.PointerEvent) => {
+    const p = local(e), value = toComp(axis, axis === 'x' ? p.x : p.y);
+    if (!snap || e.altKey) return { value, snapped: false };
+    const match = snapAlignment({ x: value, y: value, width: 0, height: 0 }, targets(), 6 / ratio), anchor = axis === 'x' ? match.x : match.y;
+    return anchor === null ? { value, snapped: false } : { value: anchor, snapped: true };
+  };
   const startDrag = (axis: Axis, index: number, e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.stopPropagation(); e.preventDefault();
     useHistoryStore.getState().beginGesture();
-    const p = local(e), value = toComp(axis, axis === 'x' ? p.x : p.y);
-    const next: Drag = { axis, index, value, pointerId: e.pointerId };
+    const { value, snapped } = place(axis, e);
+    const next: Drag = { axis, index, value, pointerId: e.pointerId, snapped };
     if (index < 0) { const list = [...guides[axis], value]; useSceneStore.getState().setGuides({ ...guides, [axis]: list }); next.index = list.length - 1; }
     dragRef.current = next; setDrag(next);
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
   const moveDrag = (e: React.PointerEvent) => {
     const d = dragRef.current; if (!d || e.pointerId !== d.pointerId) return;
-    const p = local(e), value = toComp(d.axis, d.axis === 'x' ? p.x : p.y);
+    const { value, snapped } = place(d.axis, e);
     const current = useSceneStore.getState().guides, list = [...current[d.axis]]; list[d.index] = value;
     useSceneStore.getState().setGuides({ ...current, [d.axis]: list });
-    dragRef.current = { ...d, value }; setDrag(dragRef.current);
+    dragRef.current = { ...d, value, snapped }; setDrag(dragRef.current);
   };
   const endDrag = (e: React.PointerEvent) => {
     const d = dragRef.current; if (!d || e.pointerId !== d.pointerId) return;
@@ -77,7 +86,8 @@ export default function EditorRulers({ root, rect, width, height, rulers, pt }: 
 
   const guideLine = (axis: Axis, value: number, index: number) => {
     const s = toScreen(axis, value), active = drag?.axis === axis && drag.index === index;
-    return <div key={`${axis}${index}`} className={`ruler-guide ${axis} ${active ? 'active' : ''}`} style={axis === 'x' ? { left: s } : { top: s }}
+    const snapped = active ? drag.snapped : !drag && hit[axis] !== null && Math.abs(hit[axis]! - value) < 1e-6;
+    return <div key={`${axis}${index}`} className={`ruler-guide ${axis} ${active ? 'active' : ''} ${snapped ? 'snapped' : ''}`} style={axis === 'x' ? { left: s } : { top: s }}
       onPointerDown={(e) => startDrag(axis, index, e)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
       title={tx(pt, 'Arraste para mover. Solte sobre a régua para remover.', 'Drag to move. Drop on the ruler to remove.')} />;
   };
@@ -87,7 +97,7 @@ export default function EditorRulers({ root, rect, width, height, rulers, pt }: 
       {guides.x.map((v, i) => guideLine('x', v, i))}
       {guides.y.map((v, i) => guideLine('y', v, i))}
     </div>
-    {drag && <span className="ruler-readout" style={drag.axis === 'x' ? { left: toScreen('x', drag.value) + 8, top: SIZE + 8 } : { left: SIZE + 8, top: toScreen('y', drag.value) + 8 }}>{drag.axis === 'x' ? 'X' : 'Y'} {drag.value}</span>}
+    {drag && <span className="ruler-readout" style={drag.axis === 'x' ? { left: toScreen('x', drag.value) + 8, top: SIZE + 8 } : { left: SIZE + 8, top: toScreen('y', drag.value) + 8 }}>{drag.axis === 'x' ? 'X' : 'Y'} {Math.round(drag.value)}</span>}
     {rulers && <div className="editor-rulers-v2" aria-label={tx(pt, 'Réguas em pixels da composição', 'Composition pixel rulers')}>
       <svg className="ruler top" width={size.w} height={SIZE} style={{ width: size.w, height: SIZE }} onPointerDown={(e) => startDrag('y', -1, e)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
         <title>{tx(pt, 'Arraste para criar uma guia horizontal', 'Drag to create a horizontal guide')}</title>

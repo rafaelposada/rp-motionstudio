@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useUIStore } from '@/store/useUIStore';
 import { tx } from '@/lib/tx';
+import { currentLocale } from '@/lib/localeState';
 
 const SEEN_KEY = 'motion-welcome-seen';
 
@@ -25,7 +26,7 @@ export default function WelcomeDialog() {
     try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* storage blocked */ }
     const projects = useProjectStore.getState();
     projects.bootstrap();               // no-op when already booted
-    if (!projects.activeId) projects.create('Default project');
+    if (!projects.activeId) projects.create(tx(currentLocale() === 'pt', 'Projeto padrão', 'Default project'));
     useUIStore.getState().setNav('home');
     setOpen(false);
   };

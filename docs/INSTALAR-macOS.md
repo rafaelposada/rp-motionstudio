@@ -1,6 +1,6 @@
 # RP MotionStudio Desktop · instalação no Mac
 
-Versão 1.4.10 · Rafael Posada
+Versão 1.4.11 · Rafael Posada
 
 ## Compatibilidade deste pacote
 
@@ -11,9 +11,9 @@ Versão 1.4.10 · Rafael Posada
 
 ## Instalação
 
-1. Abra o arquivo RP-MotionStudio-1.4.10-macOS-Apple-Silicon.dmg.
+1. Abra o arquivo RP-MotionStudio-1.4.11-macOS-Apple-Silicon.dmg.
 2. Arraste RP MotionStudio Desktop para o atalho Aplicativos.
-3. Aguarde a cópia, ejete o disco RP MotionStudio 1.4.10 e abra o aplicativo
+3. Aguarde a cópia, ejete o disco RP MotionStudio 1.4.11 e abra o aplicativo
    pela pasta Aplicativos. Evite executá-lo diretamente do disco de instalação.
 
 Node.js, npm e um navegador separado não são necessários para executar o pacote.
@@ -28,17 +28,25 @@ Configurações → Arquivos → Exportação local: aparece “Incluído no apl
 As bibliotecas de mídia são programas separados sob GPL versão 2 ou posterior;
 as licenças e seus fontes completos estão em Contents/Resources/media/licenses.
 
-## Avisos do macOS
+## Primeira abertura
 
 Esta edição tem assinatura local de integridade, sem certificado Developer ID
-e sem notarização da Apple. Ao recebê-la por download, e-mail ou AirDrop, o
-macOS pode bloquear sua abertura por não conseguir verificar o desenvolvedor.
-Somente prossiga se reconhecer a origem e confiar no arquivo recebido.
-Consulte o procedimento oficial da Apple adequado ao aviso apresentado:
-https://support.apple.com/pt-br/102445
+e sem notarização da Apple. Na primeira abertura em um Mac novo, o macOS
+bloqueia o app com o aviso “não pode ser aberto” ou “não foi aberto”. Somente
+prossiga se reconhecer a origem e confiar no arquivo recebido.
 
-Não é necessário desativar globalmente as proteções do macOS. Uma assinatura
-local não equivale à aprovação ou à verificação de segurança pela Apple.
+1. Copie o app para Aplicativos e tente abri-lo. Clique em OK ou Concluído.
+2. Abra Ajustes do Sistema → Privacidade e Segurança e role até Segurança.
+3. Ao lado de “RP MotionStudio Desktop”, clique em Abrir Mesmo Assim e
+   confirme com a senha ou o Touch ID.
+
+O botão aparece logo depois da tentativa bloqueada; se sumir, tente abrir o
+app de novo. No macOS 13 e 14, também funciona clicar no app com a tecla
+Control pressionada e escolher Abrir. A liberação vale só para este app; o
+macOS pode pedi-la de novo quando uma versão nova for baixada.
+
+Mac com processador Intel não abre este pacote, mesmo com a liberação.
+Procedimento oficial da Apple: https://support.apple.com/pt-br/102445
 
 ## Projetos, internet e atualizações
 
