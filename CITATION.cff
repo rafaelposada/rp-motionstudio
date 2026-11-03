@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "Ao mencionar a versão RP, identifique Rafael Posada. Veja NOTICE para atribuições da base e de terceiros."
 type: software
 title: RP MotionStudio
-version: 1.4.9
+version: 1.4.10
 date-released: 2026-11-01
 authors:
   - family-names: Posada

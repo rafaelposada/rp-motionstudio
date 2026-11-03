@@ -9,6 +9,14 @@ import { addShape } from './ShapePanel';
 import { showHome } from '@/lib/homeNavigation';
 import { useProjectStore } from '@/store/useProjectStore';
 import { tx } from '@/lib/tx';
+import { startGuidedTour } from './GuidedTour';
+
+function jumpMarker(direction: 1 | -1) {
+  const s = useSceneStore.getState(), now = s.frame / s.fps;
+  const times = s.markers.map((m) => m.t).filter((t) => direction > 0 ? t > now + 1 / s.fps / 2 : t < now - 1 / s.fps / 2).sort((a, b) => a - b);
+  const t = direction > 0 ? times[0] : times.at(-1);
+  if (t !== undefined) { s.setPlaying(false); s.setFrame(Math.round(t * s.fps)); }
+}
 
 interface Command { id: string; label: string; hint?: string; run: () => void }
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -53,6 +61,9 @@ export default function CommandPalette() {
       { id: 'lang-en', label: 'Language: English', run: () => ui().setLocale('en') },
       { id: 'new', label: tx(pt, 'Novo projeto', 'New project'), run: () => { useProjectStore.getState().create(tx(pt, 'Projeto', 'Project') + ' ' + (useProjectStore.getState().projects.length + 1)); } },
       { id: 'home', label: tx(pt, 'Ir para o início', 'Go home'), run: () => void showHome() },
+      { id: 'tour', label: tx(pt, 'Tutorial guiado', 'Guided tutorial'), run: () => startGuidedTour() },
+      { id: 'next-marker', label: tx(pt, 'Ir ao próximo marcador', 'Go to next marker'), run: () => jumpMarker(1) },
+      { id: 'prev-marker', label: tx(pt, 'Ir ao marcador anterior', 'Go to previous marker'), run: () => jumpMarker(-1) },
     ];
   }, [pt]);
   const results = commands.filter((c) => fold(c.label).includes(fold(query.trim())));

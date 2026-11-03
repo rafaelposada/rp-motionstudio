@@ -10,6 +10,7 @@ import { useHistoryStore } from '@/store/useHistoryStore';
 import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection, type TimelineWindow } from '@/lib/timelineSelection';
 import { tx } from '@/lib/tx';
 import { keyTimes } from '@/lib/keyframes';
+import { magnetOffset } from '@/lib/timelineSnap';
 export default function TextTrackLane({ layer, duration, leadingControl }: { layer: TextLayer; duration: number; leadingControl?:ReactNode }) {
   const selectedIds = useUIStore(s => s.selectedLayerIds), pt = useUIStore(s => s.locale) === 'pt';
   const patch = useSceneStore((s) => s.patchTextLayer); const remove = deleteCompositionLayer;
@@ -23,11 +24,12 @@ export default function TextTrackLane({ layer, duration, leadingControl }: { lay
   const finish = (cancel = false) => { const d = drag.current; if (!d) return; drag.current = null; if (cancel) restoreTimelineSelection(d.windows); useHistoryStore.getState().endGesture(cancel); };
   const move = (e: React.PointerEvent) => {
     const d = drag.current; if (!d || !axis.current) return;
-    const delta = (e.clientX - d.x) / axis.current.getBoundingClientRect().width * duration;
+    const spp = duration / axis.current.getBoundingClientRect().width, delta = (e.clientX - d.x) * spp;
     const snap = (n: number) => Math.round(n * (e.shiftKey ? 1 : fps)) / (e.shiftKey ? 1 : fps);
-    if (d.mode === 'move') { if (d.windows.length > 1) moveTimelineSelection(d.windows, snap(delta)); else { const start = Math.max(0, Math.min(duration - (d.end - d.start), snap(d.start + delta))); patch(layer.id, { start, end: start + d.end - d.start }); } }
-    else if (d.mode === 'start') patch(layer.id, { start: Math.max(0, Math.min(d.end - 1 / fps, snap(d.start + delta))) });
-    else patch(layer.id, { end: Math.min(duration, Math.max(d.start + 1 / fps, snap(d.end + delta))) });
+    const magnet = (edges: number[]) => e.altKey ? 0 : magnetOffset(edges, spp);
+    if (d.mode === 'move') { if (d.windows.length > 1) moveTimelineSelection(d.windows, snap(delta)); else { const span = d.end - d.start, raw = snap(d.start + delta), start = Math.max(0, Math.min(duration - span, raw + magnet([raw, raw + span]))); patch(layer.id, { start, end: start + span }); } }
+    else if (d.mode === 'start') { const raw = snap(d.start + delta); patch(layer.id, { start: Math.max(0, Math.min(d.end - 1 / fps, raw + magnet([raw]))) }); }
+    else { const raw = snap(d.end + delta); patch(layer.id, { end: Math.min(duration, Math.max(d.start + 1 / fps, raw + magnet([raw]))) }); }
   };
   return <div className={`tl-lane ${selectedIds.includes(layer.id) ? 'active' : ''} ${layer.visible ? '' : 'hidden'}`}><div className="tl-lane-gutter">{leadingControl}<LayerDragHandle id={layer.id} name={layer.text}/>
     <button className="tl-lane-btn" title={tx(pt, 'Mostrar / ocultar camada', 'Show / hide layer')} onClick={() => patch(layer.id, { visible: !layer.visible })}>{layer.visible ? '◉' : '○'}</button>

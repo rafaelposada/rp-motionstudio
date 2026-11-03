@@ -12,6 +12,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { useUIStore } from '@/store/useUIStore';
 import { historyShortcut } from '@/lib/historyShortcuts';
 import CommandPalette from '@/components/CommandPalette';
+import GuidedTour from '@/components/GuidedTour';
 const UpdateSystem=dynamic(()=>import('@/components/UpdateSystem'),{ssr:false});
 const DesktopSystem=dynamic(()=>import('@/components/DesktopSystem'),{ssr:false});
 
@@ -98,6 +99,7 @@ export default function Home() {
       <DesktopSystem />
       <UpdateSystem />
       <CommandPalette />
+      <GuidedTour />
       {nav === 'home' ? <HomeDashboard /> : mode === 'mobile' ? <MobileEditor /> : <DesktopEditor />}
       <WelcomeDialog />
     </>

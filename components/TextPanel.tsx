@@ -5,7 +5,7 @@ import TextPaddingEditor from './TextPaddingEditor';
 import { useState } from 'react';
 import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { useI18n } from '@/lib/useI18n';
-import { ensureFont, type TextLayer } from '@/lib/textLayers';
+import { BASIC_FONTS, ensureFont, type TextLayer } from '@/lib/textLayers';
 import { ControlRow } from './Controls';
 import { BlendRow } from './BlendSelect';
 import TextLayoutControls from './TextLayoutControls';
@@ -24,7 +24,7 @@ import { isTextLayer } from '@/lib/textLayers';
 import MaskControl from './MaskControl';
 import Tilt3DControls from './Tilt3DControls';
 
-const FONTS = ['Arial', 'Georgia', 'monospace', 'Inter', 'Roboto', 'Montserrat', 'Poppins', 'DM Sans', 'Manrope', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Lora', 'Merriweather', 'Space Grotesk'];
+const FONTS = BASIC_FONTS;
 
 export default function TextPanel() {
   const { locale } = useI18n();

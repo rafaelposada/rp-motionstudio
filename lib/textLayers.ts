@@ -13,7 +13,11 @@ import { layerFrame } from './layerBounds';
 import { fontshareFamily, fontshareFileUrl } from './fontshare';
 
 export type TextAlign = 'left'|'center'|'right'|'justify';
-export interface ShapeSpec { kind: 'rect'|'ellipse'|'line'; width: number; height: number; fill?: string; fillOpacity?: number; stroke?: string; strokeWidth?: number; strokeOpacity?: number; radius?: number }
+export interface ShapeSpec { kind: 'rect'|'ellipse'|'line'; width: number; height: number; fill?: string; fillOpacity?: number; stroke?: string; strokeWidth?: number; strokeOpacity?: number; radius?: number; cornerRadii?: CornerRadii }
+// Rectangles take per-corner radii; older projects stored a single radius.
+export const shapeRadii = (shape: ShapeSpec): CornerRadii => normalizedRadii(Math.abs(shape.width), Math.abs(shape.height), shape.cornerRadii ?? Array(4).fill(shape.radius ?? 0));
+// BG Blur applies to text backgrounds and to filled shapes (not lines or images).
+export const hasBackdropBlur = (layer: Pick<TextLayer,'backdrop'|'backdropBlur'|'media'|'shape'>) => (layer.backdropBlur ?? 0) > 0 && !layer.media && (!!layer.backdrop || !!layer.shape && layer.shape.kind !== 'line');
 export const isTextLayer = (layer: Pick<TextLayer,'media'|'shape'>) => !layer.media && !layer.shape;
 export type TextWrap = 'auto'|'balance'|'pretty';
 export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
@@ -98,6 +102,8 @@ export async function registerCustomFont(file: File, weight: number) {
   fontPromises.set(`${family}:${weight}`, Promise.resolve());
   return family;
 }
+// Families offered in the quick font menus (text panel and brand kits).
+export const BASIC_FONTS = ['Arial', 'Georgia', 'monospace', 'Inter', 'Roboto', 'Montserrat', 'Poppins', 'DM Sans', 'Manrope', 'Oswald', 'Bebas Neue', 'Playfair Display', 'Lora', 'Merriweather', 'Space Grotesk'];
 const fontPromises = new Map<string, Promise<void>>();
 export function ensureFont(family: string, weight: number): Promise<void> {
   if (['Arial', 'Georgia', 'monospace', 'system-ui'].includes(family)) return Promise.resolve();
@@ -178,7 +184,8 @@ export class TextCompositor {
         ctx.beginPath();
         if (kind === 'ellipse') ctx.ellipse(0, 0, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2);
         else if (kind === 'line') { ctx.moveTo(-w / 2, 0); ctx.lineTo(w / 2, 0); }
-        else { const r = bounded(layer.shape.radius ?? 0, 0, Math.min(Math.abs(w), Math.abs(h)) / 2); if (r > 0) ctx.roundRect(-w / 2, -h / 2, w, h, r); else ctx.rect(-w / 2, -h / 2, w, h); }
+        else { const radii = shapeRadii(layer.shape); if (radii.some(r => r > 0)) ctx.roundRect(-w / 2, -h / 2, w, h, radii); else ctx.rect(-w / 2, -h / 2, w, h); }
+        if (maskOnly) { if (kind !== 'line') { ctx.fillStyle = '#fff'; ctx.fill(); } ctx.restore(); continue; }
         if (kind !== 'line' && layer.shape.fill) { ctx.globalAlpha = alpha * bounded(layer.shape.fillOpacity ?? 1, 0, 1); ctx.fillStyle = maskOnly ? '#fff' : layer.shape.fill; ctx.fill(); }
         const sw = kind === 'line' ? Math.max(1, layer.shape.strokeWidth ?? Math.max(2, h)) : layer.shape.strokeWidth ?? 0;
         if ((layer.shape.stroke || kind === 'line') && sw > 0) { ctx.globalAlpha = alpha * bounded(layer.shape.strokeOpacity ?? 1, 0, 1); ctx.strokeStyle = maskOnly ? '#fff' : layer.shape.stroke ?? layer.shape.fill ?? '#ffffff'; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); }
@@ -313,7 +320,7 @@ export class OverlayRaster {
       this.warpCanvas ??= document.createElement('canvas');
       this.canvas = warpCanvas(this.canvas, this.warpCanvas, rw / width, box, projector(tilted.x + (active ? textMotion(tilted, seconds).x : 0), tilted.y + (active ? textMotion(tilted, seconds).y : 0), height, { tiltX: tilted.tiltX ?? 0, tiltY: tilted.tiltY ?? 0, fov: tilted.fov ?? 40 }));
     }
-    if(layer.backdrop && !layer.media && (layer.backdropBlur??0)>0){
+    if(hasBackdropBlur(layer)){
       this.maskCompositor??=new TextCompositor();
       this.maskCanvas=this.maskCompositor.render(this.source,[layer],width,height,seconds,originals,null,true,true);
     }else{this.maskCompositor?.destroy();this.maskCompositor=null;this.maskCanvas=null;}

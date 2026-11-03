@@ -10,6 +10,7 @@ import { compositionOrder } from '@/lib/composition';
 import { useUIStore } from '@/store/useUIStore';
 import { LayerDragHandle, timelineLayerDragProps } from './LayerDropTarget';
 import { layerDisplayName, duplicateCompositionLayers, selectedCompositionIds } from '@/lib/compositionActions';
+import { magnetOffset } from '@/lib/timelineSnap';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection, type TimelineWindow } from '@/lib/timelineSelection';
 import { tx } from '@/lib/tx';
@@ -74,22 +75,25 @@ export default function TrackLane({
   const onPointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
-    const dFrames = Math.round((e.clientX - d.startX) * framesPerPx());
+    const fpp = framesPerPx(), fps = useSceneStore.getState().fps;
+    const dFrames = Math.round((e.clientX - d.startX) * fpp);
     if (dFrames === 0 && !d.moved) return;
     d.moved = true;
+    // Markers and the playhead pull the bar edges in (Alt drags freely).
+    const magnet = (edges: number[]) => e.altKey ? 0 : Math.round(magnetOffset(edges.map((f) => f / fps), fpp / fps) * fps);
 
     if (d.mode === 'move') {
       if (d.windows.length > 1) { moveTimelineSelection(d.windows, dFrames / useSceneStore.getState().fps); return; }
       const span = d.outF - d.inF;
       // Slide the whole window, stopping at both ends of the clip rather than
       // squashing it.
-      const nextIn = Math.max(0, Math.min(totalFrames - span, d.inF + dFrames));
+      const raw = d.inF + dFrames, nextIn = Math.max(0, Math.min(totalFrames - span, raw + magnet([raw, raw + span])));
       patchTrack(track.id, { inFrame: nextIn, outFrame: nextIn + span });
     } else if (d.mode === 'in') {
-      const nextIn = Math.max(0, Math.min(d.outF - 2, d.inF + dFrames));
+      const raw = d.inF + dFrames, nextIn = Math.max(0, Math.min(d.outF - 2, raw + magnet([raw])));
       patchTrack(track.id, { inFrame: nextIn, outFrame: d.outF });
     } else {
-      const nextOut = Math.min(totalFrames, Math.max(d.inF + 2, d.outF + dFrames));
+      const raw = d.outF + dFrames, nextOut = Math.min(totalFrames, Math.max(d.inF + 2, raw + magnet([raw])));
       patchTrack(track.id, { inFrame: d.inF, outFrame: nextOut });
     }
   };

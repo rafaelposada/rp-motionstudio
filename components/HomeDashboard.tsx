@@ -14,6 +14,7 @@ import { flushScene } from '@/lib/scenePersist';
 import { AddIcon, BackIcon, LibraryIcon, ProjectsIcon } from './EditorIcons';
 import { tx } from '@/lib/tx';
 import { QUICK_STARTS, startFromGoal } from '@/lib/quickStart';
+import { startGuidedTour } from './GuidedTour';
 
 const SettingsDialog = dynamic(() => import('./SettingsDialog'), { ssr: false });
 
@@ -113,7 +114,10 @@ export default function HomeDashboard() {
     </aside>
     <main ref={main} className="home-main" id="home-main">
       <section className="home-welcome"><span className="eyebrow">{tx(pt, 'SEU ESPAÇO CRIATIVO', 'YOUR CREATIVE WORKSPACE')}</span><h1>{tx(pt, 'Bom te ver por aqui.', 'Welcome to your next idea.')}</h1><p>{tx(pt, 'Uma nova ideia ou de onde você parou. Seu próximo movimento começa aqui.', 'Start something new or pick up where you left off. Your next move starts here.')}</p>
-        {active && <button className="home-resume" disabled={busy} onClick={() => enterProject(active.id)}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m6 3 9 6-9 6Z" fill="currentColor" /></svg></span><span><small>{tx(pt, 'CONTINUAR EDITANDO', 'CONTINUE EDITING')}</small><strong>{active.name}</strong></span><span aria-hidden="true">↗</span></button>}
+        <div className="home-welcome-actions">
+          {active && <button className="home-resume" disabled={busy} onClick={() => enterProject(active.id)}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m6 3 9 6-9 6Z" fill="currentColor" /></svg></span><span><small>{tx(pt, 'CONTINUAR EDITANDO', 'CONTINUE EDITING')}</small><strong>{active.name}</strong></span><span aria-hidden="true">↗</span></button>}
+          <button className="home-resume home-tour" disabled={busy || !booted} onClick={() => { if (active) enterProject(active.id); else startFromGoal(QUICK_STARTS[0], pt); startGuidedTour(); }}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="m11.8 6.2-1.7 3.9-3.9 1.7 1.7-3.9z" fill="currentColor" /></svg></span><span><small>{tx(pt, 'PRIMEIRA VEZ AQUI?', 'FIRST TIME HERE?')}</small><strong>{tx(pt, 'Tutorial guiado', 'Guided tutorial')}</strong></span><span aria-hidden="true">→</span></button>
+        </div>
       </section>
       {view === 'recent' && <section className="home-quickstart" aria-labelledby="home-quickstart-title">
         <div className="home-section-heading"><div><h2 id="home-quickstart-title">{tx(pt, 'Comece por um objetivo', 'Start from a goal')}</h2><span>{tx(pt, 'Formato, modelo e um título de partida prontos. Troque tudo depois.', 'Format, model and a starting headline, ready. Change anything later.')}</span></div></div>

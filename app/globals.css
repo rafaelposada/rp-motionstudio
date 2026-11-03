@@ -746,9 +746,10 @@ select.field { padding-right: 26px; }
 .card-shape-pills {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
 }
 .aspect-pills .pill,
-.card-shape-pills .pill { min-width: 0; padding-inline: 4px; }
+.card-shape-pills .pill { min-width: 0; padding: 5px 4px; }
 
 /* crop-focus popover (per-asset cover-fit anchor) */
 .asset-item { position: relative; }
@@ -1052,7 +1053,8 @@ select.field { padding-right: 26px; }
 .home-welcome .eyebrow { font-size: 10px; letter-spacing: .14em; }
 .home-welcome h1 { font-size: clamp(28px, 3vw, 40px); line-height: 1.15; font-weight: 600; letter-spacing: -.045em; margin: 12px 0 12px; color: var(--fg); }
 .home-welcome > p { color: var(--fg-muted); margin: 0; font-size: 13px; line-height: 1.7; max-width: 620px; }
-.home-resume { display: flex; align-items: center; text-align: left; gap: 14px; padding: 13px 16px; border: 1px solid var(--line); background: var(--card); border-radius: 11px; margin-top: 24px; min-width: min(330px, 100%); max-width: 100%; }
+.home-welcome-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.home-resume { display: flex; align-items: center; text-align: left; gap: 14px; padding: 13px 16px; border: 1px solid var(--line); background: var(--card); border-radius: 11px; min-width: min(330px, 100%); max-width: 100%; }
 .home-resume:hover { border-color: var(--accent-text); }
 .home-resume > span:nth-child(2) { min-width: 0; }
 .home-resume small { display: block; font-size: 9px; letter-spacing: .09em; color: var(--fg-muted); margin-bottom: 3px; }
@@ -1127,7 +1129,8 @@ select.field { padding-right: 26px; }
 .home-main { padding-top: 32px; }
 .home-welcome { padding-bottom: 24px; margin-bottom: 24px; }
 .home-welcome h1 { font-size: clamp(28px, 2.6vw, 36px); margin: 10px 0; }
-.home-resume { margin-top: 18px; padding-top: 11px; padding-bottom: 11px; }
+.home-welcome-actions { margin-top: 18px; }
+.home-resume { padding-top: 11px; padding-bottom: 11px; }
 @media (max-width: 1100px) {
   .home-shell { grid-template-columns: 200px minmax(0, 1fr); }
   .home-sidebar { padding-left: 14px; padding-right: 14px; }
@@ -2503,8 +2506,8 @@ select.field { padding-right: 26px; }
 .tl-keyframe { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; transform: rotate(45deg); background: #f5a623; border: 1px solid var(--card); border-radius: 1.5px; z-index: 2; cursor: pointer; }
 .tl-keyframe:hover { transform: rotate(45deg) scale(1.25); }
 
-.shape-panel { display: grid; gap: 10px; padding: 0 0 4px; }
-.shape-panel h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--fg-label); }
+.shape-panel { display: grid; gap: 10px; padding: 18px; min-width: 0; }
+.shape-panel h3 { margin: 0; font-size: 13px; font-weight: 600; }
 .shape-add { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .shape-add .btn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 0 6px; font-size: 12px; white-space: nowrap; }
 .shape-selected { font-size: 12px; color: var(--fg); margin-top: 4px; }
@@ -2537,10 +2540,13 @@ select.field { padding-right: 26px; }
 .brandkit-name { flex: 1; display: grid; }
 .brandkit-name small { color: var(--fg-muted); font-size: 11px; }
 .brandkit-editor { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
-.brandkit-colors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; align-items: center; }
-.brandkit-color { position: relative; }
-.brandkit-color input[type=color] { width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; }
-.brandkit-color button { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); font-size: 10px; line-height: 1; color: var(--fg-muted); }
+.brandkit-colors { display: grid; gap: 6px; margin-top: 6px; }
+.brandkit-color { display: flex; align-items: flex-start; gap: 6px; }
+.brandkit-color .color-editor { flex: 1; min-width: 0; margin: 0; }
+.brandkit-color > .icon-btn { flex: 0 0 auto; width: 32px; height: 32px; }
+.brandkit-add-color { justify-self: start; }
+.brandkit-font { display: grid; gap: 6px; }
+.brandkit-font .composition-panel { margin: 0; }
 .brandkit-apply { display: grid; gap: 8px; margin-top: 6px; }
 .brandkit-options { display: flex; gap: 12px; font-size: 12px; color: var(--fg-muted); }
 .brandkit-options label { display: flex; align-items: center; gap: 5px; }
@@ -2569,3 +2575,18 @@ select.field { padding-right: 26px; }
 .command-empty { padding: 14px 12px; color: var(--fg-muted); font-size: 13px; }
 /* Visible keyboard focus across the interface (mouse clicks stay clean). */
 :where(button, [role="button"], [role="radio"], [role="tab"], a, select, input:not([type="range"]), textarea, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Guided tutorial: spotlight over one editor area at a time */
+.guided-tour { position: fixed; inset: 0; z-index: 1000; }
+.guided-tour-blocker { position: absolute; inset: 0; }
+.guided-tour-dim { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); pointer-events: none; }
+.guided-tour-spot { position: absolute; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55); outline: 2px solid var(--accent); pointer-events: none; transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease; }
+.guided-tour-card { position: absolute; width: min(320px, calc(100vw - 24px)); padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--fg); box-shadow: 0 18px 50px rgba(0, 0, 0, .35); display: grid; gap: 8px; }
+.guided-tour-count { font-size: 11px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.guided-tour-card h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.guided-tour-card p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--fg-muted); }
+.guided-tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.guided-tour-actions > span { flex: 1; }
+.guided-tour-actions .btn { min-height: 32px; padding: 0 12px; font-size: 12px; }
+.guided-tour-skip { background: none; border-color: transparent; color: var(--fg-muted); padding-left: 0 !important; }
+@media (prefers-reduced-motion: reduce) { .guided-tour-spot { transition: none; } }

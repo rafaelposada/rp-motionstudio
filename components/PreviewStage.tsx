@@ -9,7 +9,7 @@ import { useSceneStore } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
 import { getTemplate } from '@/templates';
 import { previewResolution, setPreviewPlaying } from '@/lib/previewResolution';
-import { prepareTextFonts } from '@/lib/textLayers';
+import { hasBackdropBlur, prepareTextFonts } from '@/lib/textLayers';
 import { useAudioPreview } from '@/lib/useAudioPreview';
 import CanvasTextSelection from './CanvasTextSelection';
 import ModelVisibilityNotice from './ModelVisibilityNotice';
@@ -74,7 +74,7 @@ export default function PreviewStage() {
   // layer would swap in the single-motion 3D renderer and the other layers would
   // vanish.
   const engine = useSceneStore((s) =>
-    s.textLayers.some(layer=>layer.visible&&layer.backdrop&&!layer.media&&(layer.backdropBlur??0)>0) || s.tracks.some((track) => track.visible && (s.compositeMode === 'stack' || track.id === s.activeTrackId) && getTemplate(track.templateId).meta.engine === 'webgl')
+    s.textLayers.some(layer=>layer.visible&&hasBackdropBlur(layer)) || s.tracks.some((track) => track.visible && (s.compositeMode === 'stack' || track.id === s.activeTrackId) && getTemplate(track.templateId).meta.engine === 'webgl')
       ? 'webgl'
       : 'pixi',
   );

@@ -21,7 +21,7 @@ import {layoutText,boxLeft,anchorAlign} from '@/lib/textLayout';
 import { tx } from '@/lib/tx';
 import EditorRulers from './EditorRulers';
 import { animatedLayer, keyedPatch } from '@/lib/keyframes';
-import { isTextLayer } from '@/lib/textLayers';
+import { isTextLayer, shapeRadii } from '@/lib/textLayers';
 import { layerBounds as bounds, layerFrame } from '@/lib/layerBounds';
 
 function modelFrame(id: string): TransformFrame | null {
@@ -208,8 +208,8 @@ export default function CanvasTextSelection() {
     const box = groupFrame(members.map(d => d.frame));
     return box && members.length ? { ...members[0], kind, start, frame: box, members } : null;
   };
-  const patchFrame = (d: Gesture, next: TransformFrame) => {
-    if (d.members) { setGroupTransform(next); for (const member of d.members) patchFrame(member, transformGroupMember(member.frame, d.frame, next)); return; }
+  const patchFrame = (d: Gesture, next: TransformFrame, grouped = false) => {
+    if (d.members) { setGroupTransform(next); for (const member of d.members) patchFrame(member, transformGroupMember(member.frame, d.frame, next), true); return; }
     const s = useSceneStore.getState(), motion = d.overlay ? textMotion(d.overlay, s.frame / s.fps) : {x:0,y:0,rotation:0,scale:1}, motionY=motion.y;
     const path = d.track ? modelPathOffset(d.track, s.frame, s.fps, width, height) : { x: 0, y: 0 };
     const origin = d.overlay ? { x: d.overlay.x+motion.x, y: d.overlay.y + motionY } : { x: width / 2 + d.track!.transform.x + path.x, y: height / 2 + d.track!.transform.y + path.y };
@@ -219,6 +219,7 @@ export default function CanvasTextSelection() {
       const patch: Partial<TextLayer> = { x: p.x-motion.x, y: p.y - motionY, rotation: next.rotation-motion.rotation };
       if (l.media) patch.media = { ...l.media, width: next.width / sx / motion.scale, height: next.height / sy / motion.scale };
       else if (l.shape) patch.shape = { ...l.shape, width: next.width / sx / motion.scale, height: l.shape.kind === 'line' ? l.shape.height : next.height / sy / motion.scale };
+      else if ((l.boxWidth ?? 0) > 0 && !grouped && d.kind === 'resize') patch.boxWidth = Math.max(20, Math.min(8000, Math.round(next.width / sx / motion.scale)));
       else { patch.scaleX = sx * next.width / d.frame.width; patch.scaleY = sy * next.height / d.frame.height; }
       const stored = s.textLayers.find(l => l.id === d.id);
       s.patchTextLayer(d.id, stored ? keyedPatch(stored, patch, s.frame / s.fps) : patch);
@@ -242,6 +243,7 @@ export default function CanvasTextSelection() {
         const radii = normalizedRadii(b.width, b.height, l.media?.cornerRadii ?? (l.media ? [0, 0, 0, 0] : [initial, initial, initial, initial]));
         const r = bounded(radii[i] + (-x * local.x / sx - y * local.y / sy) / 2, 0, Math.min(b.width, b.height) / 2);
         if (l.media) { const next = alt ? [...radii] as typeof radii : [r, r, r, r] as typeof radii; next[i] = r; s.patchTextLayer(d.id, { media: { ...l.media, cornerRadii: next } }); }
+        else if (l.shape) { const current = shapeRadii(l.shape), value = bounded(current[i] + (-x * local.x / sx - y * local.y / sy) / 2, 0, Math.min(b.width, b.height) / 2), next = alt ? [...current] as typeof current : [value, value, value, value] as typeof current; next[i] = value; s.patchTextLayer(d.id, { shape: { ...l.shape, cornerRadii: next } }); }
         else s.patchTextLayer(d.id, { backdropRadius: r });
       } else {
         const r = bounded(Number(d.track!.values.cornerRadius ?? 0) + (-x * local.x - y * local.y) * 100 / Math.max(1, Math.min(d.frame.width, d.frame.height)), 0, 100);
@@ -264,6 +266,11 @@ export default function CanvasTextSelection() {
       const minScale = Math.max(...d.members.map(m => m.track ? .1 / m.track.transform.scale : m.overlay?.media ? 1 / Math.min(m.frame.width, m.frame.height) : .05 / Math.min(m.overlay?.scaleX ?? 1, m.overlay?.scaleY ?? 1)));
       const maxScale = Math.min(...d.members.map(m => m.track ? 3 / m.track.transform.scale : m.overlay?.media ? 4000 / Math.max(m.frame.width, m.frame.height) : 20 / Math.max(m.overlay?.scaleX ?? 1, m.overlay?.scaleY ?? 1)));
       patchFrame(d, resizeFrame(d.frame, delta, d.anchor!, { minWidth: d.frame.width * minScale, minHeight: d.frame.height * minScale, maxWidth: d.frame.width * maxScale, maxHeight: d.frame.height * maxScale, proportional: true, centered: alt })); return;
+    }
+    // A fixed-width text box only gets wider or narrower; its lines rewrap.
+    if (l && isTextLayer(l) && (l.boxWidth ?? 0) > 0) {
+      const local = rotatePoint(delta, -d.frame.rotation), along = rotatePoint({ x: local.x, y: 0 }, d.frame.rotation);
+      patchFrame(d, resizeFrame(d.frame, along, d.anchor!, { minWidth: 20, minHeight: 1, maxWidth: 8000, maxHeight: 8000, proportional: false, centered: alt })); return;
     }
     const limits = t ? { minWidth: d.frame.width * .1 / t.transform.scale, minHeight: d.frame.height * .1 / t.transform.scale, maxWidth: d.frame.width * 3 / t.transform.scale, maxHeight: d.frame.height * 3 / t.transform.scale }
       : l!.media || l!.shape ? { minWidth: 1, minHeight: 1, maxWidth: 8000, maxHeight: 8000 }
@@ -296,8 +303,9 @@ export default function CanvasTextSelection() {
     useHistoryStore.getState().endGesture(); setGroupTransform(null); setGuide({ x: null, y: null });
   };
   const names: Record<ResizeAnchor, string> = pt ? { nw: 'canto superior esquerdo', n: 'borda superior', ne: 'canto superior direito', e: 'borda direita', se: 'canto inferior direito', s: 'borda inferior', sw: 'canto inferior esquerdo', w: 'borda esquerda' } : { nw: 'top left corner', n: 'top edge', ne: 'top right corner', e: 'right edge', se: 'bottom right corner', s: 'bottom edge', sw: 'bottom left corner', w: 'left edge' };
-  const radiusEnabled = selectedIds.length === 1 && !!(active?.media || active?.backdrop || track && !active);
-  const cornerValue = (i: number) => active ? active.media ? normalizedRadii(active.media.width, active.media.height, active.media.cornerRadii)[i] : active.backdropRadius ?? 12 : Number(track?.values.cornerRadius ?? 0);
+  const fixedText = selectedIds.length === 1 && !!active && isTextLayer(active) && (active.boxWidth ?? 0) > 0;
+  const radiusEnabled = selectedIds.length === 1 && !!(active?.media || active?.backdrop || active?.shape?.kind === 'rect' || track && !active);
+  const cornerValue = (i: number) => active ? active.media ? normalizedRadii(active.media.width, active.media.height, active.media.cornerRadii)[i] : active.shape ? shapeRadii(active.shape)[i] : active.backdropRadius ?? 12 : Number(track?.values.cornerRadius ?? 0);
   const editingLayer = layers.find(l => l.id === editingId && isTextLayer(l));
   const editFrame = editingLayer ? layerFrame(editingLayer,width,seconds) : null;
   return <div ref={root} className={`canvas-selection${textTool?' canvas-text-tool':''}${rulers?' rulers-on':''}`} tabIndex={-1} onPointerDown={e => {
@@ -365,7 +373,7 @@ export default function CanvasTextSelection() {
     {show && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={tx(pt, 'Transformar camada selecionada', 'Transform selected layer')} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
       <span className="canvas-selection-label">{selectedIds.length > 1 ? `${selectedIds.length} ${tx(pt, 'camadas', 'layers')}` : active?.text.slice(0, 30) || layerDisplayName(track?.name ?? '', pt)}{active?.locked ? ' 🔒' : ''}</span>
       {(!active?.locked || selectedIds.length > 1) && <>
-        {RESIZE_ANCHORS.map(anchor => { const [x, y] = ANCHOR_AXES[anchor]; const label = `${tx(pt, 'Redimensionar', 'Resize')}: ${names[anchor]}`; return <button key={anchor} type="button" className="transform-handle" aria-label={label} title={label + (tx(pt, '. Shift mantém proporção; Alt redimensiona pelo centro.', '. Shift preserves aspect; Alt scales from the center.'))} style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, cursor: resizeCursor(anchor, selection.rotation) }} onPointerDown={e => begin(e, 'resize', anchor)} onKeyDown={e => handleKey(e, 'resize', anchor)} />; })}
+        {RESIZE_ANCHORS.filter(anchor => !(fixedText && (anchor === 'n' || anchor === 's'))).map(anchor => { const [x, y] = ANCHOR_AXES[anchor]; const label = `${tx(pt, 'Redimensionar', 'Resize')}: ${names[anchor]}`; return <button key={anchor} type="button" className="transform-handle" aria-label={label} title={label + (tx(pt, '. Shift mantém proporção; Alt redimensiona pelo centro.', '. Shift preserves aspect; Alt scales from the center.'))} style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, cursor: resizeCursor(anchor, selection.rotation) }} onPointerDown={e => begin(e, 'resize', anchor)} onKeyDown={e => handleKey(e, 'resize', anchor)} />; })}
         {RESIZE_ANCHORS.map(anchor=>{const [x,y]=ANCHOR_AXES[anchor]; return <button key={`rotate-${anchor}`} type="button" className="transform-rotate-zone" aria-label={`${tx(pt, 'Rotacionar', 'Rotate')}: ${names[anchor]}`} title={tx(pt, 'Arraste por fora da alça para girar. Shift: 15°. Esc: cancelar.', 'Drag outside the handle to rotate. Shift: 15°. Esc: cancel.')} style={{left:`calc(${(x+1)*50}% + ${x*18}px)`,top:`calc(${(y+1)*50}% + ${y*18}px)`}} onPointerDown={e=>begin(e,'rotate')} onKeyDown={e=>handleKey(e,'rotate')}/>;})}
         {radiusEnabled && selection.width * ratio > 64 && selection.height * ratio > 64 && CORNERS.map((corner, i) => {
           const [x, y] = ANCHOR_AXES[corner], r = cornerValue(i);
@@ -373,7 +381,7 @@ export default function CanvasTextSelection() {
           const ry = active ? r * bounded(active.scaleY ?? 1, .05, 20) * ratio : r / 100 * selection.height * ratio / 2;
           const ix = Math.min(selection.width * ratio / 2 - 10, Math.max(16, rx)), iy = Math.min(selection.height * ratio / 2 - 10, Math.max(16, ry));
           const label = `${tx(pt, 'Arredondar', 'Round')}: ${names[corner]}`;
-          return <button key={corner} type="button" className="transform-corner" aria-label={label} title={label + (active?.media ? (tx(pt, '. Alt ajusta só este canto.', '. Alt changes this corner only.')) : active ? (tx(pt, '. Ajusta os cantos do fundo do texto.', '. Changes the text backdrop corners.')) : (tx(pt, '. Ajusta os cantos de todos os cartões do modelo.', '. Changes every card in the model.')))} style={{ left: x < 0 ? ix : selection.width * ratio - ix, top: y < 0 ? iy : selection.height * ratio - iy }} onPointerDown={e => begin(e, 'radius', undefined, i)} onKeyDown={e => handleKey(e, 'radius', undefined, i)} />;
+          return <button key={corner} type="button" className="transform-corner" aria-label={label} title={label + (active?.media || active?.shape ? (tx(pt, '. Alt ajusta só este canto.', '. Alt changes this corner only.')) : active ? (tx(pt, '. Ajusta os cantos do fundo do texto.', '. Changes the text backdrop corners.')) : (tx(pt, '. Ajusta os cantos de todos os cartões do modelo.', '. Changes every card in the model.')))} style={{ left: x < 0 ? ix : selection.width * ratio - ix, top: y < 0 ? iy : selection.height * ratio - iy }} onPointerDown={e => begin(e, 'radius', undefined, i)} onKeyDown={e => handleKey(e, 'radius', undefined, i)} />;
         })}
       </>}
     </div>}

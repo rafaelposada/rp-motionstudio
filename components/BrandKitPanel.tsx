@@ -3,6 +3,21 @@
 import { useEffect, useState } from 'react';
 import { applyKit, kitFromComposition, storeKitLogo, useBrandKits, type BrandKit } from '@/lib/brandKits';
 import { tx } from '@/lib/tx';
+import { BASIC_FONTS, ensureFont } from '@/lib/textLayers';
+import ColorField from './ColorField';
+import FontBrowser from './FontBrowser';
+
+// A font chosen the same way as in the text panel: quick menu or the catalog.
+function KitFontField({ pt, label, value, onChange }: { pt: boolean; label: string; value: string; onChange: (font: string) => void }) {
+  const choose = (family: string) => { onChange(family); void ensureFont(family, 400).catch(() => {}); };
+  return <div className="brandkit-font">
+    <label className="text-edit-label">{label}<select className="field" value={value} style={{ fontFamily: `"${value}", sans-serif` }} onChange={(e) => choose(e.target.value)}>
+      {!BASIC_FONTS.includes(value) && <option value={value}>{value}</option>}
+      {BASIC_FONTS.map((font) => <option key={font} value={font}>{font}</option>)}
+    </select></label>
+    <FontBrowser pt={pt} weight={400} onChoose={choose} onImport={onChange} />
+  </div>;
+}
 
 // Settings → Brand kit: create, edit and delete kits.
 export function BrandKitSettings({ pt }: { pt: boolean }) {
@@ -27,15 +42,14 @@ export function BrandKitSettings({ pt }: { pt: boolean }) {
     {kit && <div className="brandkit-editor">
       <label className="text-edit-label">{tx(pt, 'Nome', 'Name')}<input className="field" value={kit.name} onChange={(e) => update({ name: e.target.value })} /></label>
       <div className="text-edit-label">{tx(pt, 'Cores', 'Colors')}
-        <div className="brandkit-colors">{kit.colors.map((c, i) => <span key={i} className="brandkit-color">
-          <input type="color" value={c} aria-label={`${tx(pt, 'Cor', 'Color')} ${i + 1}`} onChange={(e) => update({ colors: kit.colors.map((x, j) => j === i ? e.target.value : x) })} />
-          <button type="button" aria-label={tx(pt, 'Remover cor', 'Remove color')} onClick={() => update({ colors: kit.colors.filter((_, j) => j !== i) })}>×</button>
-        </span>)}{kit.colors.length < 10 && <button type="button" className="btn" onClick={() => update({ colors: [...kit.colors, '#888888'] })}>+</button>}</div>
+        <div className="brandkit-colors">{kit.colors.map((c, i) => <div key={i} className="brandkit-color">
+          <ColorField pt={pt} label={`${tx(pt, 'Cor', 'Color')} ${i + 1}`} color={c} onChange={(color) => update({ colors: kit.colors.map((x, j) => j === i ? color : x) })} />
+          <button type="button" className="icon-btn" aria-label={tx(pt, 'Remover cor', 'Remove color')} title={tx(pt, 'Remover cor', 'Remove color')} disabled={kit.colors.length <= 1} onClick={() => update({ colors: kit.colors.filter((_, j) => j !== i) })}>×</button>
+        </div>)}{kit.colors.length < 10 && <button type="button" className="btn brandkit-add-color" onClick={() => update({ colors: [...kit.colors, '#888888'] })}>{tx(pt, '+ Adicionar cor', '+ Add color')}</button>}</div>
         <small className="settings-description">{tx(pt, 'Ordem: 1ª cor nos textos, 2ª nas formas, última no fundo.', 'Order: 1st color on text, 2nd on shapes, last on the background.')}</small>
       </div>
-      <label className="text-edit-label">{tx(pt, 'Fonte dos títulos', 'Heading font')}<input className="field" value={kit.heading} onChange={(e) => update({ heading: e.target.value })} placeholder="Inter" /></label>
-      <label className="text-edit-label">{tx(pt, 'Fonte do texto', 'Body font')}<input className="field" value={kit.body} onChange={(e) => update({ body: e.target.value })} placeholder="Inter" /></label>
-      <small className="settings-description">{tx(pt, 'Use o nome exato de uma fonte do Google Fonts ou do Fontshare.', 'Use the exact name of a Google Fonts or Fontshare family.')}</small>
+      <KitFontField pt={pt} label={tx(pt, 'Fonte dos títulos', 'Heading font')} value={kit.heading} onChange={(heading) => update({ heading })} />
+      <KitFontField pt={pt} label={tx(pt, 'Fonte do texto', 'Body font')} value={kit.body} onChange={(body) => update({ body })} />
       <label className="upload">{kit.logo ? `${tx(pt, 'Trocar logo', 'Replace logo')} · ${kit.logo.name}` : tx(pt, '+ Logo (PNG ou SVG)', '+ Logo (PNG or SVG)')}<input type="file" accept="image/png,image/svg+xml,image/webp,image/jpeg" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ''; if (!file) return; try { update({ logo: await storeKitLogo(file) }); } catch { setStatus(tx(pt, 'Não foi possível ler a imagem.', 'Could not read the image.')); } }} /></label>
       <div className="brandkit-actions"><button type="button" className="btn primary" onClick={() => { save(kit); setEditing(null); setStatus(tx(pt, 'Kit salvo.', 'Kit saved.')); }}>{tx(pt, 'Salvar kit', 'Save kit')}</button><button type="button" className="btn" onClick={() => setEditing(null)}>{tx(pt, 'Cancelar', 'Cancel')}</button></div>
     </div>}

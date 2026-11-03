@@ -15,6 +15,7 @@ import { compositionOrder } from '@/lib/composition';
 import LayerDropTarget from './LayerDropTarget';
 import {numericKeyValue} from '@/lib/numericKeyboard';
 import { tx } from '@/lib/tx';
+import { magnetOffset, snapTargets } from '@/lib/timelineSnap';
 
 function fmt(sec: number) {
   const s = Math.max(0, sec);
@@ -69,6 +70,7 @@ export default function Timeline({
 
   const shellRef = useRef<HTMLDivElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
+  const scrubbing = useRef(false);
 
   // Publish the scrubber's geometry as CSS vars on the shell, so the lane bars
   // below sit in the SAME coordinate space as the ruler above. The transport row
@@ -188,10 +190,18 @@ export default function Timeline({
         </div>
         <input
           type="range" min={0} max={totalFrames - 1} step={1} value={frame}
-          onChange={(e) => { setPlaying(false); setFrame(Number(e.target.value)); }}
+          onPointerDown={(e) => { scrubbing.current = !e.altKey; }} onPointerUp={() => { scrubbing.current = false; }}
+          onChange={(e) => {
+            setPlaying(false);
+            let next = Number(e.target.value);
+            // While dragging, the playhead clicks onto nearby markers.
+            const zoomWidth = scrubberRef.current?.querySelector('.tl-scrub-zoom')?.getBoundingClientRect().width ?? 0;
+            if (scrubbing.current && zoomWidth > 0) next = Math.max(0, Math.min(totalFrames - 1, next + Math.round(magnetOffset([next / fps], duration / zoomWidth, snapTargets(false)) * fps)));
+            setFrame(next);
+          }}
         />
         {markers.map((marker, index) => <button key={`${marker.t}-${index}`} type="button" className="tl-marker" style={{ left: `${marker.t / duration * 100}%` }}
-          title={`${marker.label ? `${marker.label} · ` : ''}${marker.t.toFixed(2)}s · ${tx(locale === 'pt', 'Alt + clique remove; arraste para mover', 'Alt-click removes; drag to move')}`}
+          title={`${marker.label ? `${marker.label} · ` : ''}${marker.t.toFixed(2)}s · ${tx(locale === 'pt', 'Clique leva a agulha até aqui; arraste para mover; Alt + clique remove', 'Click moves the playhead here; drag to move; Alt-click removes')}`}
           aria-label={`${tx(locale === 'pt', 'Marcador em', 'Marker at')} ${marker.t.toFixed(2)}s`}
           onPointerDown={(e) => startMarkerDrag(index, e)} />)}
         </div>
@@ -219,7 +229,7 @@ export default function Timeline({
         <button type="button" disabled={zoomView.zoom <= 1} title={tx(locale === 'pt', 'Afastar a linha do tempo · Alt + roda', 'Zoom timeline out · Alt + wheel')} aria-label={tx(locale === 'pt', 'Afastar a linha do tempo', 'Zoom timeline out')} onClick={() => useUIStore.getState().setTimelineZoom(zoomView.zoom / 2, progress / 100)}>−</button>
         <button type="button" className="tl-zoom-value" title={tx(locale === 'pt', 'Ajustar a linha do tempo inteira', 'Fit the whole timeline')} onClick={() => useUIStore.getState().setTimelineZoom(1)}>{zoomView.zoom === 1 ? tx(locale === 'pt', 'Tudo', 'Fit') : `${zoomView.zoom}×`}</button>
         <button type="button" disabled={zoomView.zoom >= 32} title={tx(locale === 'pt', 'Aproximar a linha do tempo · Alt + roda', 'Zoom timeline in · Alt + wheel')} aria-label={tx(locale === 'pt', 'Aproximar a linha do tempo', 'Zoom timeline in')} onClick={() => useUIStore.getState().setTimelineZoom(zoomView.zoom * 2, progress / 100)}>+</button>
-        <button type="button" title={tx(locale === 'pt', 'Adicionar marcador no tempo atual · M', 'Add a marker at the playhead · M')} aria-label={tx(locale === 'pt', 'Adicionar marcador', 'Add marker')} onClick={addMarker}><svg width="11" height="12" viewBox="0 0 11 12" aria-hidden="true"><path d="M1.5 1h8v6l-4 4-4-4z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /></svg></button>
+        <button type="button" title={tx(locale === 'pt', 'Adicionar marcador · M. Marque um momento (uma batida da música, uma troca de cena) e as barras das camadas e a agulha encaixam nele ao arrastar.', 'Add marker · M. Mark a moment (a beat in the music, a scene change); layer bars and the playhead snap to it while dragging.')} aria-label={tx(locale === 'pt', 'Adicionar marcador', 'Add marker')} onClick={addMarker}><svg width="11" height="12" viewBox="0 0 11 12" aria-hidden="true"><path d="M1.5 1h8v6l-4 4-4-4z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /></svg></button>
       </div>
 
       {extra}
