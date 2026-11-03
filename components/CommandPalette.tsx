@@ -38,6 +38,8 @@ export default function CommandPalette() {
       { id: 'text', label: tx(pt, 'Adicionar texto', 'Add text'), hint: 'T', run: () => { addCompositionText(); } },
       { id: 'rect', label: tx(pt, 'Adicionar retângulo', 'Add rectangle'), run: () => addShape('rect', pt) },
       { id: 'ellipse', label: tx(pt, 'Adicionar elipse', 'Add ellipse'), run: () => addShape('ellipse', pt) },
+      { id: 'polygon', label: tx(pt, 'Adicionar polígono', 'Add polygon'), run: () => addShape('polygon', pt) },
+      { id: 'star', label: tx(pt, 'Adicionar estrela', 'Add star'), run: () => addShape('star', pt) },
       { id: 'line', label: tx(pt, 'Adicionar linha', 'Add line'), run: () => addShape('line', pt) },
       { id: 'marker', label: tx(pt, 'Adicionar marcador no tempo atual', 'Add marker at playhead'), hint: 'M', run: () => { const s = scene(); s.setMarkers([...s.markers, { t: Math.round(s.frame / s.fps * 100) / 100 }]); } },
       { id: 'play', label: tx(pt, 'Reproduzir / pausar', 'Play / pause'), hint: tx(pt, 'Espaço', 'Space'), run: () => scene().setPlaying(!scene().playing) },

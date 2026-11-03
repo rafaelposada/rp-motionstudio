@@ -2509,9 +2509,15 @@ select.field { padding-right: 26px; }
 
 .shape-panel { display: grid; gap: 10px; padding: 18px; min-width: 0; }
 .shape-panel h3 { margin: 0; font-size: 13px; font-weight: 600; }
-.shape-add { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.shape-add .btn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 0 6px; font-size: 12px; white-space: nowrap; }
-.shape-selected { font-size: 12px; color: var(--fg); margin-top: 4px; }
+.shape-add { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 10px; background: var(--card-inset); }
+.shape-tile { display: grid; justify-items: center; align-content: center; gap: 5px; min-width: 0; height: 58px; padding: 0; border-radius: 7px; color: var(--fg-muted); transition: background .12s, color .12s; }
+.shape-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 1; letter-spacing: -.01em; }
+.shape-tile:hover { background: color-mix(in srgb, var(--fg) 9%, var(--card-inset)); color: var(--fg); }
+.shape-tile:active { transform: scale(.96); }
+.shape-tile:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
+.shape-selected { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 12px; color: var(--fg); }
+.shape-selected svg { flex: none; color: var(--fg-muted); }
+.shape-selected strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .mask-control { display: grid; gap: 6px; }
 .mask-invert { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-muted); }
 .mask-invert input { margin: 0; }

@@ -35,4 +35,18 @@ const filter=audioFilter({volume:.8,fadeIn:.5,fadeOut:.5},4,2);assert.match(filt
 useSceneStore.getState().hydrate({audioSettings:{volume:.4,fadeIn:1,fadeOut:2}});const saved=buildScenePartial(useSceneStore.getState());assert.equal(saved.audioSettings.fadeOut,2);
 useSceneStore.getState().hydrate({});assert.equal(useSceneStore.getState().audioSettings.volume,1,'Old projects must not inherit previous audio settings');
 const help=controlHelp({key:'lineHeight',label:'Entrelinha',type:'slider',default:1.2},'pt','Entrelinha');assert.ok(help.length<180&&!help.includes('cálculo'));assert.match(help,/linhas/);
-console.log('Finishing checks passed: independent/legacy entrances and exits, raster opacity including zero, GPU alpha contract, shared gradients, audio envelopes and persistence, concise contextual help.');
+const {pointedVertices,regularAspect,reshapePointed}=require('../lib/shapeGeometry');
+for(const shape of [{kind:'polygon',sides:3},{kind:'polygon',sides:6},{kind:'polygon',sides:7},{kind:'star',points:5,innerRadius:.38},{kind:'star',points:8,innerRadius:.6}]){
+  const box={...shape,width:300,height:180},v=pointedVertices(box),xs=v.map(p=>p[0]),ys=v.map(p=>p[1]);
+  assert.equal(v.length,shape.kind==='star'?shape.points*2:shape.sides);
+  near(Math.min(...xs),-150);near(Math.max(...xs),150);near(Math.min(...ys),-90);near(Math.max(...ys),90);
+  assert.ok(ys.indexOf(Math.min(...ys))===0,'First vertex points up');
+}
+near(regularAspect({kind:'polygon',sides:4}),1);assert.ok(regularAspect({kind:'polygon',sides:3})<1);
+const tall=reshapePointed({kind:'star',points:5,innerRadius:.38,width:200,height:Math.round(200*regularAspect({kind:'star',points:5,innerRadius:.38}))*2},{points:6});
+assert.ok(Math.abs(tall.height/(200*regularAspect({kind:'star',points:6,innerRadius:.38}))-2)<.02,'Changing points keeps the stretch');
+const traced=[];const pathCtx=new Proxy({save(){},restore(){},beginPath(){traced.length=0;},moveTo(x,y){traced.push([x,y]);},lineTo(x,y){traced.push([x,y]);},fillText(){},measureText:t=>({width:t.length*25})},{get:(t,k)=>k in t?t[k]:()=>{},set:()=>true});
+global.document={fonts:{check:()=>true},createElement:()=>({width:200,height:200,style:{setProperty(){},removeProperty(){}},getContext:()=>pathCtx,remove(){}})};
+new TextCompositor().render(document.createElement('canvas'),[{...base,opacity:1,shape:{kind:'star',points:5,innerRadius:.38,width:120,height:100,fill:'#fff'}}],200,200,2);
+assert.equal(traced.length,10,'The compositor traces every star vertex');
+console.log('Finishing checks passed: polygon and star geometry, independent/legacy entrances and exits, raster opacity including zero, GPU alpha contract, shared gradients, audio envelopes and persistence, concise contextual help.');

@@ -11,9 +11,10 @@ import { animatedLayer, type Keyframes } from './keyframes';
 import { hasTilt, projector, warpCanvas } from './perspectiveWarp';
 import { layerFrame } from './layerBounds';
 import { fontshareFamily, fontshareFileUrl } from './fontshare';
+import { pointedVertices } from './shapeGeometry';
 
 export type TextAlign = 'left'|'center'|'right'|'justify';
-export interface ShapeSpec { kind: 'rect'|'ellipse'|'line'; width: number; height: number; fill?: string; fillOpacity?: number; stroke?: string; strokeWidth?: number; strokeOpacity?: number; radius?: number; cornerRadii?: CornerRadii }
+export interface ShapeSpec { kind: 'rect'|'ellipse'|'polygon'|'star'|'line'; width: number; height: number; sides?: number; points?: number; innerRadius?: number; fill?: string; fillOpacity?: number; stroke?: string; strokeWidth?: number; strokeOpacity?: number; radius?: number; cornerRadii?: CornerRadii }
 // Rectangles take per-corner radii; older projects stored a single radius.
 export const shapeRadii = (shape: ShapeSpec): CornerRadii => normalizedRadii(Math.abs(shape.width), Math.abs(shape.height), shape.cornerRadii ?? Array(4).fill(shape.radius ?? 0));
 // BG Blur applies to text backgrounds and to filled shapes (not lines or images).
@@ -184,11 +185,12 @@ export class TextCompositor {
         ctx.beginPath();
         if (kind === 'ellipse') ctx.ellipse(0, 0, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2);
         else if (kind === 'line') { ctx.moveTo(-w / 2, 0); ctx.lineTo(w / 2, 0); }
+        else if (kind === 'polygon' || kind === 'star') { pointedVertices(layer.shape).forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); }
         else { const radii = shapeRadii(layer.shape); if (radii.some(r => r > 0)) ctx.roundRect(-w / 2, -h / 2, w, h, radii); else ctx.rect(-w / 2, -h / 2, w, h); }
         if (maskOnly) { if (kind !== 'line') { ctx.fillStyle = '#fff'; ctx.fill(); } ctx.restore(); continue; }
         if (kind !== 'line' && layer.shape.fill) { ctx.globalAlpha = alpha * bounded(layer.shape.fillOpacity ?? 1, 0, 1); ctx.fillStyle = maskOnly ? '#fff' : layer.shape.fill; ctx.fill(); }
         const sw = kind === 'line' ? Math.max(1, layer.shape.strokeWidth ?? Math.max(2, h)) : layer.shape.strokeWidth ?? 0;
-        if ((layer.shape.stroke || kind === 'line') && sw > 0) { ctx.globalAlpha = alpha * bounded(layer.shape.strokeOpacity ?? 1, 0, 1); ctx.strokeStyle = maskOnly ? '#fff' : layer.shape.stroke ?? layer.shape.fill ?? '#ffffff'; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); }
+        if ((layer.shape.stroke || kind === 'line') && sw > 0) { ctx.globalAlpha = alpha * bounded(layer.shape.strokeOpacity ?? 1, 0, 1); ctx.strokeStyle = maskOnly ? '#fff' : layer.shape.stroke ?? layer.shape.fill ?? '#ffffff'; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = kind === 'polygon' || kind === 'star' ? 'miter' : 'round'; ctx.stroke(); }
         ctx.restore(); continue;
       }
       if (layer.media) {

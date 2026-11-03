@@ -190,7 +190,7 @@ npm run desktop:package
 A saída fica em `dist-desktop/packages`, para o sistema e arquitetura que executam
 o comando. No Windows, gere e valide o pacote em uma máquina Windows. O projeto
 não declara que um pacote Windows foi testado apenas porque compilou no macOS.
-Os pacotes desktop 1.4.11 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
+Os pacotes desktop 1.4.12 incluem FFmpeg 9.0.2, FFprobe, x264 e zlib, específicos
 para o sistema e arquitetura. A exportação usa esses executáveis por caminho
 absoluto; não depende de Homebrew ou FFmpeg instalado no computador do usuário.
 Os programas de mídia são agregados separados: FFmpeg/x264 mantêm GPL versão 2

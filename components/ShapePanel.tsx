@@ -12,18 +12,27 @@ import LayerAnimationControls from './LayerAnimationControls';
 import MaskControl from './MaskControl';
 import { tx } from '@/lib/tx';
 import Tilt3DControls from './Tilt3DControls';
+import { INNER, POINTS, SIDES, regularAspect, reshapePointed } from '@/lib/shapeGeometry';
 
 const KINDS: { kind: ShapeSpec['kind']; pt: string; en: string; icon: string }[] = [
-  { kind: 'rect', pt: 'Retângulo', en: 'Rectangle', icon: 'M4 6h16v12H4z' },
-  { kind: 'ellipse', pt: 'Elipse', en: 'Ellipse', icon: 'M12 5c4.4 0 8 3.1 8 7s-3.6 7-8 7-8-3.1-8-7 3.6-7 8-7z' },
+  { kind: 'rect', pt: 'Retângulo', en: 'Rectangle', icon: 'M5.5 6h13a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5v-9A1.5 1.5 0 0 1 5.5 6z' },
+  { kind: 'ellipse', pt: 'Elipse', en: 'Ellipse', icon: 'M12 4.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15z' },
+  { kind: 'polygon', pt: 'Polígono', en: 'Polygon', icon: 'M12 4l6.93 4v8L12 20l-6.93-4V8z' },
+  { kind: 'star', pt: 'Estrela', en: 'Star', icon: 'M12 4.2l2.12 5.69 6.06.25-4.76 3.77 1.63 5.85L12 16.4l-5.05 3.36 1.63-5.85-4.76-3.77 6.06-.25z' },
   { kind: 'line', pt: 'Linha', en: 'Line', icon: 'M5 19 19 5' },
 ];
+
+const ShapeIcon = ({ d, size = 20 }: { d: string; size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
 export function addShape(kind: ShapeSpec['kind'], pt: boolean) {
   const s = useSceneStore.getState();
   s.addTextLayer();
   const layer = useSceneStore.getState().textLayers.at(-1)!, size = Math.round(Math.min(s.width, s.height) * .35);
-  const shape: ShapeSpec = kind === 'line' ? { kind, width: size, height: 4, stroke: '#ffffff', strokeWidth: 4 } : { kind, width: size, height: kind === 'ellipse' ? size : Math.round(size * .62), fill: '#ffffff', fillOpacity: 1, cornerRadii: kind === 'rect' ? [16, 16, 16, 16] : undefined };
+  const filled = { fill: '#ffffff', fillOpacity: 1 };
+  const shape: ShapeSpec = kind === 'line' ? { kind, width: size, height: 4, stroke: '#ffffff', strokeWidth: 4 }
+    : kind === 'polygon' ? { kind, width: size, height: Math.round(size * regularAspect({ kind, sides: SIDES.polygon })), sides: SIDES.polygon, ...filled }
+    : kind === 'star' ? { kind, width: size, height: Math.round(size * regularAspect({ kind, points: POINTS.star, innerRadius: INNER.star })), points: POINTS.star, innerRadius: INNER.star, ...filled }
+    : { kind, width: size, height: kind === 'ellipse' ? size : Math.round(size * .62), ...filled, cornerRadii: kind === 'rect' ? [16, 16, 16, 16] : undefined };
   const label = KINDS.find((k) => k.kind === kind)!;
   s.patchTextLayer(layer.id, { text: tx(pt, label.pt, label.en), shape, x: s.width / 2, y: s.height / 2, rotation: 0, opacity: 1 });
   useUIStore.getState().selectText(layer.id);
@@ -40,10 +49,15 @@ export default function ShapePanel() {
   const live = shapeLayer ? animatedLayer(shapeLayer, seconds) : undefined;
   return <section className="shape-panel">
     <h3>{tx(pt, 'Formas', 'Shapes')}</h3>
-    <div className="shape-add">{KINDS.map((k) => <button key={k.kind} type="button" className="btn" onClick={() => addShape(k.kind, pt)}>
-      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d={k.icon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>{tx(pt, k.pt, k.en)}</button>)}</div>
+    <div className="shape-add" role="group" aria-label={tx(pt, 'Adicionar forma', 'Add shape')}>{KINDS.map((k) => <button key={k.kind} type="button" className="shape-tile" title={tx(pt, `Adicionar ${k.pt.toLowerCase()}`, `Add ${k.en.toLowerCase()}`)} onClick={() => addShape(k.kind, pt)}>
+      <ShapeIcon d={k.icon} /><span>{tx(pt, k.pt, k.en)}</span></button>)}</div>
     {shapeLayer?.shape && live && <>
-      <strong className="shape-selected">{shapeLayer.text}</strong>
+      <div className="shape-selected"><ShapeIcon d={KINDS.find((k) => k.kind === shapeLayer.shape!.kind)?.icon ?? KINDS[0].icon} size={16} /><strong>{shapeLayer.text}</strong></div>
+      {shapeLayer.shape.kind === 'polygon' && <ControlRow def={{ key: 'shapeSides', label: tx(pt, 'Lados', 'Sides'), type: 'slider', min: SIDES.min, max: SIDES.max, step: 1, default: SIDES.polygon }} value={shapeLayer.shape.sides ?? SIDES.polygon} onChange={(v) => patch({ shape: reshapePointed(shapeLayer.shape!, { sides: Number(v) }) })} />}
+      {shapeLayer.shape.kind === 'star' && <>
+        <ControlRow def={{ key: 'shapePoints', label: tx(pt, 'Pontas', 'Points'), type: 'slider', min: POINTS.min, max: POINTS.max, step: 1, default: POINTS.star }} value={shapeLayer.shape.points ?? POINTS.star} onChange={(v) => patch({ shape: reshapePointed(shapeLayer.shape!, { points: Number(v) }) })} />
+        <ControlRow def={{ key: 'shapeInner', label: tx(pt, 'Raio interno', 'Inner radius'), type: 'slider', min: INNER.min * 100, max: INNER.max * 100, step: 1, unit: '%', default: INNER.star * 100 }} value={Math.round((shapeLayer.shape.innerRadius ?? INNER.star) * 100)} onChange={(v) => patch({ shape: reshapePointed(shapeLayer.shape!, { innerRadius: Number(v) / 100 }) })} />
+      </>}
       <ControlRow def={{ key: 'shapeWidth', label: tx(pt, 'Largura', 'Width'), type: 'slider', min: 1, max: 4000, step: 1, unit: 'px', default: 200 }} value={shapeLayer.shape.width} onChange={(v) => patchShape({ width: Number(v) })} />
       {shapeLayer.shape.kind !== 'line' && <ControlRow def={{ key: 'shapeHeight', label: tx(pt, 'Altura', 'Height'), type: 'slider', min: 1, max: 4000, step: 1, unit: 'px', default: 200 }} value={shapeLayer.shape.height} onChange={(v) => patchShape({ height: Number(v) })} />}
       {shapeLayer.shape.kind === 'rect' && <>
