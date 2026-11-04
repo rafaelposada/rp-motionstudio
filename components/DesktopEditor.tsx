@@ -56,8 +56,31 @@ export default function DesktopEditor() {
     window.addEventListener('keydown', keys);
     return () => { window.removeEventListener('resize', sync); window.removeEventListener('keydown', keys); };
   }, []);
+  // Height the open timeline needs to show every layer. The panel never grows
+  // past it, so a tall timeline gives the room back to the stage instead of
+  // leaving empty space under the last layer.
+  const [timelineFit, setTimelineFit] = useState(0);
+  useEffect(() => {
+    if (!expanded) { setTimelineFit(0); return; }
+    let observer: ResizeObserver | null = null, frame = 0;
+    const measure = () => {
+      const card = document.querySelector<HTMLElement>('.dock-timeline > .card'), lanes = card?.querySelector<HTMLElement>('.tl-lanes');
+      if (!card || !lanes) return;
+      const style = getComputedStyle(lanes), parts = [...lanes.children] as HTMLElement[];
+      const content = parts.reduce((sum, part) => sum + part.offsetHeight, 0) + Math.max(0, parts.length - 1) * (parseFloat(style.rowGap) || 0) + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      setTimelineFit(Math.ceil(card.offsetHeight - lanes.clientHeight + content));
+    };
+    const watch = () => {
+      const card = document.querySelector<HTMLElement>('.dock-timeline > .card'), stack = card?.querySelector<HTMLElement>('.tl-lanes-stack');
+      if (!card || !stack) { frame = requestAnimationFrame(watch); return; }
+      observer = new ResizeObserver(measure); observer.observe(card); observer.observe(stack); measure();
+    };
+    watch();
+    return () => { cancelAnimationFrame(frame); observer?.disconnect(); };
+  }, [expanded]);
   const layout = fitPanelLayout(panels, viewport.width, viewport.height, leftCollapsed, rightCollapsed, tplCollapsed, expanded, panelWidthPriority);
-  const layoutStyle = { '--rail-w': `${layout.rail}px`, '--templates-col': `${layout.library}px`, '--right-col': `${layout.inspector}px`, gridTemplateRows: `minmax(0, 1fr) ${layout.timelineHeight}px` } as CSSProperties;
+  const timelineRow = expanded && timelineFit > 0 ? Math.min(layout.timelineHeight, timelineFit) : layout.timelineHeight;
+  const layoutStyle = { '--rail-w': `${layout.rail}px`, '--templates-col': `${layout.library}px`, '--right-col': `${layout.inspector}px`, gridTemplateRows: `minmax(0, 1fr) ${timelineRow}px` } as CSSProperties;
   const isProjects = nav === 'projects';
   const [inspectorTab, setInspectorTab] = useState<'motion' | 'canvas' | 'media' | 'text' | 'layers'>('motion');
   useEffect(() => { const open = (e: Event) => { const tab = (e as CustomEvent).detail; if (['motion', 'canvas', 'media', 'text', 'layers'].includes(tab)) setInspectorTab(tab); }; window.addEventListener('rp-inspector-tab', open); return () => window.removeEventListener('rp-inspector-tab', open); }, []);
@@ -128,7 +151,7 @@ export default function DesktopEditor() {
         </div>
       </section></div></PanelDock>
 
-      <PanelDock panel="timeline"><footer className="card bottom">
+      <PanelDock panel="timeline" fit={timelineFit}><footer className="card bottom">
         <Timeline />
       </footer></PanelDock>
       {settingsOpen && <SettingsDialog />}

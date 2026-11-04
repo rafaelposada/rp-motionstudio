@@ -1,9 +1,9 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '@/store/useUIStore';
 import { useI18n } from '@/lib/useI18n';
-import { DEFAULT_PANELS, PANEL_LIMITS, type PanelAxis, type PanelId } from '@/lib/panelLayout';
+import { DEFAULT_PANELS, PANEL_LIMITS, isAdjustable, type PanelAxis, type PanelId } from '@/lib/panelLayout';
 import { parseNumericExpression } from '@/lib/numericExpression';
 import {numericKeyValue} from '@/lib/numericKeyboard';
 import { panelName } from './PanelDock';
@@ -116,11 +116,11 @@ export default function SettingsDialog() {
           event.preventDefault(); const index = tabs.findIndex(([id]) => id === tab), forward = event.key === 'ArrowDown' || event.key === 'ArrowRight';
           const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (forward ? 1 : -1) + tabs.length) % tabs.length;
           choose(tabs[next][0]); document.getElementById(`settings-tab-${tabs[next][0]}`)?.focus();
-        }}>{SECTIONS.map((section, i) => <button role="tab" type="button" key={section.id} id={`settings-tab-${section.id}`} tabIndex={tab === section.id ? 0 : -1} aria-controls="settings-content" aria-selected={tab === section.id}
-          className={`settings-tab ${section.featured ? 'featured' : ''} ${i > 0 && section.group !== SECTIONS[i - 1].group ? 'group-start' : ''}`} onClick={() => choose(section.id)}>
+        }}>{SECTIONS.map((section, i) => <Fragment key={section.id}>{i > 0 && section.group !== SECTIONS[i - 1].group && <hr className="settings-tabs-divider" aria-hidden="true" />}<button role="tab" type="button" id={`settings-tab-${section.id}`} tabIndex={tab === section.id ? 0 : -1} aria-controls="settings-content" aria-selected={tab === section.id}
+          className={`settings-tab ${section.featured ? 'featured' : ''}`} onClick={() => choose(section.id)}>
           <span className="settings-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d={section.icon} stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" /></svg></span>
           <span className="settings-tab-text"><span>{tx(pt, section.pt, section.en)}</span></span>
-        </button>)}</nav>
+        </button></Fragment>)}</nav>
       </aside>
       <div className="settings-main">
       <header className="settings-header"><h2 className="settings-section-title">{tx(pt, current.pt, current.en)}</h2><button className="settings-close" aria-label={tx(pt, 'Fechar configurações', 'Close settings')} onClick={close} autoFocus>×</button></header>
@@ -131,9 +131,9 @@ export default function SettingsDialog() {
           <label className="settings-row"><span><strong>{tx(pt, 'Idioma', 'Language')}</strong><span className="settings-description">{tx(pt, 'Troca imediata, sem reiniciar.', 'Changes immediately, no restart needed.')}</span></span><select className="field" aria-label={tx(pt, 'Idioma da interface', 'Interface language')} value={locale} onChange={(event) => useUIStore.getState().setLocale(event.target.value === 'pt' ? 'pt' : event.target.value === 'es' ? 'es' : 'en')}><option value="pt">Português</option><option value="es">Español</option><option value="en">English</option></select></label>
           <label className="settings-row"><span><strong>{tx(pt, 'Grade de fundo', 'Background grid')}</strong><span className="settings-description">{tx(pt, 'Pontos ao redor da composição. Não aparecem na exportação.', 'Dots around the canvas. Not included in exports.')}</span></span><input type="checkbox" checked={grid} onChange={(event) => useUIStore.getState().setShowStageGrid(event.target.checked)} /></label>
         </>}
-        {tab === 'panels' && <><h3>{tx(pt, 'Dimensões dos painéis', 'Panel dimensions')}</h3><p className="settings-description">{tx(pt, 'Arraste as bordas dos painéis ou digite medidas e cálculos abaixo. Auto acompanha o espaço disponível. Em janelas menores, as medidas se ajustam para preservar a composição.', 'Drag panel edges or enter dimensions and calculations below. Auto follows available space. Smaller windows adapt to keep the canvas visible.')}</p>
+        {tab === 'panels' && <><h3>{tx(pt, 'Dimensões dos painéis', 'Panel dimensions')}</h3><p className="settings-description">{tx(pt, 'Arraste as bordas dos painéis ou digite medidas e cálculos abaixo. Os painéis laterais ocupam a altura toda; a linha do tempo cresce até mostrar todas as camadas. Em janelas menores, as medidas se ajustam para preservar a composição.', 'Drag panel edges or enter dimensions and calculations below. Side panels use the full height; the timeline grows until every layer shows. Smaller windows adapt to keep the canvas visible.')}</p>
           <div className="settings-size-grid"><div className="settings-size-heading"><span>{tx(pt, 'Painel', 'Panel')}</span><span>{tx(pt, 'Largura', 'Width')}</span><span>{tx(pt, 'Altura', 'Height')}</span><span /></div>
-            {(Object.keys(DEFAULT_PANELS) as PanelId[]).map((panel) => <div className="settings-size-row" key={panel}><strong>{panelName(panel, pt)}</strong><DimensionField panel={panel} axis="width" pt={pt} /><DimensionField panel={panel} axis="height" pt={pt} /><button className="settings-reset-one" aria-label={`${tx(pt, 'Restaurar', 'Reset')} — ${panelName(panel, pt)}`} onClick={() => { const store = useUIStore.getState(); store.setPanelDimension(panel, 'width', DEFAULT_PANELS[panel].width); store.setPanelDimension(panel, 'height', 0); }}>↺</button></div>)}
+            {(Object.keys(DEFAULT_PANELS) as PanelId[]).filter((panel) => isAdjustable(panel, 'width') || isAdjustable(panel, 'height')).map((panel) => <div className="settings-size-row" key={panel}><strong>{panelName(panel, pt)}</strong>{(['width', 'height'] as const).map((axis) => isAdjustable(panel, axis) ? <DimensionField key={axis} panel={panel} axis={axis} pt={pt} /> : <span key={axis} className="settings-size-fill">{tx(pt, 'Altura total', 'Full height')}</span>)}<button className="settings-reset-one" aria-label={`${tx(pt, 'Restaurar', 'Reset')} — ${panelName(panel, pt)}`} onClick={() => { const store = useUIStore.getState(); store.setPanelDimension(panel, 'width', DEFAULT_PANELS[panel].width); store.setPanelDimension(panel, 'height', 0); }}>↺</button></div>)}
           </div>
           <div className="settings-visibility"><label><input type="checkbox" checked={!leftHidden} onChange={() => useUIStore.getState().toggleLeftPanel()} /> {tx(pt, 'Mostrar biblioteca', 'Show library')}</label><label><input type="checkbox" checked={!rightHidden} onChange={() => useUIStore.getState().toggleRightPanel()} /> {tx(pt, 'Mostrar inspetor', 'Show inspector')}</label></div>
           <p className="settings-description">{tx(pt, 'Alças: setas ajustam 10px; Shift + seta ajusta 1px. Duplo clique ou Home restaura a dimensão.', 'Handles: arrows adjust 10px; Shift + arrow adjusts 1px. Double-click or Home resets a dimension.')}</p>

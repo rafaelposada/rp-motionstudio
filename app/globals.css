@@ -114,17 +114,17 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
 .settings-surface { display: flex; height: min(680px, calc(100dvh - 40px)); overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 90px #0005; }
 /* macOS System Settings layout: scrolling section list on the left */
 .settings-sidebar { width: 236px; flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--card-soft); border-right: 1px solid var(--line); }
-.settings-sidebar-title { padding: 24px 20px 14px; }
+.settings-sidebar-title { padding: 28px 22px 26px; }
 .settings-sidebar-title h2 { font-size: 21px; letter-spacing: -.03em; margin: 7px 0 0; font-weight: 600; }
 .settings-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .settings-header { padding: 22px 26px 14px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-shrink: 0; }
 .settings-section-title { font-size: 21px; letter-spacing: -.03em; margin: 0; font-weight: 600; }
 .settings-close { width: 32px; height: 32px; font-size: 23px; line-height: 1; border-radius: 9px; color: var(--fg-muted); background: var(--card-inset); }
 .settings-close:hover { color: var(--fg); background: var(--card-thumb); }
-.settings-tabs { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 18px; scrollbar-width: thin; }
-.settings-tab { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 9px; border-radius: 8px; color: var(--fg-body); font-size: 12.5px; text-align: left; flex: none; }
+.settings-tabs { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px; padding: 0 12px 20px; scrollbar-width: thin; }
+.settings-tab { display: flex; align-items: center; gap: 12px; width: 100%; padding: 7px 10px; border-radius: 8px; color: var(--fg-body); font-size: 12.5px; text-align: left; flex: none; }
 .settings-tab:hover { background: var(--card-inset); }
-.settings-tab.group-start { margin-top: 12px; }
+.settings-tabs-divider { flex: none; height: 1px; margin: 8px 10px; border: 0; background: var(--line); }
 .settings-tab-icon { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 6px; color: var(--fg-muted); background: var(--card-inset); }
 .settings-tab-icon svg { width: 15px; height: 15px; }
 .settings-tab-text { display: flex; flex-direction: column; min-width: 0; }
@@ -148,6 +148,7 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
 .settings-size-heading { padding: 0 0 12px; font-size: 10px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .08em; }
 .settings-size-row { border-top: 1px solid var(--line); padding: 14px 0; }
 .settings-size-row > strong { font-weight: 500; font-size: 12px; }
+.settings-size-fill { font-size: 11px; color: var(--fg-faint); padding-left: 2px; }
 .settings-dimension { position: relative; display: flex; gap: 4px; align-items: center; }
 .settings-dimension-input { display: flex; align-items: center; min-width: 0; flex: 1; background: var(--card-inset); border: 1px solid transparent; border-radius: 7px; padding: 9px 8px; gap: 4px; }
 .settings-dimension-input:focus-within { border-color: var(--handle); }
@@ -178,7 +179,7 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
   .settings-sidebar-title { padding: 16px 18px 8px; }
   .settings-tabs { flex-direction: row; overflow: auto hidden; padding: 4px 12px 12px; gap: 4px; }
   .settings-tab { width: auto; padding: 6px 10px; }
-  .settings-tab.group-start { margin-top: 0; }
+  .settings-tabs-divider { width: 1px; height: auto; margin: 6px 4px; }
   .settings-header, .settings-body, .settings-footer { padding: 18px; }
   .settings-size-heading, .settings-size-row { grid-template-columns: minmax(80px, 1fr) minmax(86px, 1fr) minmax(86px, 1fr) 22px; gap: 6px; }
   .settings-size-row > strong { font-size: 10px; }
@@ -224,18 +225,17 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
    ICON RAIL — 76px card; nav button #232323 r10 (icon 20 + 10px label)
    ============================================================ */
 .rail { grid-area: rail; align-items: stretch; }
-.rail-top { padding: 12px 8px 0; display: flex; flex-direction: column; align-items: stretch; flex: 1; }
+.rail-top { padding: 14px 10px 10px; display: flex; flex-direction: column; align-items: stretch; gap: 6px; flex: 1; }
 .rail-logo {
-  width: 40px; height: 40px; margin: 8px auto 16px;
+  width: 40px; height: 40px; margin: 4px auto 12px;
   display: grid; place-items: center;
 }
 .rail-logo img { width: 40px; height: 40px; display: block; }
 .rail-item {
   position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  height: 52px; border-radius: var(--r-nav); color: var(--fg-faint);
+  height: 56px; flex: none; border-radius: var(--r-nav); color: var(--fg-faint);
   transition: color var(--t-fast), background var(--t-fast);
-  margin-bottom: 4px;
 }
 .rail-item:hover { color: var(--fg-muted); }
 .rail-item.active { background: var(--card-inset); color: var(--fg); }
@@ -245,7 +245,7 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
   color: var(--fg-label);
   border-bottom: 1px solid var(--line);
   border-radius: 0;
-  margin-bottom: 8px; padding-bottom: 4px;
+  height: 66px; padding-bottom: 10px; margin-bottom: 4px;
 }
 .rail-item.rail-action:hover { color: var(--fg); background: var(--card-inset); }
 .rail-ico { width: 20px; height: 20px; display: grid; place-items: center; }
@@ -255,7 +255,7 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
   padding: 0 5px; border-radius: 7px; background: var(--card-inset);
   color: var(--fg-label); font-size: 9px; font-weight: 700; letter-spacing: .08em;
 }
-.rail-bottom { padding: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: stretch; }
+.rail-bottom { padding: 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
 .rail-settings { width: 100%; min-width: 0; flex-shrink: 0; margin: 0; }
 .rail-theme { width: 100%; margin: 0; }
 
@@ -956,7 +956,7 @@ select.field { padding-right: 26px; }
 .destination-path > .btn { flex: 0 0 auto; padding-inline: 10px; }
 .destination-manual { background: transparent; border: 0; font-size: 10px; color: var(--accent-text); margin: 8px 0 0; padding: 3px 0; text-align: left; }
 .model-visibility-notice { position: absolute; z-index: 12; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: max-content; max-width: calc(100% - 32px); padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); box-shadow: 0 4px 20px #0002; font-size: 11px; color: var(--fg-label); }
-.motion-path-panel { margin: 14px 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.motion-path-panel { margin: 16px var(--pad-sect); padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; }
 .motion-path-panel summary { cursor: pointer; font-size: 12px; font-weight: 600; line-height: 16px; }
 .motion-path-panel[open] summary { margin-bottom: 10px; }
 .motion-path-pad { display: block; width: 100%; aspect-ratio: 14/9; background: var(--card-inset); border: 1px solid var(--line); border-radius: 7px; margin: 10px 0; touch-action: none; overflow: hidden; }
@@ -2486,7 +2486,6 @@ select.field { padding-right: 26px; }
 .media-heavy-notice button { color: var(--fg-muted); }
 .rail-toggle .rail-ico { opacity: .55; }
 .rail-toggle.active .rail-ico { opacity: 1; }
-.rail-toggle .rail-label { font-size: 9.5px; }
 
 /* Rulers along the stage edges, with draggable guides (editor only). */
 .editor-rulers-v2 { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
@@ -2529,9 +2528,8 @@ select.field { padding-right: 26px; }
 
 .shape-panel { display: grid; gap: 10px; padding: 18px; min-width: 0; }
 .shape-panel h3 { margin: 0; font-size: 13px; font-weight: 600; }
-.shape-add { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 10px; background: var(--card-inset); }
-.shape-tile { display: grid; justify-items: center; align-content: center; gap: 5px; min-width: 0; height: 58px; padding: 0; border-radius: 7px; color: var(--fg-muted); transition: background .12s, color .12s; }
-.shape-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 1; letter-spacing: -.01em; }
+.shape-add { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 6px; border-radius: 12px; background: var(--card-inset); }
+.shape-tile { display: grid; place-items: center; min-width: 0; height: 48px; padding: 0; border-radius: 8px; color: var(--fg-muted); transition: background .12s, color .12s; }
 .shape-tile:hover { background: color-mix(in srgb, var(--fg) 9%, var(--card-inset)); color: var(--fg); }
 .shape-tile:active { transform: scale(.96); }
 .shape-tile:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }

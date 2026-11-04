@@ -15,7 +15,12 @@ export const PANEL_LIMITS: Record<PanelId, Record<PanelAxis, [number, number]>> 
   inspector: { width: [220, 680], height: [180, 2000] },
   timeline: { width: [560, 4000], height: [56, 640] },
 };
+// Side panels always fill the window height and the rail keeps its width;
+// only the library and inspector widths and the timeline are adjustable.
+const ADJUSTABLE: Record<PanelId, PanelAxis[]> = { rail: [], library: ['width'], inspector: ['width'], timeline: ['width', 'height'] };
+export const isAdjustable = (panel: PanelId, axis: PanelAxis) => ADJUSTABLE[panel].includes(axis);
 export function panelDimension(panel: PanelId, axis: PanelAxis, value: number) {
+  if (!isAdjustable(panel, axis)) return DEFAULT_PANELS[panel][axis];
   if (!Number.isFinite(value)) return DEFAULT_PANELS[panel][axis];
   if (value === 0 && (axis === 'height' || panel === 'timeline')) return 0;
   const [min, max] = PANEL_LIMITS[panel][axis];

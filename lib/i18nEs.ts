@@ -1350,5 +1350,7 @@ export const ES: Record<string, string> = {
  "Desbloquear camada": "Desbloquear capa",
  "Bloquear camada": "Bloquear capa",
  "Cores, fontes e logo nos seus projetos": "Colores, fuentes y logo en tus proyectos",
- "Suas marcas": "Tus marcas"
+ "Suas marcas": "Tus marcas",
+ "Altura total": "Altura completa",
+ "Arraste as bordas dos painéis ou digite medidas e cálculos abaixo. Os painéis laterais ocupam a altura toda; a linha do tempo cresce até mostrar todas as camadas. Em janelas menores, as medidas se ajustam para preservar a composição.": "Arrastra los bordes de los paneles o escribe medidas y cálculos abajo. Los paneles laterales ocupan toda la altura; la línea de tiempo crece hasta mostrar todas las capas. En ventanas más pequeñas, las medidas se ajustan para preservar la composición."
 };

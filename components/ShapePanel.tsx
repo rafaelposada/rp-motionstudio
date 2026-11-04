@@ -64,8 +64,8 @@ export default function ShapePanel() {
   };
   return <section className="shape-panel">
     <h3>{tx(pt, 'Formas', 'Shapes')}</h3>
-    <div className="shape-add" role="group" aria-label={tx(pt, 'Adicionar forma', 'Add shape')}>{KINDS.map((k) => <button key={k.kind} type="button" className="shape-tile" title={tx(pt, `Adicionar ${k.pt.toLowerCase()}`, `Add ${k.en.toLowerCase()}`)} onClick={() => addShape(k.kind, pt)}>
-      <ShapeIcon d={k.icon} /><span>{tx(pt, k.pt, k.en)}</span></button>)}</div>
+    <div className="shape-add" role="group" aria-label={tx(pt, 'Adicionar forma', 'Add shape')}>{KINDS.map((k) => <button key={k.kind} type="button" className="shape-tile" title={tx(pt, `Adicionar ${k.pt.toLowerCase()}`, `Add ${k.en.toLowerCase()}`)} aria-label={tx(pt, `Adicionar ${k.pt.toLowerCase()}`, `Add ${k.en.toLowerCase()}`)} onClick={() => addShape(k.kind, pt)}>
+      <ShapeIcon d={k.icon} size={22} /></button>)}</div>
     {shapeLayer?.shape && live && <>
       <div className="shape-selected"><ShapeIcon d={KINDS.find((k) => k.kind === shapeLayer.shape!.kind)?.icon ?? KINDS[0].icon} size={16} /><strong>{shapeLayer.text}</strong></div>
       {shapeLayer.shape.kind === 'polygon' && <ControlRow def={{ key: 'shapeSides', label: tx(pt, 'Lados', 'Sides'), type: 'slider', min: SIDES.min, max: SIDES.max, step: 1, default: SIDES.polygon }} value={shapeLayer.shape.sides ?? SIDES.polygon} onChange={(v) => patch({ shape: reshapePointed(shapeLayer.shape!, { sides: Number(v) }) })} />}
