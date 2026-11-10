@@ -1,5 +1,6 @@
 // RP MotionStudio — Rafael Posada, 2026. Apache-2.0.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const {removeBuiltPackage}=require('./desktop-packages.cjs');
 async function digest(file){const hash=crypto.createHash('sha256');for await(const data of fs.createReadStream(file))hash.update(data);return hash.digest('hex');}
 async function main(){
   const [source,extracted]=process.argv.slice(2);if(![source,extracted].every(p=>p&&path.isAbsolute(p)))throw Error('Informe o pacote win32 e o conteúdo extraído do instalador.');
@@ -19,6 +20,8 @@ async function main(){
   const pkg=JSON.parse(fs.readFileSync(path.join(extracted,'resources/app/package.json'),'utf8'));
   assert.equal(pkg.version,JSON.parse(fs.readFileSync(path.join(__dirname,'../package.json'),'utf8')).version);assert.ok(fs.existsSync(path.join(extracted,'Desinstalar RP MotionStudio.exe')));
   for(const file of ['ffmpeg-9.0.2.tar.gz','x264-c24e06c.tar.gz','zlib-1.3.2.tar.gz','BUILD.json','build-media.cjs'])assert.ok(fs.existsSync(path.join(extracted,'resources/media/licenses/Corresponding-Source',file)),`Missing source: ${file}`);
-  console.log(JSON.stringify({filesCompared:files,version:pkg.version,platform:'Windows x64',bundledTools:['ffmpeg','ffprobe'],installerPayload:'byte-for-byte match',correspondingSources:true,privateFiles:0,windowsExecutionTested:false}));
+  // The installer now carries every byte of the package; drop the unpacked copy.
+  const removedPackage=removeBuiltPackage(source);
+  console.log(JSON.stringify({filesCompared:files,version:pkg.version,platform:'Windows x64',bundledTools:['ffmpeg','ffprobe'],installerPayload:'byte-for-byte match',correspondingSources:true,privateFiles:0,windowsExecutionTested:false,removedPackage}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

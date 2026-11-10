@@ -1,6 +1,7 @@
 // RP MotionStudio desktop — Copyright 2026 Rafael Posada. Apache-2.0.
 const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
+const {removeBuiltPackage}=require('./desktop-packages.cjs');
 async function main(){
   if(process.platform!=='darwin')throw Error('Gere o DMG em um Mac.');
   const root=path.resolve(__dirname,'..');
@@ -29,7 +30,8 @@ async function main(){
     for await(const chunk of require('node:fs').createReadStream(output))hash.update(chunk);
     const digest=hash.digest('hex');
     await fs.writeFile(output+'.sha256',`${digest}  ${path.basename(output)}\n`,{flag:'wx'});
-    console.log(JSON.stringify({output,bytes:(await fs.stat(output)).size,sha256:digest,architectures,version}));
+    const removedPackage=removeBuiltPackage(source);
+    console.log(JSON.stringify({output,bytes:(await fs.stat(output)).size,sha256:digest,architectures,version,removedPackage}));
   }finally{await fs.rm(stage,{recursive:true,force:true});}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
