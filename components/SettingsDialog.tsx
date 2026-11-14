@@ -12,6 +12,7 @@ import { ACCENT_PRESETS, DEFAULT_ACCENT } from '@/lib/accentColor';
 import DestinationFolder from './DestinationFolder';
 import { flushScene, getSaveState } from '@/lib/scenePersist';
 import SupportPanel from './SupportPanel';
+import ClaudeSettings from './ClaudeSettings';
 import PhantomSupplyPanel from './PhantomSupplyPanel';
 import UpdateSettings from './UpdateSettings';
 import { tx } from '@/lib/tx';
@@ -76,6 +77,7 @@ const SECTIONS: Section[] = [
   { id: 'files', pt: 'Arquivos', en: 'Files', group: 2, icon: 'M3.5 6.5h6l2 2h9v10h-17z' },
   { id: 'updates', pt: 'Atualizações', en: 'Updates', group: 2, icon: 'M19.2 8.5A8 8 0 1 0 20 14M19.5 4v4.5H15' },
   { id: 'shortcuts', pt: 'Atalhos', en: 'Shortcuts', group: 3, icon: 'M3 7h18v10H3zM6.5 10.5h1M10 10.5h1M13.5 10.5h1M17 10.5h.5M7 14h10' },
+  { id: 'claude', pt: 'Claude', en: 'Claude', group: 3, icon: 'M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.8 2.8M15.2 15.2 18 18M18 6l-2.8 2.8M8.8 15.2 6 18' },
   { id: 'support', pt: 'Apoio e contato', en: 'Support & contact', group: 4, icon: 'M12 19s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 7.5a3.8 3.8 0 0 1 7 2.3C19 14.6 12 19 12 19z' },
   { id: 'phantom', pt: 'Phantom Supply', en: 'Phantom Supply', group: 4, icon: 'M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8' },
 ];
@@ -170,6 +172,7 @@ export default function SettingsDialog() {
  [tx(pt, 'Arredondar um canto da imagem', 'Round one image corner'), 'Alt / Option + círculo'],
  [tx(pt, 'Suspender encaixe durante arraste', 'Disable snapping while dragging'), 'Alt / Option'],
  [tx(pt, 'Cancelar transformação / fechar menu', 'Cancel transform / close dialog'), 'Esc']].map(([name, shortcut]) => <div key={name}><dt>{name}</dt><dd><kbd>{shortcut}</kbd></dd></div>)}</dl><p className="settings-description">{tx(pt, 'Os atalhos da composição ficam suspensos enquanto você digita ou usa este menu.', 'Composition shortcuts are suspended while typing or using this menu.')}</p></>}
+        {tab === 'claude' && <ClaudeSettings pt={pt}/>}
         {tab === 'support' && <SupportPanel pt={pt}/>}
         {tab === 'phantom' && <PhantomSupplyPanel pt={pt}/>}
         {tab === 'brand' && <BrandKitSettings pt={pt}/>}

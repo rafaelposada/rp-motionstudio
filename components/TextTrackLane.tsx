@@ -40,7 +40,7 @@ export default function TextTrackLane({ layer, duration, leadingControl }: { lay
     <button className={`tl-lane-btn ${layer.locked ? 'on' : ''}`} title={layer.locked ? tx(pt, 'Desbloquear camada', 'Unlock layer') : tx(pt, 'Bloquear camada', 'Lock layer')} aria-pressed={!!layer.locked} onClick={() => patch(layer.id, { locked: !layer.locked })}><LockIcon locked={layer.locked} /></button>
     <button className="tl-lane-btn danger" title={tx(pt, 'Excluir camada', 'Delete layer')} disabled={layer.locked} onClick={() => remove(layer.id)}><TrashIcon /></button>
   </div><div className="tl-lane-bars"><div className="tl-zoom" ref={axis}><div className="tl-bar tl-text-bar" style={{ left: `${Math.max(0, layer.start) / duration * 100}%`, width: `${Math.max(0, Math.min(duration, layer.end) - layer.start) / duration * 100}%` }} {...timelineLayerDragProps(layer.id,e=>selectOverlayForEditing(layer.id,e.shiftKey,!e.shiftKey,'timeline'),begin('move'),move,finish)}>
-    <span className="tl-bar-label"><b>{layer.media ? '▧' : layer.shape ? '◇' : 'T'} · {layer.text.slice(0, 40)}</b></span>
+    <span className="tl-bar-label"><b>{layer.code ? '</>' : layer.media ? '▧' : layer.shape ? '◇' : 'T'} · {layer.text.slice(0, 40)}</b></span>
     <span className="tl-bar-edge in" onPointerDown={begin('start')} onPointerMove={move} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} />
     <span className="tl-bar-edge out" onPointerDown={begin('end')} onPointerMove={move} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} />
   </div>

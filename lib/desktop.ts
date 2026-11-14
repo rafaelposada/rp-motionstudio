@@ -1,10 +1,13 @@
 // RP MotionStudio desktop additions — Rafael Posada, 2026. Apache-2.0.
 export interface DesktopRequest {id:string;action:string;payload?:unknown}
+export interface McpStatus {enabled:boolean;listening:boolean;port?:number;connector:{command:string;args:string[];env:Record<string,string>}}
 export interface DesktopAPI {
   platform:string;
   onRequest(callback:(request:DesktopRequest)=>void):()=>void;
   respond(id:string,result:{ok:boolean;value?:unknown;error?:string}):void;
   chooseFolder():Promise<string|null>;
+  mcpStatus?():Promise<McpStatus>;
+  setMcpEnabled?(enabled:boolean):Promise<McpStatus>;
   openProject():Promise<{name:string;bytes:Uint8Array}|null>;
   appearance(theme:'light'|'dark'):void;
   locale?(value:'pt'|'en'|'es'):void;

@@ -4,6 +4,7 @@ import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
 import { useUIStore } from '@/store/useUIStore';
 import { endShapeVideoExport, prepareShapeVideosForExport, seekShapeVideos, syncShapeVideos } from './shapeFill';
+import { prepareCodeFrames, releaseCodeRunners, setCodeFps } from './codeLayer';
 import { pixiBlend, registerPixiBlendModes } from './pixiBlendModes';
 import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
@@ -673,6 +674,7 @@ export class SceneRenderer {
   async seekVideos(frame: number) {
     const s = useSceneStore.getState();
     await seekShapeVideos(s.textLayers, frame / Math.max(1, s.fps), s.fps);
+    await prepareCodeFrames(s.textLayers, frame / Math.max(1, s.fps), s.fps);
     if (this.videoEls.size === 0) return;
     const t = frame / Math.max(1, s.fps);
     await Promise.all([...this.videoEls.entries()].map(([url, v]) => {
@@ -722,6 +724,7 @@ export class SceneRenderer {
     const maskSources = new Set(s.textLayers.map((l) => l.maskId).filter((id): id is string => !!id));
     const selected = useUIStore.getState().selectedLayerIds;
     if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing);
+    setCodeFps(s.fps); releaseCodeRunners(s.textLayers);
     for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.sprite.destroy(); rt.texture.destroy(true); rt.raster.destroy(); this.overlays.delete(id); }
     for (const item of order) {
       if (item.kind === 'motion') { const rt = this.trackRTs.get(item.id); if (rt) rt.container.zIndex = item.z; continue; }

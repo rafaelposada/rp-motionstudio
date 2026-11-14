@@ -14,6 +14,7 @@ import {compositionOrder} from '@/lib/composition';
 import {arrangeCompositionLayers} from '@/lib/compositionActions';
 import {appChoice,type AppChoice} from '@/lib/appDialog';
 import { tx } from '@/lib/tx';
+import {runClaudeCommand,type MediaFile} from '@/lib/claudeBridge';
 
 export default function DesktopSystem() {
   const [desktop,setDesktop]=useState(false),[message,setMessage]=useState('');
@@ -29,7 +30,7 @@ export default function DesktopSystem() {
       let ownsWork=false;
       try {
         // Commit inline text and numeric drafts before deciding what to save.
-        if(!['undo','redo','select-all','arrange-front','arrange-back'].includes(action)&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
+        if(!['undo','redo','select-all','arrange-front','arrange-back','claude'].includes(action)&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
         const project=activeProjectId();
         if(action==='status'){
           const busy=working||desktopBusy()||pendingAssetTransactions()>0;
@@ -39,7 +40,11 @@ export default function DesktopSystem() {
         // Close confirmation and error notices are drawn by the app itself, not
         // as macOS/Windows sheets, so they share the editor's design.
         if(action==='choice'){api.respond(id,{ok:true,value:await appChoice(payload as AppChoice)});return;}
+        // Claude's commands queue behind saves and other work instead of failing.
+        if(action==='claude'){const started=Date.now();while((working||desktopBusy()||pendingAssetTransactions()>0)&&Date.now()-started<120000)await new Promise(r=>setTimeout(r,100));}
         if(working||desktopBusy()||pendingAssetTransactions()>0)throw Error(tx(pt, 'Aguarde a operação em andamento.', 'Wait for the current operation to finish.'));
+        // Claude (MCP): the command runs like any panel action, one undo step each.
+        if(action==='claude'){working=true;ownsWork=true;const p=payload as {command:string;args?:Record<string,unknown>;files?:MediaFile[]};api.respond(id,{ok:true,value:await runClaudeCommand(p.command,p.args??{},p.files??[])});return;}
         working=true;ownsWork=true;
         if(action==='undo'||action==='redo'){
           const active=document.activeElement;

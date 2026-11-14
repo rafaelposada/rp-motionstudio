@@ -12,6 +12,7 @@ interface LocalBounds { width: number; height: number; left: number; top?:number
 const measuredBounds = new WeakMap<TextLayer, { revision: number; canvasWidth: number; box: LocalBounds }>();
 export function layerBounds(layer: TextLayer, canvasWidth: number): LocalBounds {
   if (layer.media) return { width: layer.media.width, height: layer.media.height, left: -layer.media.width / 2 };
+  if (layer.code) return { width: layer.code.width, height: layer.code.height, left: -layer.code.width / 2 };
   if (layer.shape) { const w = Math.max(1, Math.abs(layer.shape.width)), h = Math.max(layer.shape.kind === 'line' ? Math.max(8, layer.shape.strokeWidth ?? 2) : 1, Math.abs(layer.shape.height)); return { width: w, height: h, left: -w / 2 }; }
   const revision = textFontRevision(), cached = measuredBounds.get(layer);
   if (cached?.revision === revision && cached.canvasWidth === canvasWidth) return cached.box;

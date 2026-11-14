@@ -13,6 +13,7 @@ import { layerFrame } from './layerBounds';
 import { fontshareFamily, fontshareFileUrl } from './fontshare';
 import { pointedVertices, tracePointed } from './shapeGeometry';
 import { drawShapeMedia, prepareShapeMedia, releaseShapeOriginals, shapeMediaSource, shapeMediaState, type ShapeMedia } from './shapeFill';
+import { codeFrame, codeFrameState, type CodeSpec } from './codeLayer';
 
 export type TextAlign = 'left'|'center'|'right'|'justify';
 export interface ShapeSpec { kind: 'rect'|'ellipse'|'polygon'|'star'|'line'; width: number; height: number; sides?: number; points?: number; innerRadius?: number; fill?: string; fillOpacity?: number; stroke?: string; strokeWidth?: number; strokeOpacity?: number; radius?: number; cornerRadii?: CornerRadii; media?: ShapeMedia }
@@ -22,7 +23,7 @@ export interface ShapeSpec { kind: 'rect'|'ellipse'|'polygon'|'star'|'line'; wid
 export const shapeRadii = (shape: ShapeSpec): CornerRadii => normalizedRadii(Math.abs(shape.width), Math.abs(shape.height), shape.cornerRadii ?? Array(4).fill(shape.radius ?? 0));
 // BG Blur applies to text backgrounds and to filled shapes (not lines or images).
 export const hasBackdropBlur = (layer: Pick<TextLayer,'backdrop'|'backdropBlur'|'media'|'shape'>) => (layer.backdropBlur ?? 0) > 0 && !layer.media && (!!layer.backdrop || !!layer.shape && layer.shape.kind !== 'line');
-export const isTextLayer = (layer: Pick<TextLayer,'media'|'shape'>) => !layer.media && !layer.shape;
+export const isTextLayer = (layer: Pick<TextLayer,'media'|'shape'|'code'>) => !layer.media && !layer.shape && !layer.code;
 export type TextWrap = 'auto'|'balance'|'pretty';
 export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
 
@@ -45,6 +46,7 @@ export interface TextLayer {
   shadowSpread?: number; shadowType?: 'box'|'realistic'; shadowPosition?: 'outside'|'inside';
   z?: number; blend?: BlendMode; keyframes?: Keyframes;
   shape?: ShapeSpec;
+  code?: CodeSpec; // Canvas 2D / WebGL drawing written in code (see codeLayer.ts)
   tiltX?: number; tiltY?: number; fov?: number; // 3D rotation (degrees) with perspective
   maskId?: string; maskInvert?: boolean; // clip to another layer's alpha (shape, text or image)
   media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
@@ -148,6 +150,7 @@ export async function prepareTextFonts(layers: TextLayer[], originals=false) {
   await Promise.all(layers.filter((layer) => layer.visible).map(async (layer) => {
     if (layer.media) { if (!layer.media.url) throw new Error(`Imagem indisponível: ${layer.text}. Reabra o projeto ou importe novamente.`); if(originals)await overlayImage(layer.media.url).decode();else if(!await loadPreviewImage(layer.media.url))throw new Error(`Imagem indisponível: ${layer.text}`);return; }
     if (layer.shape?.media) { await prepareShapeMedia(layer.shape.media, originals, layer.text); return; }
+    if (layer.code) return;
     await Promise.all(textFontVariants(layer).map(style=>ensureFont(style.font,style.weight)));
   }));
 }
@@ -197,6 +200,11 @@ export class TextCompositor {
         else if (kind !== 'line' && layer.shape.fill) { ctx.globalAlpha = alpha * bounded(layer.shape.fillOpacity ?? 1, 0, 1); ctx.fillStyle = layer.shape.fill; ctx.fill(); }
         const sw = kind === 'line' ? Math.max(1, layer.shape.strokeWidth ?? Math.max(2, h)) : layer.shape.strokeWidth ?? 0;
         if ((layer.shape.stroke || kind === 'line') && sw > 0) { ctx.globalAlpha = alpha * bounded(layer.shape.strokeOpacity ?? 1, 0, 1); ctx.strokeStyle = maskOnly ? '#fff' : layer.shape.stroke ?? layer.shape.fill ?? '#ffffff'; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = (kind === 'polygon' || kind === 'star') && !layer.shape.radius ? 'miter' : 'round'; ctx.stroke(); }
+        ctx.restore(); continue;
+      }
+      if (layer.code) {
+        const bitmap = codeFrame({ ...layer, code: layer.code }, seconds);
+        if (bitmap) ctx.drawImage(bitmap, -layer.code.width / 2, -layer.code.height / 2, layer.code.width, layer.code.height);
         ctx.restore(); continue;
       }
       if (layer.media) {
@@ -306,7 +314,7 @@ export class OverlayRaster {
     if(url!==this.mediaUrl){this.mediaUrl=url;this.mediaPreview=null;this.mediaPending=false;}
     if(url&&!originals&&!this.mediaPreview){this.mediaPreview=peekPreviewImage(url);if(!this.mediaPreview&&!this.mediaPending){this.mediaPending=true;void loadPreviewImage(url).then(image=>{if(this.mediaUrl===url){this.mediaPreview=image;this.mediaPending=false;}});}}
     const image=url?(originals?overlayImage(url):this.mediaPreview):null;
-    const ready = layer.media ? !!image&&image.width>0&&(!('complete' in image)||image.complete) : document.fonts.check(`${layer.weight} ${layer.size}px "${layer.font}"`);
+    const ready = layer.code ? true : layer.media ? !!image&&image.width>0&&(!('complete' in image)||image.complete) : document.fonts.check(`${layer.weight} ${layer.size}px "${layer.font}"`);
     const active=layer.visible&&seconds>=layer.start&&seconds<layer.end;
     const motion=active?textMotion(layer,seconds):null;
     // Cache the actual appearance, not the clock. A settled entrance animation
@@ -314,7 +322,7 @@ export class OverlayRaster {
     // Keyed properties resolve to the values at this instant, so a still
     // stretch of the curve reuses the raster and a moving one redraws.
     const maskState = mask ? [animatedLayer(mask, seconds), mask.visible && seconds >= mask.start && seconds < mask.end ? textMotion(mask, seconds) : null, layer.maskInvert, mask.media ? !!peekPreviewImage(mask.media.url) : document.fonts.check(`${mask.weight} ${mask.size}px "${mask.font}"`)] : null;
-    const signature = JSON.stringify([animatedLayer(layer, seconds), width, height, scale, ready, active, motion, originals, fontRevision, maskState, shapeMediaState(layer.shape?.media, originals)]);
+    const signature = JSON.stringify([animatedLayer(layer, seconds), width, height, scale, ready, active, motion, originals, fontRevision, maskState, shapeMediaState(layer.shape?.media, originals), active ? codeFrameState(layer) : null]);
     if (signature === this.signature) return false;
     this.signature = signature;
     const rw=Math.max(1,Math.round(width*scale)),rh=Math.max(1,Math.round(height*scale));

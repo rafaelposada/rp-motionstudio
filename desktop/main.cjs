@@ -4,6 +4,7 @@ const fs = require('node:fs/promises'), path = require('node:path'), crypto = re
 const {APP_ORIGIN, trustedURL, externalURL, closeCoordinator} = require('./policy.cjs');
 const {prepareRuntime}=require('./runtime.cjs');
 const {createUpdater}=require('./updater.cjs');
+const {createMcpServer}=require('./mcp.cjs');
 const {execFile}=require('node:child_process');
 const exec= require('node:util').promisify(execFile);
 protocol.registerSchemesAsPrivileged([{scheme:'rp-motion',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,codeCache:true}}]);
@@ -15,10 +16,17 @@ app.setPath('sessionData', path.join(app.getPath('userData'), 'Browser'));
 const bundledRuntime = app.isPackaged ? path.join(process.resourcesPath,'runtime') : path.join(__dirname,'..','dist-desktop','runtime');
 let runtime=bundledRuntime;
 const mediaBin=app.isPackaged?path.join(process.resourcesPath,'media','bin'):path.join(__dirname,'..','dist-desktop','media',`${process.platform}-${process.arch}`,'bin');
-let win, server, serverOrigin, closing = false, exiting = false, ready = false;
+let win, server, serverOrigin, closing = false, exiting = false, ready = false, mcp;
+// Started by Claude's connector: the editor runs without showing a window or
+// a Dock icon until the person opens the app.
+let background = process.argv.includes('--background');
 const requests = new Map();
 const validSender = event => !!win && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame && trustedURL(event.senderFrame?.url || '');
 ipcMain.on('rp:ready',event=>{if(validSender(event))ready=true;});
+async function editorReady(timeout = 60000) {
+  const started = Date.now();
+  while (!ready && Date.now() - started < timeout) await new Promise(resolve => setTimeout(resolve, 200));
+}
 function request(action, timeout = 120000, payload) {
   if (!ready || !win || win.isDestroyed()) return Promise.reject(Error('O editor ainda está carregando. Tente fechar novamente quando abrir.'));
   const id = crypto.randomUUID();
@@ -39,6 +47,13 @@ ipcMain.on('rp:appearance',(event,theme) => {
   win.setBackgroundColor(theme === 'dark' ? '#0c0d0f' : '#eef1f5');
   if (process.platform === 'win32') win.setTitleBarOverlay({color:theme === 'dark' ? '#0c0d0f' : '#eef1f5',symbolColor:theme === 'dark' ? '#ffffff' : '#141414',height:38});
 });
+const connector = () => ({
+  command: process.execPath,
+  args: [path.join(__dirname, 'mcp-stdio.cjs')],
+  env: { ELECTRON_RUN_AS_NODE: '1' },
+});
+ipcMain.handle('rp:mcp-status',async event => {if(!validSender(event))throw Error('Origem inválida.');return {...(mcp?.status()??{enabled:false,listening:false}),connector:connector()};});
+ipcMain.handle('rp:mcp-enable',async (event,enabled) => {if(!validSender(event))throw Error('Origem inválida.');return {...await mcp.setEnabled(!!enabled),connector:connector()};});
 ipcMain.handle('rp:choose-folder',async event => {
   if (!validSender(event)) throw Error('Origem inválida.');
   const result = await dialog.showOpenDialog(win,{title:'Escolher pasta',properties:['openDirectory','createDirectory']});
@@ -120,7 +135,7 @@ async function createWindow() {
   const icon=path.join(runtime,'public','apple-touch-icon.png');
   win=new BrowserWindow({title:'RP MotionStudio Desktop',width:1440,height:940,minWidth:960,minHeight:640,show:false,backgroundColor:'#0c0d0f',icon,
     titleBarStyle:'hidden',trafficLightPosition:{x:16,y:13},...(process.platform==='win32'?{titleBarOverlay:{color:'#0c0d0f',symbolColor:'#ffffff',height:38}}:{}),
-    webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true,allowRunningInsecureContent:false,spellcheck:false},
+    webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true,allowRunningInsecureContent:false,spellcheck:false,backgroundThrottling:false},
   });
   if(process.platform==='darwin')app.dock?.setIcon(nativeImage.createFromPath(icon));
   win.webContents.session.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
@@ -137,14 +152,16 @@ async function createWindow() {
   });
   win.on('close',event=>{if(closing)return;event.preventDefault();void close();});
   win.webContents.on('did-start-navigation',(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame)ready=false;});
-  win.once('ready-to-show',()=>win.show());
+  win.once('ready-to-show',()=>{if(!background)win.show();});
   setMenu();await win.loadURL(`${APP_ORIGIN}/`);
 }
 if(!app.requestSingleInstanceLock())app.quit();
 else {
-  app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.show();win.focus();}});
+  const reveal=()=>{if(!win||win.isDestroyed())return;background=false;if(process.platform==='darwin')void app.dock?.show();if(win.isMinimized())win.restore();win.show();win.focus();};
+  app.on('second-instance',(_event,argv)=>{if(!argv.includes('--background'))reveal();});
+  app.on('activate',reveal);
   app.on('window-all-closed',()=>app.quit());
-  app.on('will-quit',()=>{exiting=true;server?.kill();for(const waiting of requests.values()){clearTimeout(waiting.timer);waiting.reject(Error('Aplicativo encerrado.'));}requests.clear();});
+  app.on('will-quit',()=>{exiting=true;mcp?.stop();server?.kill();for(const waiting of requests.values()){clearTimeout(waiting.timer);waiting.reject(Error('Aplicativo encerrado.'));}requests.clear();});
   app.whenReady().then(async()=>{
     await startServer();
     protocol.handle('rp-motion',async request=>{
@@ -158,6 +175,11 @@ else {
         return new Response(response.body,{status:response.status,statusText:response.statusText,headers:resultHeaders});
       }catch{return new Response('Serviço local indisponível',{status:503});}
     });
+    if(background&&process.platform==='darwin')app.dock?.hide();
     await createWindow();
+    mcp=createMcpServer({version:app.getVersion(),configPath:path.join(app.getPath('userData'),'mcp.json'),
+      request:async(action,timeout,payload)=>{await editorReady();return request(action,timeout,payload);}});
+    const started=await mcp.start();
+    if(!started.listening)console.error('MCP: porta',started.port,'ocupada; o controle pelo Claude ficou indisponível.');
   }).catch(error=>{dialog.showErrorBox('Não foi possível abrir o RP MotionStudio',error.message);exiting=true;server?.kill();app.exit(1);});
 }

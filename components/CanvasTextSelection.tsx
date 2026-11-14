@@ -218,6 +218,7 @@ export default function CanvasTextSelection() {
       const l = d.overlay, sx = bounded(l.scaleX ?? 1, .05, 20), sy = bounded(l.scaleY ?? 1, .05, 20);
       const patch: Partial<TextLayer> = { x: p.x-motion.x, y: p.y - motionY, rotation: next.rotation-motion.rotation };
       if (l.media) patch.media = { ...l.media, width: next.width / sx / motion.scale, height: next.height / sy / motion.scale };
+      else if (l.code) patch.code = { ...l.code, width: Math.max(16, Math.round(next.width / sx / motion.scale)), height: Math.max(16, Math.round(next.height / sy / motion.scale)) };
       else if (l.shape) patch.shape = { ...l.shape, width: next.width / sx / motion.scale, height: l.shape.kind === 'line' ? l.shape.height : next.height / sy / motion.scale };
       else if ((l.boxWidth ?? 0) > 0 && !grouped && d.kind === 'resize') patch.boxWidth = Math.max(20, Math.min(8000, Math.round(next.width / sx / motion.scale)));
       else { patch.scaleX = sx * next.width / d.frame.width; patch.scaleY = sy * next.height / d.frame.height; }
@@ -277,7 +278,7 @@ export default function CanvasTextSelection() {
       patchFrame(d, resizeFrame(d.frame, along, d.anchor!, { minWidth: 20, minHeight: 1, maxWidth: 8000, maxHeight: 8000, proportional: false, centered: alt })); return;
     }
     const limits = t ? { minWidth: d.frame.width * .1 / t.transform.scale, minHeight: d.frame.height * .1 / t.transform.scale, maxWidth: d.frame.width * 3 / t.transform.scale, maxHeight: d.frame.height * 3 / t.transform.scale }
-      : l!.media || l!.shape ? { minWidth: 1, minHeight: 1, maxWidth: 8000, maxHeight: 8000 }
+      : l!.media || l!.shape || l!.code ? { minWidth: 1, minHeight: 1, maxWidth: 8000, maxHeight: 8000 }
       : { minWidth: bounds(l!, width).width * .05, minHeight: bounds(l!, width).height * .05, maxWidth: bounds(l!, width).width * 20, maxHeight: bounds(l!, width).height * 20 };
     patchFrame(d, resizeFrame(d.frame, delta, d.anchor!, { ...limits, proportional: !!t || shift, centered: alt }));
   };

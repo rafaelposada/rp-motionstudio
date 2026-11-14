@@ -15,6 +15,7 @@ import { TextCompositor, OverlayRaster } from '@/lib/textLayers';
 import { isCanvasEditing } from './canvasEditing';
 import { useUIStore } from '@/store/useUIStore';
 import { endShapeVideoExport, prepareShapeVideosForExport, seekShapeVideos, syncShapeVideos } from './shapeFill';
+import { prepareCodeFrames, releaseCodeRunners, setCodeFps } from './codeLayer';
 import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
 import { cardAspectFor, coverCrop, cropKey } from '@/lib/crop';
@@ -1204,6 +1205,7 @@ export class SceneRenderer3D implements IRenderer {
   async seekVideos(frame: number) {
     const s = useSceneStore.getState();
     await seekShapeVideos(s.textLayers, frame / Math.max(1, s.fps), s.fps);
+    await prepareCodeFrames(s.textLayers, frame / Math.max(1, s.fps), s.fps);
     if (this.videoEls.size === 0) return;
     const t = frame / Math.max(1, s.fps);
     await Promise.all([...this.videoEls.entries()].map(([url, v]) => {
@@ -1253,6 +1255,7 @@ export class SceneRenderer3D implements IRenderer {
     for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.texture.dispose(); rt.mask?.dispose(); rt.raster.destroy(); this.overlays.delete(id); }
     const selected = useUIStore.getState().selectedLayerIds;
     if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing);
+    setCodeFps(s.fps); releaseCodeRunners(s.textLayers);
     compositionOrder(s.tracks, s.textLayers).forEach((item) => {
       composeMaterial.uniforms.backdropBlur.value=0;
       composeMaterial.uniforms.sceneSize.value.set(s.width,s.height);
