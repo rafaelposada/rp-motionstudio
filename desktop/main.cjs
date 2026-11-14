@@ -44,8 +44,8 @@ ipcMain.on('rp:response',(event,message) => {
 });
 ipcMain.on('rp:appearance',(event,theme) => {
   if (!validSender(event) || !['light','dark'].includes(theme)) return;
-  win.setBackgroundColor(theme === 'dark' ? '#0c0d0f' : '#eef1f5');
-  if (process.platform === 'win32') win.setTitleBarOverlay({color:theme === 'dark' ? '#0c0d0f' : '#eef1f5',symbolColor:theme === 'dark' ? '#ffffff' : '#141414',height:38});
+  win.setBackgroundColor(theme === 'dark' ? '#050505' : '#f1f1f1');
+  if (process.platform === 'win32') win.setTitleBarOverlay({color:theme === 'dark' ? '#050505' : '#f1f1f1',symbolColor:theme === 'dark' ? '#ffffff' : '#141414',height:38});
 });
 const connector = () => ({
   command: process.execPath,
@@ -133,8 +133,8 @@ function setMenu() {
 }
 async function createWindow() {
   const icon=path.join(runtime,'public','apple-touch-icon.png');
-  win=new BrowserWindow({title:'RP MotionStudio Desktop',width:1440,height:940,minWidth:960,minHeight:640,show:false,backgroundColor:'#0c0d0f',icon,
-    titleBarStyle:'hidden',trafficLightPosition:{x:16,y:13},...(process.platform==='win32'?{titleBarOverlay:{color:'#0c0d0f',symbolColor:'#ffffff',height:38}}:{}),
+  win=new BrowserWindow({title:'RP MotionStudio Desktop',width:1440,height:940,minWidth:960,minHeight:640,show:false,backgroundColor:'#050505',icon,
+    titleBarStyle:'hidden',trafficLightPosition:{x:16,y:13},...(process.platform==='win32'?{titleBarOverlay:{color:'#050505',symbolColor:'#ffffff',height:38}}:{}),
     webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true,allowRunningInsecureContent:false,spellcheck:false,backgroundThrottling:false},
   });
   if(process.platform==='darwin')app.dock?.setIcon(nativeImage.createFromPath(icon));

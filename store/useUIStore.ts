@@ -104,7 +104,7 @@ function savePreferences(prefs: UIPreferences) {
   })); } catch { saved = false; }
   document.documentElement.dataset.theme = prefs.theme;
   document.documentElement.dataset.ui = prefs.uiStyle;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', prefs.theme === 'dark' ? '#0c0d0f' : '#eef1f5');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', prefs.uiStyle === 'classic' ? (prefs.theme === 'dark' ? '#0c0d0f' : '#eef1f5') : (prefs.theme === 'dark' ? '#050505' : '#f1f1f1'));
   for (const [name, color] of Object.entries(accentTokens(prefs.accentColor))) document.documentElement.style.setProperty(name, color);
   setCurrentLocale(prefs.locale);
   document.documentElement.lang = prefs.locale === 'pt' ? 'pt-BR' : prefs.locale === 'es' ? 'es' : 'en';
@@ -128,7 +128,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   }),
   locale: 'pt',
   accentColor: DEFAULT_ACCENT,
-  uiStyle: 'classic',
+  uiStyle: 'studio',
   setUiStyle: (value) => set((state) => {
     const uiStyle = value === 'studio' ? 'studio' : 'classic';
     const saved = savePreferences({ ...state, uiStyle });
@@ -242,7 +242,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       autosaveDelay: Math.max(250, Math.min(10000, Number(saved.autosaveDelay) || 500)),
       showSelectionBox: saved.showSelectionBox !== false,
       accentColor: sanitizeAccent(saved.accentColor),
-      uiStyle: saved.uiStyle === 'studio' ? 'studio' as const : 'classic' as const,
+      uiStyle: saved.uiStyle === 'classic' ? 'classic' as const : 'studio' as const,
       locale: saved.locale === 'en' || saved.locale === 'es' ? saved.locale : 'pt' as const,
       leftCollapsed: typeof saved.leftCollapsed === 'boolean' ? saved.leftCollapsed : state.leftCollapsed,
       rightCollapsed: typeof saved.rightCollapsed === 'boolean' ? saved.rightCollapsed : state.rightCollapsed,

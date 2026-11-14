@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" data-ui="studio" suppressHydrationWarning>
       <head>
         <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(professionalIdentity).replace(/</g,'\\u003c')}}/>
         <meta name="theme-color" content="#0c0d0f" />
@@ -34,8 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             const saved = JSON.parse(localStorage.getItem('motion-ui-preferences') || '{}') || {};
             const theme = saved.appearance === 'system' || !saved.theme ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : saved.theme === 'dark' ? 'dark' : 'light';
             document.documentElement.dataset.theme = theme;
-            document.documentElement.dataset.ui = saved.uiStyle === 'studio' ? 'studio' : 'classic';
-            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0c0d0f' : '#eef1f5');
+            document.documentElement.dataset.ui = saved.uiStyle === 'classic' ? 'classic' : 'studio';
+            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', saved.uiStyle === 'classic' ? (theme === 'dark' ? '#0c0d0f' : '#eef1f5') : (theme === 'dark' ? '#050505' : '#f1f1f1'));
             document.documentElement.lang = saved.locale === 'pt' ? 'pt-BR' : 'en';
           } catch (_) {}
         ` }} />

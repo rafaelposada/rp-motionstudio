@@ -78,9 +78,9 @@ useUIStore.getState().setAlignmentOption('showRulers',true);
 useUIStore.getState().setAlignmentOption('snapEnabled',false);
 useUIStore.getState().hydratePreferences();
 assert.equal(useUIStore.getState().showRulers,true);assert.equal(useUIStore.getState().snapEnabled,false);
-assert.equal(windowTint, '#0c0d0f');
-useUIStore.getState().setTheme('light'); assert.equal(windowTint, '#eef1f5');
-useUIStore.getState().setTheme('dark'); assert.equal(windowTint, '#0c0d0f');
+assert.equal(windowTint, '#050505');
+useUIStore.getState().setTheme('light'); assert.equal(windowTint, '#f1f1f1');
+useUIStore.getState().setTheme('dark'); assert.equal(windowTint, '#050505');
 assert.equal(useUIStore.getState().accentColor, DEFAULT_ACCENT, 'Older preferences receive blue without losing layout');
 for (const color of [...ACCENT_PRESETS.map((preset) => preset.color), '#ffffff', '#000000', '#ffff00', '#abcdef']) {
   const tokens = accentTokens(color);
@@ -129,4 +129,8 @@ data.set('motion-ui-preferences', 'null'); assert.doesNotThrow(() => useUIStore.
 global.localStorage.setItem = () => { throw new Error('quota'); };
 assert.doesNotThrow(() => useUIStore.getState().setPanelDimension('library', 'width', 320));
 assert.equal(useUIStore.getState().preferencesError, 'storage');
+data.set('motion-ui-preferences',JSON.stringify({version:7}));useUIStore.getState().hydratePreferences();
+assert.equal(useUIStore.getState().uiStyle,'studio','The Studio look is the default, also for older preferences');
+data.set('motion-ui-preferences',JSON.stringify({version:7,uiStyle:'classic'}));useUIStore.getState().hydratePreferences();
+assert.equal(useUIStore.getState().uiStyle,'classic','Choosing Classic is kept');
 console.log('Settings checks passed: responsive geometry, independent dimensions, migration, persistent preferences, drag writes, reset, quality and storage errors.');
