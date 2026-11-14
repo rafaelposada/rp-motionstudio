@@ -1,4 +1,4 @@
-# Controle pelo Claude (MCP)
+# Controle pelo Claude e pelo Codex (MCP)
 
 Com o conector, o Claude monta composições no RP MotionStudio a partir de um pedido simples: escolhe o formato e o
 modelo, coloca fotos e vídeos do computador, escreve os textos, aplica o kit de marca, cria camadas de código (Canvas
@@ -16,6 +16,21 @@ claude mcp add rp-motionstudio -s user -e ELECTRON_RUN_AS_NODE=1 -- "/Applicatio
 ```
 
 App do Claude: copie o bloco `mcpServers` mostrado em Configurações → Claude para o `claude_desktop_config.json`.
+
+Codex: cole no fim de `~/.codex/config.toml` e reabra o Codex:
+
+```toml
+[mcp_servers.rp-motionstudio]
+command = "/Applications/RP MotionStudio Desktop.app/Contents/MacOS/RP MotionStudio Desktop"
+args = ["/Applications/RP MotionStudio Desktop.app/Contents/Resources/app/desktop/mcp-stdio.cjs"]
+startup_timeout_sec = 120
+tool_timeout_sec = 3600
+
+[mcp_servers.rp-motionstudio.env]
+ELECTRON_RUN_AS_NODE = "1"
+```
+
+Os mesmos comandos aparecem no pop-up da tela inicial (cartão "Conectar ao app").
 
 ## Segurança
 
