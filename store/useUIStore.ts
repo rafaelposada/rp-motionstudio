@@ -20,6 +20,8 @@ export interface UIState {
   locale: Locale;
   accentColor: string;
   setAccentColor: (color: string) => void;
+  uiStyle: 'studio' | 'classic'; // Studio = Rafael Posada® Studio design system
+  setUiStyle: (uiStyle: 'studio' | 'classic') => void;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   tplCollapsed: boolean;    // left column folded to the original compact strip
@@ -76,7 +78,7 @@ export interface UIState {
 
 const PREFS_KEY = 'motion-ui-preferences';
 
-type UIPreferences = Pick<UIState, 'theme' | 'appearance' | 'autosaveEnabled' | 'autosaveDelay' | 'showSelectionBox' | 'locale' | 'accentColor' | 'leftCollapsed' | 'rightCollapsed' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled' | 'showCanvasTools' | 'showArrangeTools'>;
+type UIPreferences = Pick<UIState, 'theme' | 'appearance' | 'autosaveEnabled' | 'autosaveDelay' | 'showSelectionBox' | 'locale' | 'accentColor' | 'uiStyle' | 'leftCollapsed' | 'rightCollapsed' | 'tplCollapsed' | 'panels' | 'panelWidthPriority' | 'timelineExpanded' | 'showStageGrid' | 'showRulers' | 'smartGuides' | 'snapEnabled' | 'showCanvasTools' | 'showArrangeTools'>;
 
 function savePreferences(prefs: UIPreferences) {
   if (typeof window === 'undefined') return;
@@ -87,6 +89,7 @@ function savePreferences(prefs: UIPreferences) {
     autosaveEnabled: prefs.autosaveEnabled, autosaveDelay: prefs.autosaveDelay,
     showSelectionBox: prefs.showSelectionBox,
     accentColor: prefs.accentColor,
+    uiStyle: prefs.uiStyle,
     theme: prefs.theme,
     locale: prefs.locale,
     leftCollapsed: prefs.leftCollapsed,
@@ -100,6 +103,7 @@ function savePreferences(prefs: UIPreferences) {
     showCanvasTools: prefs.showCanvasTools, showArrangeTools: prefs.showArrangeTools,
   })); } catch { saved = false; }
   document.documentElement.dataset.theme = prefs.theme;
+  document.documentElement.dataset.ui = prefs.uiStyle;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', prefs.theme === 'dark' ? '#0c0d0f' : '#eef1f5');
   for (const [name, color] of Object.entries(accentTokens(prefs.accentColor))) document.documentElement.style.setProperty(name, color);
   setCurrentLocale(prefs.locale);
@@ -124,6 +128,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   }),
   locale: 'pt',
   accentColor: DEFAULT_ACCENT,
+  uiStyle: 'classic',
+  setUiStyle: (value) => set((state) => {
+    const uiStyle = value === 'studio' ? 'studio' : 'classic';
+    const saved = savePreferences({ ...state, uiStyle });
+    return { uiStyle, preferencesError: saved === false ? 'storage' : null };
+  }),
   setAccentColor: (color) => set((state) => {
     const accentColor = sanitizeAccent(color);
     const saved = savePreferences({ ...state, accentColor });
@@ -232,6 +242,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       autosaveDelay: Math.max(250, Math.min(10000, Number(saved.autosaveDelay) || 500)),
       showSelectionBox: saved.showSelectionBox !== false,
       accentColor: sanitizeAccent(saved.accentColor),
+      uiStyle: saved.uiStyle === 'studio' ? 'studio' as const : 'classic' as const,
       locale: saved.locale === 'en' || saved.locale === 'es' ? saved.locale : 'pt' as const,
       leftCollapsed: typeof saved.leftCollapsed === 'boolean' ? saved.leftCollapsed : state.leftCollapsed,
       rightCollapsed: typeof saved.rightCollapsed === 'boolean' ? saved.rightCollapsed : state.rightCollapsed,

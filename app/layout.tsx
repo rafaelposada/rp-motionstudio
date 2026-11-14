@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import '../styles/tokens.css';
 import './globals.css';
 import './workspace.css';
+import '../styles/studio.css';
 import {professionalIdentity} from '@/lib/publicIdentity';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             const saved = JSON.parse(localStorage.getItem('motion-ui-preferences') || '{}') || {};
             const theme = saved.appearance === 'system' || !saved.theme ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : saved.theme === 'dark' ? 'dark' : 'light';
             document.documentElement.dataset.theme = theme;
+            document.documentElement.dataset.ui = saved.uiStyle === 'studio' ? 'studio' : 'classic';
             document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0c0d0f' : '#eef1f5');
             document.documentElement.lang = saved.locale === 'pt' ? 'pt-BR' : 'en';
           } catch (_) {}

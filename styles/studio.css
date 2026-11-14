@@ -1,0 +1,147 @@
+/* RP MotionStudio — Rafael Posada, 2026. Apache-2.0. */
+/* ============================================================
+   STUDIO — Rafael Posada® Studio design system on the editor.
+   Source: Studio CRM web/src/styles/app.css (2026-11-12). Black and grey
+   interface, neutral accent in the chrome, Geist with tabular numbers, no
+   serif, 4px spacing base, card 16 / block 12 / field 8 / pill buttons in
+   the dock material. Colour only where it carries information: selection,
+   playhead, timeline bars and keyframes keep the chosen highlight colour.
+   Applies when <html data-ui="studio">.
+   ============================================================ */
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("/fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+
+:root[data-ui="studio"] {
+  --stage: #f1f1f1;
+  --stage-dot: rgba(0, 0, 0, .07);
+  --stage-edge: rgba(0, 0, 0, .12);
+  --stage-shadow: rgba(0, 0, 0, .10);
+  --card: #ffffff;
+  --card-inset: #f1f1f2;
+  --card-thumb: #e5e7eb;
+  --card-soft: #f6f6f6;
+  --frame: #ebebeb;
+  --line: rgba(0, 0, 0, .06);
+  --line-soft: rgba(0, 0, 0, .12);
+  --handle: #a1a1aa;
+  --fg: #0a0a0b;
+  --fg-body: #0a0a0b;
+  --fg-label: #4d4d55;
+  --fg-value: #0a0a0b;
+  --fg-muted: #4d4d55;
+  --fg-faint: #62626a;
+  --seg-active-bg: #ffffff;
+  --seg-active-fg: #0a0a0b;
+  --inverse-bg: #0a0a0b;
+  --inverse-fg: #ffffff;
+  --tl-bar-idle: #e5e7eb;
+  --tl-bar-idle-fg: #4d4d55;
+  /* dock material */
+  --dock-bg: #f9fafb; --dock-item: #e5e7eb; --dock-item-hover: #dcdee2; --dock-icon: #737373;
+  --dock-shadow: 0 16px 40px -16px rgba(10, 10, 12, .3), 0 0 0 1px rgba(10, 10, 12, .06);
+  --studio-focus: #0a0a0b;
+  --studio-card-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px -16px rgba(0, 0, 0, .12);
+  /* shape */
+  --r-card: 16px;
+  --r-ctrl: 8px;
+  --r-seg: 999px;
+  --r-chip: 8px;
+  --r-nav: 12px;
+  /* type */
+  --fs-label: 13px;
+  --fs-ui: 12px;
+  --fs-meta: 11px;
+  --fs-eyebrow: 11px;
+  /* spacing on the 4px base */
+  --gutter: 12px;
+  --pad-card: 16px;
+  --pad-sect: 24px;
+  --gap-row: 12px;
+  --gap-tight: 8px;
+  --ctl-h: 36px;
+  --seg-pad: 4px;
+  --t-fast: 160ms;
+}
+:root[data-ui="studio"][data-theme="dark"] {
+  --stage: #050505;
+  --stage-dot: rgba(255, 255, 255, .06);
+  --stage-edge: rgba(255, 255, 255, .11);
+  --stage-shadow: rgba(0, 0, 0, .75);
+  --card: #0e0e0f;
+  --card-inset: #18181a;
+  --card-thumb: #262626;
+  --card-soft: #151516;
+  --frame: #050505;
+  --line: rgba(255, 255, 255, .05);
+  --line-soft: rgba(255, 255, 255, .11);
+  --handle: #5f5f67;
+  --fg: #f4f4f5;
+  --fg-body: #f4f4f5;
+  --fg-label: #a8a8b0;
+  --fg-value: #f4f4f5;
+  --fg-muted: #a8a8b0;
+  --fg-faint: #8e8e96;
+  --seg-active-bg: #262626;
+  --seg-active-fg: #f4f4f5;
+  --inverse-bg: #f4f4f5;
+  --inverse-fg: #0a0a0b;
+  --tl-bar-idle: #1d1d1f;
+  --tl-bar-idle-fg: #a8a8b0;
+  --dock-bg: #171717; --dock-item: #262626; --dock-item-hover: #303030; --dock-icon: #d4d4d4;
+  --dock-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 16px 48px -12px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .06);
+  --studio-focus: #f4f4f5;
+  --studio-card-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+
+:root[data-ui="studio"] body, :root[data-ui="studio"] .app, :root[data-ui="studio"] .settings-dialog, :root[data-ui="studio"] .home-shell {
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+:root[data-ui="studio"] kbd, :root[data-ui="studio"] code, :root[data-ui="studio"] pre, :root[data-ui="studio"] .code-editor-field textarea, :root[data-ui="studio"] .code-editor-gutter { font-family: "Geist Mono", ui-monospace, Menlo, monospace; }
+
+/* cards: near-invisible outline, soft lift */
+:root[data-ui="studio"] .card { border-color: var(--line); box-shadow: var(--studio-card-shadow); }
+
+/* neutral chrome: the accent never colours navigation, tabs or buttons */
+:root[data-ui="studio"] :focus-visible { outline: 2px solid var(--studio-focus); outline-offset: 2px; }
+:root[data-ui="studio"] .rail-item.active { background: var(--dock-item); color: var(--fg); }
+:root[data-ui="studio"] .rail-item:hover, :root[data-ui="studio"] .rail-settings:hover { background: var(--dock-item-hover); color: var(--fg); }
+:root[data-ui="studio"] .inspector-tab.active { background: var(--dock-item); color: var(--fg); box-shadow: none; }
+:root[data-ui="studio"] .inspector-tab:hover { background: var(--dock-item-hover); }
+:root[data-ui="studio"] .settings-segment, :root[data-ui="studio"] .segmented, :root[data-ui="studio"] .pills, :root[data-ui="studio"] .icon-segmented, :root[data-ui="studio"] .media-fit-pills { background: var(--dock-bg); border-radius: 999px; }
+:root[data-ui="studio"][data-theme="light"] .settings-segment, :root[data-ui="studio"][data-theme="light"] .segmented, :root[data-ui="studio"][data-theme="light"] .pills, :root[data-ui="studio"][data-theme="light"] .icon-segmented, :root[data-ui="studio"][data-theme="light"] .media-fit-pills { background: var(--dock-item); }
+:root[data-ui="studio"] .settings-segment button[aria-pressed=true], :root[data-ui="studio"] .seg.active, :root[data-ui="studio"] .pill.active, :root[data-ui="studio"] .icon-seg.active, :root[data-ui="studio"] .media-fit-pills button.active { background: var(--seg-active-bg); color: var(--seg-active-fg); box-shadow: none; }
+:root[data-ui="studio"][data-theme="light"] .seg.active, :root[data-ui="studio"][data-theme="light"] .pill.active, :root[data-ui="studio"][data-theme="light"] .icon-seg.active, :root[data-ui="studio"][data-theme="light"] .media-fit-pills button.active, :root[data-ui="studio"][data-theme="light"] .settings-segment button[aria-pressed=true] { box-shadow: 0 1px 2px rgba(10, 10, 12, .12); }
+:root[data-ui="studio"] .media-fit-pills button, :root[data-ui="studio"] .seg, :root[data-ui="studio"] .pill, :root[data-ui="studio"] .icon-seg { border-radius: 999px; }
+:root[data-ui="studio"] .tpl-card.active { border-color: var(--fg); box-shadow: 0 0 0 1px var(--fg); }
+:root[data-ui="studio"] .tpl-card.active .tpl-card-label { color: var(--fg); }
+
+/* buttons: filled pills in the dock material; the main action is solid */
+:root[data-ui="studio"] .btn { border-radius: 999px; padding: 0 16px; background: var(--dock-item); color: var(--fg); font-weight: 500; }
+:root[data-ui="studio"] .btn:hover { background: var(--dock-item-hover); }
+:root[data-ui="studio"] .export-btn, :root[data-ui="studio"] .btn.primary, :root[data-ui="studio"] .btn.solid, :root[data-ui="studio"] .btn.primary:hover, :root[data-ui="studio"] .btn.solid:hover { background: var(--inverse-bg); color: var(--inverse-fg); border-radius: 999px; }
+:root[data-ui="studio"] .btn:disabled, :root[data-ui="studio"] .btn.solid:disabled { opacity: .4; cursor: default; }
+:root[data-ui="studio"] .upload, :root[data-ui="studio"] .dropzone { border-radius: 999px; background: var(--dock-item); color: var(--fg); }
+:root[data-ui="studio"] .upload:hover { background: var(--dock-item-hover); }
+:root[data-ui="studio"] .settings-close { border-radius: 50%; background: var(--dock-item); }
+:root[data-ui="studio"] .progress-bar > div { background: var(--fg); }
+
+:root[data-ui="studio"] .alignment-toolbar button[aria-pressed=true], :root[data-ui="studio"] .preview-navigation button[aria-pressed=true], :root[data-ui="studio"] .home-view-toggle button[aria-pressed=true] { color: var(--fg); background: var(--dock-item); }
+:root[data-ui="studio"] .tpl-foot .btn { height: var(--ctl-h); padding: 0 16px; border: 1px dashed var(--line-soft); background: transparent; color: var(--fg-muted); font-size: var(--fs-ui); }
+:root[data-ui="studio"] .tpl-foot .btn:hover { background: var(--dock-item); border-color: transparent; color: var(--fg); }
+
+/* fields: filled, no outline; focus lights the fill and a thin line */
+:root[data-ui="studio"] .field, :root[data-ui="studio"] .calc-field, :root[data-ui="studio"] .strack { background: var(--card-inset); border-radius: 8px; }
+:root[data-ui="studio"] .calc-field[data-editing=true]:not([data-invalid=true]), :root[data-ui="studio"] .settings-dimension-input:focus-within { border-color: var(--line-soft); box-shadow: none; background: var(--card-thumb); }
+:root[data-ui="studio"] .strack:hover .shandle, :root[data-ui="studio"] .strack:focus-visible .shandle { background: var(--fg); }
+:root[data-ui="studio"] .settings-row input[type=checkbox], :root[data-ui="studio"] .settings-visibility input[type=checkbox] { accent-color: var(--fg); }
+
+/* settings: the selected section in the dock material */
+:root[data-ui="studio"] .settings-tab[aria-selected=true] { background: var(--dock-item); color: var(--fg); }
+:root[data-ui="studio"] .settings-tab[aria-selected=true] .settings-tab-icon { background: var(--dock-item-hover); color: var(--fg); }
+:root[data-ui="studio"] .settings-tab.featured .settings-tab-icon { color: var(--fg); }
+:root[data-ui="studio"] .settings-surface { border-color: var(--line); box-shadow: var(--dock-shadow); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-ui="studio"] * { transition-duration: .01ms !important; }
+}

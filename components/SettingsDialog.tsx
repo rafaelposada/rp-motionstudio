@@ -35,9 +35,9 @@ function AutosaveSettings({ pt }: { pt: boolean }) {
 }
 
 function AccentPicker({ pt }: { pt: boolean }) {
-  const color = useUIStore((s) => s.accentColor);
+  const color = useUIStore((s) => s.accentColor), uiStyle = useUIStore((s) => s.uiStyle);
   const setColor = useUIStore((s) => s.setAccentColor);
-  return <div className="settings-row settings-accent-row"><div><strong>{tx(pt, 'Cor de acento', 'Accent color')}</strong><p>{tx(pt, 'Seleções, foco e ações principais. Suas mídias mantêm as cores originais.', 'Selections, focus and primary actions. Your media keeps its original colors.')}</p></div>
+  return <div className="settings-row settings-accent-row"><div><strong>{tx(pt, 'Cor de acento', 'Accent color')}</strong><p>{uiStyle === 'studio' ? tx(pt, 'No visual Studio, marca só a seleção, a agulha e a linha do tempo. Suas mídias mantêm as cores originais.', 'In the Studio look it marks only the selection, playhead and timeline. Your media keeps its original colors.') : tx(pt, 'Seleções, foco e ações principais. Suas mídias mantêm as cores originais.', 'Selections, focus and primary actions. Your media keeps its original colors.')}</p></div>
     <div className="settings-accent-controls"><div className="accent-swatches" role="group" aria-label={tx(pt, 'Cores de acento', 'Accent colors')}>{ACCENT_PRESETS.map((preset) => <button type="button" key={preset.color} style={{ backgroundColor: preset.color }} aria-label={tx(pt, preset.pt, preset.en)} title={tx(pt, preset.pt, preset.en)} aria-pressed={color === preset.color} onClick={() => setColor(preset.color)}><span aria-hidden="true">{color === preset.color ? '✓' : ''}</span></button>)}</div>
       <div className="accent-custom"><label><span>{tx(pt, 'Personalizada', 'Custom')}</span><input type="color" aria-label={tx(pt, 'Cor de acento personalizada', 'Custom accent color')} value={color} onInput={(event) => setColor(event.currentTarget.value)} onChange={(event) => setColor(event.target.value)} /></label><code>{color.toUpperCase()}</code><button type="button" className="settings-auto" onClick={() => setColor(DEFAULT_ACCENT)}>{tx(pt, 'Restaurar azul', 'Reset to blue')}</button></div>
     </div>
@@ -84,7 +84,7 @@ const SECTIONS: Section[] = [
 
 export default function SettingsDialog() {
   const { locale } = useI18n(); const pt = locale === 'pt';
-  const appearance = useUIStore((s) => s.appearance); const grid = useUIStore((s) => s.showStageGrid);
+  const appearance = useUIStore((s) => s.appearance); const uiStyle = useUIStore((s) => s.uiStyle); const grid = useUIStore((s) => s.showStageGrid);
   const leftHidden = useUIStore((s) => s.leftCollapsed); const rightHidden = useUIStore((s) => s.rightCollapsed);
   const preferencesError = useUIStore((s) => s.preferencesError);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -129,6 +129,7 @@ export default function SettingsDialog() {
       <div className="settings-body" role="tabpanel" id="settings-content" aria-labelledby={`settings-tab-${tab}`}>
         {tab === 'interface' && <><h3>{tx(pt, 'Seu espaço de trabalho', 'Your workspace')}</h3><p className="settings-description">{tx(pt, 'Preferências desta instalação. Seus projetos não são alterados.', 'Preferences for this installation. Your projects stay unchanged.')}</p>
           <div className="settings-row"><div><strong>{tx(pt, 'Aparência', 'Appearance')}</strong><p>{tx(pt, 'Sistema acompanha a aparência do macOS.', 'System follows the macOS appearance.')}</p></div><div className="settings-segment">{(['system', 'dark', 'light'] as const).map((value) => <button key={value} aria-pressed={appearance === value} onClick={() => useUIStore.getState().setAppearance(value)}>{value === 'system' ? (tx(pt, 'Sistema', 'System')) : value === 'dark' ? (tx(pt, 'Escuro', 'Dark')) : (tx(pt, 'Claro', 'Light'))}</button>)}</div></div>
+          <div className="settings-row"><div><strong>{tx(pt, 'Visual', 'Look')}</strong><p>{tx(pt, 'Studio segue o design system do Rafael Posada® Studio: preto e cinza, Geist e cor só onde informa.', 'Studio follows the Rafael Posada® Studio design system: black and grey, Geist, and colour only where it informs.')}</p></div><div className="settings-segment">{(['studio', 'classic'] as const).map((value) => <button key={value} aria-pressed={uiStyle === value} onClick={() => useUIStore.getState().setUiStyle(value)}>{value === 'studio' ? 'Studio' : tx(pt, 'Clássico', 'Classic')}</button>)}</div></div>
           <AccentPicker pt={pt} />
           <label className="settings-row"><span><strong>{tx(pt, 'Idioma', 'Language')}</strong><span className="settings-description">{tx(pt, 'Troca imediata, sem reiniciar.', 'Changes immediately, no restart needed.')}</span></span><select className="field" aria-label={tx(pt, 'Idioma da interface', 'Interface language')} value={locale} onChange={(event) => useUIStore.getState().setLocale(event.target.value === 'pt' ? 'pt' : event.target.value === 'es' ? 'es' : 'en')}><option value="pt">Português</option><option value="es">Español</option><option value="en">English</option></select></label>
           <label className="settings-row"><span><strong>{tx(pt, 'Grade de fundo', 'Background grid')}</strong><span className="settings-description">{tx(pt, 'Pontos ao redor da composição. Não aparecem na exportação.', 'Dots around the canvas. Not included in exports.')}</span></span><input type="checkbox" checked={grid} onChange={(event) => useUIStore.getState().setShowStageGrid(event.target.checked)} /></label>
