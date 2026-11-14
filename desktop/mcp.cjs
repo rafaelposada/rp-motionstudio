@@ -6,6 +6,7 @@
 const http = require('node:http'), fs = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto');
 
 const PORT = 47311;
+const RETRY_MS = Number(process.env.RP_MCP_RETRY_MS) || 5000;
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const IMAGE = /\.(png|jpe?g|webp|gif|avif|bmp|heic)$/i, VIDEO = /\.(mp4|mov|m4v|webm)$/i;
 const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', bmp: 'image/bmp', heic: 'image/heic', mp4: 'video/mp4', mov: 'video/quicktime', m4v: 'video/mp4', webm: 'video/webm' };
@@ -57,7 +58,7 @@ async function readMedia(paths) {
 }
 
 function createMcpServer({ request, version, configPath, onActivity, port = PORT }) {
-  let server = null, config = null;
+  let server = null, config = null, retryTimer = null, stopped = false;
 
   async function loadConfig() {
     try { config = JSON.parse(await fs.readFile(configPath, 'utf8')); } catch { config = null; }
@@ -121,12 +122,19 @@ function createMcpServer({ request, version, configPath, onActivity, port = PORT
   return {
     async start() {
       await loadConfig();
-      server = http.createServer((req, res) => { onRequest(req, res).catch((failure) => { try { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(failure?.message ?? failure) })); } catch {} }); });
-      server.requestTimeout = 0; server.headersTimeout = 60000;
-      await new Promise((resolve) => { server.once('error', (failure) => { server = null; resolve(failure); }); server.listen(port, '127.0.0.1', resolve); });
+      // Another program (or an older copy of the app) may hold the port at
+      // launch: keep trying quietly so the connector comes up once it is free.
+      const listen = () => new Promise((resolve) => {
+        const candidate = http.createServer((req, res) => { onRequest(req, res).catch((failure) => { try { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: String(failure?.message ?? failure) })); } catch {} }); });
+        candidate.requestTimeout = 0; candidate.headersTimeout = 60000;
+        candidate.once('error', () => resolve(false));
+        candidate.listen(port, '127.0.0.1', () => { server = candidate; resolve(true); });
+      });
+      const retry = async () => { if (stopped || server) return; if (!await listen()) retryTimer = setTimeout(retry, RETRY_MS); };
+      if (!await listen()) retryTimer = setTimeout(retry, RETRY_MS);
       return { listening: !!server?.listening, port };
     },
-    stop() { server?.close(); server = null; },
+    stop() { stopped = true; clearTimeout(retryTimer); server?.close(); server = null; },
     status() { return { enabled: !!config?.enabled, listening: !!server?.listening, port, configPath }; },
     async setEnabled(enabled) { config.enabled = !!enabled; await fs.writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 }); return this.status(); },
   };

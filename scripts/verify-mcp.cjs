@@ -39,6 +39,16 @@ const {normalizeCode,codeErrorLine,CODE_EXAMPLE}=require('../lib/codeLayer');
     await mcp.setEnabled(true);
     await assert.rejects(readMedia([path.join(dir,'nota.txt')]),/Formato não aceito/);
   }finally{mcp.stop();fs.rmSync(dir,{recursive:true,force:true});}
+  // A port held at launch is retried until it frees up.
+  {
+    const blocker=require('node:http').createServer();await new Promise(r=>blocker.listen(port,'127.0.0.1',r));
+    const dir2=fs.mkdtempSync(path.join(os.tmpdir(),'rp-mcp-')),late=createMcpServer({version:'test',configPath:path.join(dir2,'mcp.json'),port,request:async()=>({})});
+    assert.equal((await late.start()).listening,false);
+    await new Promise(r=>blocker.close(r));
+    await new Promise(r=>setTimeout(r,6000));
+    assert.equal(late.status().listening,true,'The connector comes up once the port is free');
+    late.stop();fs.rmSync(dir2,{recursive:true,force:true});
+  }
   // Code layers: sizes and source are bounded, errors point at the user's line.
   const code=normalizeCode({engine:'webgl',width:99999,height:-4,source:'x'.repeat(300000),params:{a:1,b:{}}});
   assert.equal(code.engine,'webgl');assert.equal(code.width,4096);assert.equal(code.height,16);assert.equal(code.source.length,200000);assert.deepEqual(code.params,{a:1});
