@@ -169,6 +169,21 @@ input[type=range] { -webkit-appearance: none; appearance: none; background: none
 .settings-shortcuts > div { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .settings-shortcuts dd { margin: 0; }
 .settings-shortcuts kbd { background: var(--card-inset); border: 1px solid var(--line); padding: 4px 7px; border-radius: 5px; font-size: 10px; color: var(--fg-label); }
+.modal.connect-dialog { width: min(600px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 28px; display: flex; flex-direction: column; gap: 16px; border-radius: 16px; }
+.connect-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.connect-head h2 { margin: 6px 0 0; font-size: 21px; line-height: 28px; font-weight: 600; letter-spacing: -.02em; text-wrap: balance; }
+.connect-lead, .connect-how { margin: 0; font-size: 13px; line-height: 20px; color: var(--fg-muted); }
+.connect-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-label); }
+.connect-status span { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-faint); flex: none; }
+.connect-status.on span { background: #34c759; }
+.connect-status.off span, .connect-status.busy span { background: #ff9f0a; }
+.connect-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.connect-code { display: flex; flex-direction: column; gap: 8px; }
+.connect-code pre { margin: 0; padding: 14px 16px; border-radius: 12px; background: var(--card-inset); color: var(--fg-body); font: 11px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; max-height: 220px; overflow: auto; }
+.connect-code .btn { align-self: flex-start; }
+.connect-example { display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 12px; border: 1px solid var(--line); }
+.connect-example p { margin: 0; font-size: 13px; line-height: 20px; color: var(--fg); }
+.connect-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--fg-faint); }
 .claude-connect { display: flex; flex-direction: column; gap: 6px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .claude-connect-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .claude-connect strong { font-size: 12px; font-weight: 500; }

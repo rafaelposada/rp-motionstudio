@@ -73,11 +73,25 @@ async function relay(message) {
   return null;
 }
 
+// The handshake and the tool list are answered here, so Claude and Codex
+// connect at once; the app only opens when a tool is actually used.
+const { TOOLS, PROTOCOLS, INSTRUCTIONS } = require('./mcp.cjs');
+const version = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version; } catch { return 'desktop'; } })();
+function local(message) {
+  if (message?.id === undefined) return message?.method?.startsWith('notifications/') ? { handled: true, value: null } : null;
+  const reply = (result) => ({ handled: true, value: { jsonrpc: '2.0', id: message.id, result } });
+  if (message.method === 'initialize') return reply({ protocolVersion: PROTOCOLS.includes(message.params?.protocolVersion) ? message.params.protocolVersion : PROTOCOLS[0], capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'rp-motionstudio', title: 'RP MotionStudio', version }, instructions: INSTRUCTIONS });
+  if (message.method === 'tools/list') return reply({ tools: TOOLS });
+  if (message.method === 'ping') return reply({});
+  return null;
+}
 const out = (value) => { if (value) process.stdout.write(JSON.stringify(value) + '\n'); };
 readline.createInterface({ input: process.stdin, crlfDelay: Infinity }).on('line', (line) => {
   if (!line.trim()) return;
   let message;
   try { message = JSON.parse(line); } catch { out({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); return; }
+  const answered = local(message);
+  if (answered) { out(answered.value); return; }
   void relay(message).then(out, (error) => out({ jsonrpc: '2.0', id: message?.id ?? null, error: { code: -32603, message: String(error?.message ?? error) } }));
 });
 process.stdin.on('end', () => process.exit(0));

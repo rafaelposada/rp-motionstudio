@@ -140,4 +140,4 @@ function createMcpServer({ request, version, configPath, onActivity, port = PORT
   };
 }
 
-module.exports = { createMcpServer, TOOLS, PORT, readMedia };
+module.exports = { createMcpServer, TOOLS, PORT, PROTOCOLS, INSTRUCTIONS, readMedia };

@@ -130,6 +130,17 @@
 :root[data-ui="studio"] .tpl-foot .btn { height: var(--ctl-h); padding: 0 16px; border: 1px dashed var(--line-soft); background: transparent; color: var(--fg-muted); font-size: var(--fs-ui); }
 :root[data-ui="studio"] .tpl-foot .btn:hover { background: var(--dock-item); border-color: transparent; color: var(--fg); }
 
+/* home: same neutral chrome; the format thumbnails are drawn in grey */
+:root[data-ui="studio"] .home-shell { --accent-subtle: var(--dock-item); }
+:root[data-ui="studio"] .home-sidebar nav button.active { color: var(--fg); background: var(--dock-item); }
+:root[data-ui="studio"] .home-resume-icon { color: var(--fg); background: var(--dock-item); }
+:root[data-ui="studio"] .home-resume:hover, :root[data-ui="studio"] .home-project:hover, :root[data-ui="studio"] .home-all-projects:hover, :root[data-ui="studio"] .home-quickstart-card:hover:not(:disabled) { border-color: var(--line-soft); color: var(--fg); }
+:root[data-ui="studio"] .home-search:focus-within, :root[data-ui="studio"] .home-new-dialog .field:focus { border-color: var(--line-soft); box-shadow: none; }
+:root[data-ui="studio"] .home-view-toggle button[aria-pressed=true] { background: var(--dock-item); color: var(--fg); }
+:root[data-ui="studio"] .home-current-dot { background: var(--fg); }
+:root[data-ui="studio"] .home-shell :focus-visible, :root[data-ui="studio"] .home-new-dialog :focus-visible, :root[data-ui="studio"] .rail-logo:focus-visible { outline-color: var(--studio-focus); }
+:root[data-ui="studio"] .home-quickstart-frame i { background: linear-gradient(135deg, var(--fg-faint), var(--card-thumb)); }
+
 /* fields: filled, no outline; focus lights the fill and a thin line */
 :root[data-ui="studio"] .field, :root[data-ui="studio"] .calc-field, :root[data-ui="studio"] .strack { background: var(--card-inset); border-radius: 8px; }
 :root[data-ui="studio"] .calc-field[data-editing=true]:not([data-invalid=true]), :root[data-ui="studio"] .settings-dimension-input:focus-within { border-color: var(--line-soft); box-shadow: none; background: var(--card-thumb); }

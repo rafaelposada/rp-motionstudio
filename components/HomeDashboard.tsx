@@ -15,6 +15,7 @@ import { AddIcon, BackIcon, LibraryIcon, ProjectsIcon } from './EditorIcons';
 import { tx } from '@/lib/tx';
 import { QUICK_STARTS, startFromGoal } from '@/lib/quickStart';
 import { startGuidedTour } from './GuidedTour';
+import { openConnectDialog } from '@/lib/aiConnect';
 
 const SettingsDialog = dynamic(() => import('./SettingsDialog'), { ssr: false });
 
@@ -117,6 +118,7 @@ export default function HomeDashboard() {
         <div className="home-welcome-actions">
           {active && <button className="home-resume" disabled={busy} onClick={() => enterProject(active.id)}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m6 3 9 6-9 6Z" fill="currentColor" /></svg></span><span><small>{tx(pt, 'CONTINUAR EDITANDO', 'CONTINUE EDITING')}</small><strong>{active.name}</strong></span><span aria-hidden="true">↗</span></button>}
           <button className="home-resume home-tour" disabled={busy || !booted} onClick={() => { if (active) enterProject(active.id); else startFromGoal(QUICK_STARTS[0], pt); startGuidedTour(); }}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="m11.8 6.2-1.7 3.9-3.9 1.7 1.7-3.9z" fill="currentColor" /></svg></span><span><small>{tx(pt, 'PRIMEIRA VEZ AQUI?', 'FIRST TIME HERE?')}</small><strong>{tx(pt, 'Tutorial guiado', 'Guided tutorial')}</strong></span><span aria-hidden="true">→</span></button>
+          <button className="home-resume home-connect" onClick={openConnectDialog}><span className="home-resume-icon"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M6.5 11.5 11.5 6.5M7.8 4.6l1.1-1.1a3.2 3.2 0 0 1 4.6 4.6l-1.1 1.1M10.2 13.4l-1.1 1.1a3.2 3.2 0 0 1-4.6-4.6l1.1-1.1" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg></span><span><small>{tx(pt, 'CLAUDE E CODEX', 'CLAUDE AND CODEX')}</small><strong>{tx(pt, 'Conectar ao app', 'Connect to the app')}</strong></span><span aria-hidden="true">→</span></button>
         </div>
       </section>
       {view === 'recent' && <section className="home-quickstart" aria-labelledby="home-quickstart-title">

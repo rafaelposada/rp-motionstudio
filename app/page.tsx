@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import WelcomeDialog from '@/components/WelcomeDialog';
+import ConnectAIDialog from '@/components/ConnectAIDialog';
 import ThemeFavicon from '@/components/ThemeFavicon';
 import HomeDashboard from '@/components/HomeDashboard';
 import { startSceneAutosave } from '@/lib/scenePersist';
@@ -102,6 +103,7 @@ export default function Home() {
       <GuidedTour />
       {nav === 'home' ? <HomeDashboard /> : mode === 'mobile' ? <MobileEditor /> : <DesktopEditor />}
       <WelcomeDialog />
+      <ConnectAIDialog />
     </>
   );
 }
