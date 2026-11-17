@@ -3,6 +3,7 @@
 
 import { useRef, useState } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
+import { editSelectedModels } from '@/lib/compositionEditing';
 import {
   EASING_PRESETS,
   EASING_MAP,
@@ -44,7 +45,7 @@ function MiniCurve({ spec }: { spec: EasingSpec }) {
 export default function EasingPanel() {
   const { locale, t, label } = useI18n();
   const easing = useSceneStore((s) => s.easing);
-  const setEasing = useSceneStore((s) => s.setEasing);
+  const setEasing = (easing: EasingSpec) => editSelectedModels(useSceneStore.getState().activeTrackId, () => ({ easing }));
   const resetValues = useSceneStore((s) => s.resetValues);
 
   const activePreset = EASING_MAP[easing.id];

@@ -11,7 +11,7 @@ import {importProjectPackage,saveProjectPackage} from '@/lib/projectPackage';
 import {pendingAssetTransactions} from '@/lib/assetDb';
 import {useHistoryStore} from '@/store/useHistoryStore';
 import {compositionOrder} from '@/lib/composition';
-import {arrangeCompositionLayers} from '@/lib/compositionActions';
+import {arrangeCompositionLayers,duplicateCompositionLayers,groupCompositionLayers,selectedCompositionIds} from '@/lib/compositionActions';
 import {appChoice,type AppChoice} from '@/lib/appDialog';
 import { tx } from '@/lib/tx';
 import {runClaudeCommand,type MediaFile} from '@/lib/claudeBridge';
@@ -30,7 +30,7 @@ export default function DesktopSystem() {
       let ownsWork=false;
       try {
         // Commit inline text and numeric drafts before deciding what to save.
-        if(!['undo','redo','select-all','arrange-front','arrange-back','claude'].includes(action)&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
+        if(!['undo','redo','select-all','arrange-front','arrange-back','group','ungroup','duplicate','claude'].includes(action)&&document.activeElement instanceof HTMLElement)document.activeElement.blur();
         const project=activeProjectId();
         if(action==='status'){
           const busy=working||desktopBusy()||pendingAssetTransactions()>0;
@@ -58,10 +58,15 @@ export default function DesktopSystem() {
           else if(!useUIStore.getState().settingsOpen&&useUIStore.getState().nav!=='home'){
             const scene=useSceneStore.getState();useUIStore.getState().setLayerSelection(compositionOrder(scene.tracks,scene.textLayers).map(layer=>layer.id));
           }
-        }else if(action==='arrange-front'||action==='arrange-back'){
+        }else if(['arrange-front','arrange-back','group','ungroup','duplicate'].includes(action)){
           const ui=useUIStore.getState(),active=document.activeElement;
           const typing=active instanceof HTMLElement&&active.closest('input,textarea,select,[contenteditable=true]');
-          if(!typing&&!ui.settingsOpen&&ui.nav!=='home'&&!document.querySelector('dialog[open]'))arrangeCompositionLayers(ui.selectedLayerIds,action==='arrange-front'?'front':'back');
+          if(!typing&&!ui.settingsOpen&&ui.nav!=='home'&&!document.querySelector('dialog[open]')){
+            const ids=selectedCompositionIds();
+            if(action==='duplicate')duplicateCompositionLayers(ids);
+            else if(action==='group'||action==='ungroup')groupCompositionLayers(ids,action==='ungroup');
+            else arrangeCompositionLayers(ids,action==='arrange-front'?'front':'back');
+          }
         }else if(action==='settings')useUIStore.getState().setSettingsOpen(true);
         else if(action==='save-local'){
           flushScene();if(getSaveState().status!=='saved')throw Error(tx(pt, 'Não foi possível salvar. A janela será mantida aberta.', 'Save failed. The window will remain open.'));

@@ -20,6 +20,8 @@ import { loadPreviewImage } from '@/lib/textureLoad';
 import ImageThumbnail from './ImageThumbnail';
 import { tx, txf } from '@/lib/tx';
 import { useUIStore } from '@/store/useUIStore';
+import { absoluteMediaDropPoint, addAbsoluteMedia, type MediaPoint } from '@/lib/absoluteMedia';
+import VideoStartControl from './VideoStartControl';
 
 const SHAPE_OPTIONS = ['auto', ...Object.keys(CARD_SHAPES)];
 const FIT_OPTIONS: MediaFit[] = ['fill', 'fit', 'stretch'];
@@ -87,6 +89,7 @@ function CropPopover({ asset, onClose }: { asset: AssetItem; onClose: () => void
             </button>
           ))}
         </div>
+        {isVideoSource(asset.url, asset.kind) && <VideoStartControl url={asset.url} value={asset.videoStart} onChange={value => useSceneStore.getState().setAssetVideoStart(asset.id, value)} />}
         <MediaFraming asset={asset} />
         <span className="crop-pop-title">{t('focalPoint')}</span>
         <div className={`crop-grid ${fit !== 'fill' ? 'disabled' : ''}`}>
@@ -116,7 +119,7 @@ function MobileCropSheet({ asset, onClose }: { asset: AssetItem; onClose: () => 
   const focus = asset.crop ?? DEFAULT_FOCUS;
   const fit = asset.fit ?? 'fill';
   return (
-    <MobileSheet title={t('mediaFit')} onClose={onClose}>
+    <MobileSheet title={isVideoSource(asset.url, asset.kind) ? tx(locale === 'pt', 'Preenchimento e início do vídeo', 'Fit and video start') : t('mediaFit')} onClose={onClose}>
       <div className="media-fit-pills mobile-media-fit">
         {FIT_OPTIONS.map((mode) => (
           <button
@@ -131,7 +134,8 @@ function MobileCropSheet({ asset, onClose }: { asset: AssetItem; onClose: () => 
           </button>
         ))}
       </div>
-      <MediaFraming asset={asset} />
+      {isVideoSource(asset.url, asset.kind) && <VideoStartControl url={asset.url} value={asset.videoStart} onChange={value => useSceneStore.getState().setAssetVideoStart(asset.id, value)} />}
+        <MediaFraming asset={asset} />
       <span className="crop-pop-title">{t('focalPoint')}</span>
       <div className={`mobile-crop-grid ${fit !== 'fill' ? 'disabled' : ''}`}>
         {FOCUS_CELLS.map((cell) => (
@@ -270,6 +274,7 @@ export default function AssetsPanel() {
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const [heavyNotice, setHeavyNotice] = useState('');
+  const [placementStatus, setPlacementStatus] = useState('');
   const [cropOpenId, setCropOpenId] = useState<string | null>(null);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -279,7 +284,7 @@ export default function AssetsPanel() {
   // Pointer-based row drag (HTML5 DnD is unreliable: img elements hijack the
   // drag and re-renders can cancel it). Drag arms after a 4px move so plain
   // clicks (replace / hide / remove) keep working.
-  const drag = useRef<{ idx: number; startY: number; active: boolean } | null>(null);
+  const drag = useRef<{ idx: number; startX: number; startY: number; active: boolean } | null>(null);
 
   const rowIndexAt = (x: number, y: number): number | null => {
     const row = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-slot-idx]');
@@ -290,14 +295,14 @@ export default function AssetsPanel() {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest('button')) return; // eye / remove clicks
     e.preventDefault(); // stop native image drag + text selection
-    drag.current = { idx: i, startY: e.clientY, active: false };
+    drag.current = { idx: i, startX: e.clientX, startY: e.clientY, active: false };
   };
 
   const onRowPointerMove = (e: React.PointerEvent<HTMLLIElement>) => {
     const d = drag.current;
     if (!d) return;
     if (!d.active) {
-      if (Math.abs(e.clientY - d.startY) < 4) return;
+      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 4) return;
       d.active = true;
       setDragIdx(d.idx);
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -306,12 +311,23 @@ export default function AssetsPanel() {
     setOverIdx(over !== null && over !== d.idx ? over : null);
   };
 
+  const placeAsset = (asset: AssetItem, point: MediaPoint) => {
+    setPlacementStatus(tx(locale === 'pt', 'Carregando mídia…', 'Loading media…'));
+    void addAbsoluteMedia([asset], point).then(() => setPlacementStatus(''), error => setPlacementStatus(error.message));
+  };
+
+  const suppressAssetClick = useRef(false);
   const onRowPointerUp = (e: React.PointerEvent<HTMLLIElement>) => {
     const d = drag.current;
     drag.current = null;
     if (!d?.active) return;
+    suppressAssetClick.current = true;
+    setTimeout(() => { suppressAssetClick.current = false; }, 0);
+    const point = absoluteMediaDropPoint(e.clientX, e.clientY), asset = assets[d.idx];
     const over = rowIndexAt(e.clientX, e.clientY);
-    if (over !== null && over !== d.idx) {
+    if (point && asset) {
+      placeAsset(asset, point);
+    } else if (over !== null && over !== d.idx) {
       // dropping past the filled range (an empty slot) moves the card to the end
       reorderAssets(d.idx, Math.min(over, assets.length - 1));
     }
@@ -383,8 +399,13 @@ export default function AssetsPanel() {
     .map((asset, index) => asset && asset.origin !== 'demo' ? { asset, index } : null)
     .filter((entry): entry is { asset: AssetItem; index: number } => entry !== null);
 
-  const finishMobileDrag = ({ active, over }: DragEndEvent) => {
+  const finishMobileDrag = ({ active, over, activatorEvent, delta }: DragEndEvent) => {
     setActiveDragId(null);
+    const entry = sortableEntries.find(({ asset }) => asset.id === active.id);
+    if (entry && activatorEvent instanceof PointerEvent) {
+      const point = absoluteMediaDropPoint(activatorEvent.clientX + delta.x, activatorEvent.clientY + delta.y);
+      if (point) { placeAsset(entry.asset, point); return; }
+    }
     if (!over || active.id === over.id) return;
     const from = sortableEntries.find((entry) => entry.asset.id === active.id)?.index;
     const to = sortableEntries.find((entry) => entry.asset.id === over.id)?.index;
@@ -412,6 +433,7 @@ export default function AssetsPanel() {
           <input ref={inputRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => e.target.files && ingest(e.target.files)} />
         </div>
 
+        {placementStatus && <p className="media-heavy-notice" role="status"><span>{placementStatus}</span><button type="button" aria-label="×" onClick={() => setPlacementStatus('')}>×</button></p>}
         {heavyNotice && <p className="media-heavy-notice" role="status"><span>{heavyNotice}</span><button type="button" aria-label="×" onClick={() => setHeavyNotice('')}>×</button></p>}
         {preparation.pending > 0 && (
           <div className="media-preparing" role="status" aria-live="polite">
@@ -547,6 +569,7 @@ export default function AssetsPanel() {
                 onPointerMove={onRowPointerMove}
                 onPointerUp={onRowPointerUp}
                 onPointerCancel={onRowPointerCancel}
+                onClickCapture={e => { if (suppressAssetClick.current) { e.preventDefault(); e.stopPropagation(); } }}
               >
                 <span className="asset-idx">{i + 1}</span>
                 {!a.url ? (
@@ -565,9 +588,9 @@ export default function AssetsPanel() {
                     playsInline
                     loop
                     preload="metadata"
-                    onLoadedMetadata={(e) => { try { e.currentTarget.currentTime = 0.05; } catch { /* noop */ } }}
+                    onLoadedMetadata={(e) => { try { e.currentTarget.currentTime = a.videoStart ?? 0.05; } catch { /* noop */ } }}
                     onMouseEnter={(e) => { e.currentTarget.play().catch(() => { /* noop */ }); }}
-                    onMouseLeave={(e) => { const v = e.currentTarget; v.pause(); try { v.currentTime = 0.05; } catch { /* noop */ } }}
+                    onMouseLeave={(e) => { const v = e.currentTarget; v.pause(); try { v.currentTime = a.videoStart ?? 0.05; } catch { /* noop */ } }}
                     onClick={() => openSlotPicker(i)}
                     title={tx(locale === 'pt', 'Substituir', 'Replace')}
                   />
@@ -575,7 +598,7 @@ export default function AssetsPanel() {
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <ImageThumbnail url={a.url} name={a.name} onClick={() => openSlotPicker(i)} title={tx(locale === 'pt', 'Substituir', 'Replace')} />
                 )}
-                <span className="asset-name" title={a.name}>{a.name}</span>
+                <span className="asset-name" title={tx(locale === 'pt', 'Arraste para a tela para criar uma camada de mídia', 'Drag to the canvas to create a media layer')}>{a.name}</span>
                 <span className="asset-mobile-order" aria-label={`Reorder ${a.name}`}>
                   <button
                     className="icon-btn"
@@ -598,7 +621,7 @@ export default function AssetsPanel() {
                 </span>
                 <button
                   className={`icon-btn ${a.crop && (a.crop.x !== 0.5 || a.crop.y !== 0.5) ? 'crop-set' : ''}`}
-                  title={t('mediaFit')}
+                  title={isVideoSource(a.url, a.kind) ? tx(locale === 'pt', 'Preenchimento e início do vídeo', 'Fit and video start') : t('mediaFit')}
                   onClick={() => setCropOpenId(cropOpenId === a.id ? null : a.id)}
                 >
                   <CropIcon />

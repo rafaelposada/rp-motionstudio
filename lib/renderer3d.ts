@@ -19,14 +19,14 @@ import { prepareCodeFrames, releaseCodeRunners, setCodeFps } from './codeLayer';
 import { gradientFor, gradientCanvas } from './backgroundGradient';
 import { compositionOrder } from '@/lib/composition';
 import { cardAspectFor, coverCrop, cropKey } from '@/lib/crop';
-import { advanceVideoForExport, createCardVideo, isVideoSource, prepareVideoForSequentialExport } from '@/lib/videoTexture';
+import { advanceVideoForExport, createCardVideo, isVideoSource, prepareVideoForSequentialExport, requestFiniteVideoDuration, videoPlaybackTime } from '@/lib/videoTexture';
 import type { IRenderer } from '@/lib/rendererTypes';
 import type { CameraPose, LayerTransform3D } from '@/lib/types';
-import { resolveTrackTime, trackAssetIndices, type MotionTrack } from '@/lib/tracks';
+import { resolveTrackTime, trackTransition, trackAssetIndices, type MotionTrack } from '@/lib/tracks';
 import type { SceneState } from '@/store/useSceneStore';
 import { placeholderFill, placeholderHex, placeholderLabel } from '@/lib/placeholderPalette';
 import { previewResolution } from '@/lib/previewResolution';
-import { reelVideoTime, syncReelVideo } from '@/lib/reelVideoClock';
+import { cardVideoClock, syncReelVideo } from '@/lib/reelVideoClock';
 import { setImageLighting } from '@/lib/imageLighting';
 import { renderableTracks, renderableAssetUrls, exportImageUrls } from '@/lib/renderAssets';
 import { cardOpacity } from '@/lib/cardOpacity';
@@ -138,6 +138,7 @@ export class SceneRenderer3D implements IRenderer {
   private safeLine: THREE.LineLoop | null = null;
   private composeA!: THREE.WebGLRenderTarget;
   private composeB!: THREE.WebGLRenderTarget;
+  private layerEffectTargets?: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
   private backdropTargets: [THREE.WebGLRenderTarget,THREE.WebGLRenderTarget]|null=null;
   private backdropMaterial: THREE.ShaderMaterial|null=null;
   private composeScene = new THREE.Scene();
@@ -201,6 +202,7 @@ export class SceneRenderer3D implements IRenderer {
     const rh = Math.max(1, Math.round(height * resolution));
     this.composeA?.setSize(rw, rh);
     this.composeB?.setSize(rw, rh);
+    this.layerEffectTargets?.forEach(target => target.setSize(rw, rh));
     this.backdropTargets?.forEach(target=>target.setSize(Math.max(1,Math.round(rw/4)),Math.max(1,Math.round(rh/4))));
     this.trackRTs.forEach((rt) => rt.target.setSize(rw, rh));
     this.camera.aspect = width / height;
@@ -633,6 +635,7 @@ export class SceneRenderer3D implements IRenderer {
         let video = this.videoEls.get(url);
         if (!video) {
           video = createCardVideo(url);
+          video.addEventListener('loadedmetadata', () => requestFiniteVideoDuration(video!), { once: true });
           this.videoEls.set(url, video);
           video.play().catch(() => { /* autoplay blocked — first frame only */ });
         }
@@ -830,8 +833,11 @@ export class SceneRenderer3D implements IRenderer {
     this.syncAssets();
     // live loop/hold behaviour follows the scene setting
     this.videoEls.forEach((v, url) => {
-      v.loop = s.videoEnd !== 'hold';
-      if (!this.exportVideoFrames.size) syncReelVideo(v, reelVideoTime(s, url, frame), s, this.onDirty);
+      const { elapsed, start } = cardVideoClock(s, url, frame);
+      if (!this.exportVideoFrames.size) {
+        v.loop = elapsed === undefined && s.videoEnd !== 'hold';
+        syncReelVideo(v, elapsed, s, this.onDirty, start);
+      }
     });
     this.syncScenery();
 
@@ -1089,10 +1095,11 @@ export class SceneRenderer3D implements IRenderer {
     };
     this.updateTrackCamera(rt.camera, Number(track.values.perspective ?? 100), template.camera?.(track.values, ctx));
     const path = modelPathOffset(track, frame, s.fps, s.width, s.height);
-    rt.group.position.set(track.transform.x + path.x, -(track.transform.y + path.y), 0);
-    rt.group.scale.setScalar(track.transform.scale);
-    rt.group.rotation.set(0, 0, -(track.transform.rotation * Math.PI) / 180);
-    const layerAlpha = clamp(track.opacity, 0, 1) * time.envelope;
+    const transition = trackTransition(track, frame, sceneTotal, s.fps);
+    rt.group.position.set(track.transform.x + path.x + transition.x, -(track.transform.y + path.y + transition.y), 0);
+    rt.group.scale.setScalar(track.transform.scale * transition.scale);
+    rt.group.rotation.set(0, 0, -((track.transform.rotation + transition.rotation) * Math.PI) / 180);
+    const layerAlpha = clamp(track.opacity, 0, 1) * time.envelope * transition.opacity;
     rt.opacity = layerAlpha;
     rt.blend = track.blend;
 
@@ -1209,8 +1216,10 @@ export class SceneRenderer3D implements IRenderer {
     if (this.videoEls.size === 0) return;
     const t = frame / Math.max(1, s.fps);
     await Promise.all([...this.videoEls.entries()].map(([url, v]) => {
-      const localTime = reelVideoTime(s, url, frame);
-      return localTime === null ? Promise.resolve() : advanceVideoForExport(v, localTime ?? t, s.fps, s.videoEnd);
+      const { elapsed, start } = cardVideoClock(s, url, frame);
+      if (elapsed === null) return Promise.resolve();
+      const target = videoPlaybackTime(v.duration, elapsed ?? t, start, s.videoEnd, s.fps);
+      return advanceVideoForExport(v, target, s.fps);
     }));
     this.videoEls.forEach((video, url) => {
       const snapshot = this.exportVideoFrames.get(url);
@@ -1252,19 +1261,46 @@ export class SceneRenderer3D implements IRenderer {
     let read = this.composeA;
     let write = this.composeB;
     const composeMaterial = this.composeQuad.material;
+    const liveEffects = new Set<string>();
+    const applyEffects = (input: THREE.Texture, effects: SceneState['effects'], targets: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget], scope?: string) => {
+      let texture = input;
+      try {
+        for (const effect of effects) {
+          if (!effect.enabled) continue;
+          const def = getEffect(effect.effectId);
+          if (!def) continue;
+          const key = this.fxOwner + (scope ? scope + '/' : '') + effect.instanceId;
+          liveEffects.add(key);
+          threeMaterialsFor(def, key, !!scope).forEach((material, index) => {
+            const output = texture === targets[0].texture ? targets[1] : targets[0];
+            applyThreeUniforms(material, def, effect.values, { width: s.width, height: s.height, time: frame / s.fps }, index);
+            material.uniforms.map.value = texture;
+            this.composeQuad.material = material;
+            this.renderer.setRenderTarget(output);
+            this.renderer.setClearColor(0x000000, 0);
+            this.renderer.clear(true, false, false);
+            this.renderer.render(this.composeScene, this.composeCam);
+            texture = output.texture;
+          });
+        }
+        return texture;
+      } finally { this.composeQuad.material = composeMaterial; }
+    };
     for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.texture.dispose(); rt.mask?.dispose(); rt.raster.destroy(); this.overlays.delete(id); }
     const selected = useUIStore.getState().selectedLayerIds;
-    if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing);
+    if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing, s.fps);
     setCodeFps(s.fps); releaseCodeRunners(s.textLayers);
     compositionOrder(s.tracks, s.textLayers).forEach((item) => {
       composeMaterial.uniforms.backdropBlur.value=0;
       composeMaterial.uniforms.sceneSize.value.set(s.width,s.height);
       let texture: THREE.Texture, opacity = 1, blend: string = 'normal';
+      let effects: SceneState['effects'] | undefined;
       if (item.kind === 'motion') {
         const rt = this.trackRTs.get(item.id); if (!rt?.active) return;
         this.renderer.setRenderTarget(rt.target); this.renderer.setClearColor(0x000000, 0);
         this.renderer.clear(true, true, true); this.renderer.render(rt.scene, rt.camera);
         texture = rt.target.texture; opacity = rt.opacity; blend = rt.blend;
+        effects = s.tracks.find(track => track.id === item.id)?.effects;
       } else {
         const layer = s.textLayers.find((l) => l.id === item.id)!;
         if (s.textLayers.some((l) => l.maskId === layer.id)) return; // used as a mask only
@@ -1286,7 +1322,11 @@ export class SceneRenderer3D implements IRenderer {
           composeMaterial.uniforms.backdropBlur.value=clamp(layer.backdropBlur??0,0,40);
           composeMaterial.uniforms.blurredMap.value=this.backdropTexture(read.texture,composeMaterial.uniforms.backdropBlur.value);
         }else if(rt.mask){rt.mask.dispose();rt.mask=undefined;}
-        texture = rt.texture; blend = layer.blend ?? 'normal';
+        texture = rt.texture; blend = layer.blend ?? 'normal'; effects = layer.effects;
+      }
+      if (effects?.some(effect => effect.enabled)) {
+        this.layerEffectTargets ??= [this.makeTarget(false), this.makeTarget(false)];
+        texture = applyEffects(texture, effects, this.layerEffectTargets, item.id);
       }
       composeMaterial.uniforms.baseMap.value = read.texture;
       composeMaterial.uniforms.layerMap.value = texture;
@@ -1299,27 +1339,12 @@ export class SceneRenderer3D implements IRenderer {
       [read, write] = [write, read];
     });
 
-    const liveEffects = new Set<string>();
     if(this.bentCardGeometries.size>128){
       const used=new Set([...this.trackRTs.values()].flatMap(rt=>rt.slots.flatMap(slot=>[slot.front.geometry,slot.back.geometry])));
       for(const [key,geometry] of this.bentCardGeometries){if(this.bentCardGeometries.size<=128)break;if(!used.has(geometry)){geometry.dispose();this.bentCardGeometries.delete(key);}}
     }
-    try {
-      for (const effect of s.effects) {
-        if (!effect.enabled) continue;
-        const definition = getEffect(effect.effectId); if (!definition) continue;
-        const key = this.fxOwner + effect.instanceId; liveEffects.add(key);
-        threeMaterialsFor(definition, key).forEach((material, index) => {
-          applyThreeUniforms(material, definition, effect.values, { width: s.width, height: s.height, time: frame / s.fps }, index);
-          material.uniforms.map.value = read.texture;
-          this.composeQuad.material = material;
-          this.renderer.setRenderTarget(write); this.renderer.clear(true, false, false);
-          this.renderer.render(this.composeScene, this.composeCam);
-          [read, write] = [write, read];
-        });
-      }
-    } finally { this.composeQuad.material = composeMaterial; dropThreeMaterials(liveEffects, this.fxOwner); }
-    this.outputQuad.material.uniforms.map.value = read.texture;
+    this.outputQuad.material.uniforms.map.value = applyEffects(read.texture, s.effects, [this.composeA, this.composeB]);
+    dropThreeMaterials(liveEffects, this.fxOwner);
     this.outputQuad.material.uniforms.resolution.value.set(
       this.width * this.resolution,
       this.height * this.resolution,
@@ -1340,7 +1365,7 @@ export class SceneRenderer3D implements IRenderer {
   hitTest(x: number, y: number) {
     const s = useSceneStore.getState();
     for (const item of compositionOrder(s.tracks, []).reverse()) {
-      const rt = this.trackRTs.get(item.id); if (!rt?.active) continue;
+      const rt = this.trackRTs.get(item.id); if (!rt?.active || rt.opacity < .02) continue;
       const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(x / s.width * 2 - 1, 1 - y / s.height * 2), rt.camera);
       if (ray.intersectObjects(rt.group.children, true).length) return item.id;
     }
@@ -1392,6 +1417,7 @@ export class SceneRenderer3D implements IRenderer {
     this.backgroundGeneration++;
     this.composeA?.dispose();
     this.composeB?.dispose();
+    this.layerEffectTargets?.forEach(target => target.dispose());
     this.backdropTargets?.forEach(target=>target.dispose());this.backdropTargets=null;this.backdropMaterial?.dispose();this.backdropMaterial=null;
     this.composeQuad?.geometry.dispose();
     this.composeQuad?.material.dispose();

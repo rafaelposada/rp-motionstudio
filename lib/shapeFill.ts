@@ -5,10 +5,12 @@
 // clip plays when the layer appears, in the preview and in the export.
 import { coverCrop, type CropFocus, type MediaFit } from './crop';
 import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
-import { advanceVideoForExport, createCardVideo, prepareVideoForSequentialExport, seekVideoToTime, whenVideoReady } from './videoTexture';
+import { syncReelVideo } from './reelVideoClock';
+import { advanceVideoForExport, createCardVideo, prepareVideoForSequentialExport, requestFiniteVideoDuration, videoPlaybackTime, whenVideoReady } from './videoTexture';
 
-export interface ShapeMedia { blobId: string; url: string; kind: 'image' | 'video'; width: number; height: number; name?: string; fit?: MediaFit; crop?: CropFocus }
-type Layer = { start: number; visible: boolean; shape?: { media?: ShapeMedia } };
+export interface ShapeMedia { blobId: string; url: string; kind: 'image' | 'video'; width: number; height: number; videoStart?: number; name?: string; fit?: MediaFit; crop?: CropFocus }
+type MediaSource = { url: string; kind?: 'image' | 'video'; videoStart?: number };
+type Layer = { id: string; start: number; end: number; visible: boolean; media?: MediaSource; shape?: { media?: ShapeMedia } };
 
 export const MEDIA_READY_EVENT = 'motion-layer-media-ready';
 const announce = () => { if (typeof window !== 'undefined') window.dispatchEvent(new Event(MEDIA_READY_EVENT)); };
@@ -24,22 +26,28 @@ function originalImage(url: string) {
   return image;
 }
 
-export function shapeVideo(url: string) {
-  const known = videos.get(url); if (known) return known;
+function releaseVideo(video: HTMLVideoElement) {
+  video.pause(); video.removeAttribute('src'); video.load();
+}
+
+export function shapeVideo(url: string, id: string) {
+  const known = videos.get(id);
+  if (known?.getAttribute('src') === url) return known;
+  if (known) releaseVideo(known);
   const video = createCardVideo(url); video.autoplay = false; video.loop = false;
   video.addEventListener('loadeddata', announce); video.addEventListener('seeked', announce);
   // Recorded WebM often reports an infinite duration until read to the end;
   // a far seek makes the browser measure it so the clip can loop and seek.
-  video.addEventListener('loadedmetadata', () => { if (video.duration === Infinity) { video.addEventListener('durationchange', () => { video.currentTime = 0; }, { once: true }); video.currentTime = 1e101; } }, { once: true });
-  videos.set(url, video);
+  video.addEventListener('loadedmetadata', () => { if (video.duration === Infinity) { video.addEventListener('durationchange', () => { video.currentTime = 0; }, { once: true }); requestFiniteVideoDuration(video); } }, { once: true });
+  videos.set(id, video);
   return video;
 }
 
 // The drawable behind a fill, or null while it loads (a load in progress
 // announces itself so a paused preview repaints).
-export function shapeMediaSource(media: ShapeMedia, useOriginals: boolean): RenderImage | HTMLVideoElement | null {
+export function shapeMediaSource(media: MediaSource, useOriginals: boolean, id: string): RenderImage | HTMLVideoElement | null {
   if (!media.url) return null;
-  if (media.kind === 'video') { const video = shapeVideo(media.url); return video.readyState >= 2 && video.videoWidth ? video : null; }
+  if (media.kind === 'video') { const video = shapeVideo(media.url, id); return video.readyState >= 2 && video.videoWidth ? video : null; }
   if (useOriginals) { const image = originalImage(media.url); return image.complete && image.naturalWidth ? image : null; }
   const preview = peekPreviewImage(media.url);
   if (!preview && !pending.has(media.url)) { pending.add(media.url); void loadPreviewImage(media.url).finally(() => { pending.delete(media.url); announce(); }); }
@@ -59,56 +67,58 @@ export function drawShapeMedia(ctx: CanvasRenderingContext2D, source: RenderImag
 }
 
 // What the raster cache must notice: readiness and, for video, the frame.
-export function shapeMediaState(media: ShapeMedia | undefined, useOriginals: boolean) {
+export function shapeMediaState(media: MediaSource | undefined, useOriginals: boolean, id: string) {
   if (!media) return null;
-  const source = shapeMediaSource(media, useOriginals);
+  const source = shapeMediaSource(media, useOriginals, id);
   return source instanceof HTMLVideoElement ? source.currentTime : !!source;
 }
 
 const localTime = (layer: Layer, seconds: number) => Math.max(0, seconds - layer.start);
-const videoLayers = (layers: Layer[]) => layers.filter((l): l is Layer & { shape: { media: ShapeMedia } } => !!l.shape?.media?.url && l.shape.media.kind === 'video');
+const videoLayers = (layers: Layer[]) => layers.flatMap(layer => {
+  const media = layer.media ?? layer.shape?.media;
+  return media?.url && media.kind === 'video' ? [{ layer, url: media.url, start: media.videoStart }] : [];
+});
 
 // Preview: play along while the timeline plays, park on the exact frame when
 // paused, and release clips no layer uses anymore.
-export function syncShapeVideos(layers: Layer[], seconds: number, playing: boolean) {
+export function syncShapeVideos(layers: Layer[], seconds: number, playing: boolean, fps: number) {
   if (exporting) return;
   const used = new Set<string>();
-  for (const layer of videoLayers(layers)) {
-    const video = shapeVideo(layer.shape.media.url); used.add(layer.shape.media.url);
-    if (!Number.isFinite(video.duration) || video.duration <= 0 || video.readyState < 2) continue;
-    const active = layer.visible && seconds >= layer.start, target = localTime(layer, seconds) % video.duration;
-    if (playing && active) {
-      if (Math.abs(video.currentTime - target) > .25 && !video.seeking) video.currentTime = target;
-      if (video.paused) void video.play().catch(() => {});
-    } else {
-      if (!video.paused) video.pause();
-      if (Math.abs(video.currentTime - target) > .02 && !video.seeking) video.currentTime = target;
-    }
+  for (const { layer, url, start } of videoLayers(layers)) {
+    const video = shapeVideo(url, layer.id);
+    used.add(layer.id);
+    const active = layer.visible && seconds >= layer.start && seconds < layer.end;
+    syncReelVideo(video, active ? localTime(layer, seconds) : null, { fps, playing, videoEnd: 'loop' }, undefined, start);
   }
-  for (const [url, video] of videos) if (!used.has(url)) { video.pause(); video.removeAttribute('src'); video.load(); videos.delete(url); }
+  for (const [id, video] of videos) if (!used.has(id)) { releaseVideo(video); videos.delete(id); }
+}
+
+export function releaseShapeVideos() {
+  if (exporting) return;
+  for (const video of videos.values()) releaseVideo(video);
+  videos.clear();
 }
 
 export async function prepareShapeVideosForExport(layers: Layer[]) {
   exporting = true;
-  await Promise.all(videoLayers(layers).map(async (layer) => { const video = shapeVideo(layer.shape.media.url); await whenVideoReady(video).catch(() => {}); await prepareVideoForSequentialExport(video); }));
+  await Promise.all(videoLayers(layers.filter(layer => layer.visible)).map(async ({ layer, url }) => { const video = shapeVideo(url, layer.id); await whenVideoReady(video).catch(() => {}); await prepareVideoForSequentialExport(video); }));
 }
 
 // Export: decode the exact frame for this instant before it is captured.
 export async function seekShapeVideos(layers: Layer[], seconds: number, fps: number) {
-  await Promise.all(videoLayers(layers).map(async (layer) => {
-    if (seconds < layer.start) return;
-    const video = shapeVideo(layer.shape.media.url), t = localTime(layer, seconds), target = Number.isFinite(video.duration) && video.duration > 0 ? t % video.duration : t;
-    // Decoding runs forward; a clip found ahead of the frame is put back first.
-    if (video.currentTime > target + .5 / Math.max(1, fps)) await seekVideoToTime(video, target);
-    await advanceVideoForExport(video, t, fps);
+  await Promise.all(videoLayers(layers).map(async ({ layer, url, start }) => {
+    if (!layer.visible || seconds < layer.start || seconds >= layer.end) return;
+    const video = shapeVideo(url, layer.id);
+    const target = videoPlaybackTime(video.duration, localTime(layer, seconds), start, 'loop', fps);
+    await advanceVideoForExport(video, target, fps);
   }));
 }
 
 export function endShapeVideoExport() { exporting = false; }
 
-export async function prepareShapeMedia(media: ShapeMedia, useOriginals: boolean, label: string) {
+export async function prepareShapeMedia(media: MediaSource, useOriginals: boolean, label: string, id: string) {
   if (!media.url) throw new Error(`Mídia indisponível: ${label}. Reabra o projeto ou importe novamente.`);
-  if (media.kind === 'video') { await whenVideoReady(shapeVideo(media.url)); return; }
+  if (media.kind === 'video') { await whenVideoReady(shapeVideo(media.url, id)); return; }
   if (useOriginals) await originalImage(media.url).decode();
   else if (!await loadPreviewImage(media.url)) throw new Error(`Imagem indisponível: ${label}`);
 }

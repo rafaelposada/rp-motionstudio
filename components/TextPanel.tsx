@@ -18,6 +18,7 @@ import {addCompositionText} from '@/lib/textActions';
 import { moveCompositionLayer, deleteCompositionLayer, selectOverlayForEditing } from '@/lib/compositionActions';
 import {applyInlineStyle,inlineProperty,validTextRange,textFontVariants,type InlineStyle} from '@/lib/richText';
 import { tx } from '@/lib/tx';
+import { editSelectedOverlays } from '@/lib/compositionEditing';
 import { animatedLayer, hasKeys, isKeyProp, keyedPatch } from '@/lib/keyframes';
 import { KeyedRow } from './KeyframeControls';
 import { isTextLayer } from '@/lib/textLayers';
@@ -30,7 +31,8 @@ export default function TextPanel() {
   const { locale } = useI18n();
   const pt = locale === 'pt';
   const layers = useSceneStore((s) => s.textLayers);
-  const patch = useSceneStore((s) => s.patchTextLayer);
+  const patchOne = useSceneStore((s) => s.patchTextLayer);
+  const patch = (id: string, change: Partial<TextLayer>) => editSelectedOverlays(id, () => change);
   const width = useSceneStore((s) => s.width);
   const height = useSceneStore((s) => s.height);
   const duration = useSceneStore((s) => s.duration);
@@ -47,7 +49,12 @@ export default function TextPanel() {
   const range=layer?validTextRange(layer,textRange):null;
   const font=layer?inlineProperty(layer,'font',range):null,weight=layer?inlineProperty(layer,'weight',range):null;
   const fill=layer?inlineProperty(layer,'color',range):null,fillAlpha=layer?inlineProperty(layer,'fillOpacity',range):null;
-  const styleText=(style:InlineStyle)=>{if(layer)patch(layer.id,applyInlineStyle(layer,style,range));};
+  const styleText = (style: InlineStyle) => {
+    if (!layer) return;
+    if (range) patchOne(layer.id, applyInlineStyle(layer, style, range));
+    else editSelectedOverlays(layer.id, target => applyInlineStyle(target, style, null));
+  };
+  const patchKey = (change: Partial<TextLayer>) => layer && editSelectedOverlays(layer.id, target => keyedPatch(target, change, seconds));
 
   const loadFont = async (family: string, weight: number) => {
     if (!layer || !family.trim()) return;
@@ -60,7 +67,8 @@ export default function TextPanel() {
       if (revision !== sceneRestoreRevision()) return;
       const current=useSceneStore.getState().textLayers.find(item=>item.id===targetId);
       if(!current||selectedRange&&!validTextRange(current,selectedRange))return;
-      patch(targetId, applyInlineStyle(current,{font:family.trim(),weight},selectedRange));
+      if (selectedRange) patchOne(targetId, applyInlineStyle(current, { font: family.trim(), weight }, selectedRange));
+      else editSelectedOverlays(targetId, target => applyInlineStyle(target, { font: family.trim(), weight }, null));
       setStatus(tx(pt, 'Fonte pronta e salva para uso offline.', 'Font ready and saved offline.'));
     } catch (error) {
       setStatus(`${tx(pt, 'Fonte não carregada. Verifique o nome e a internet.', 'Font not loaded. Check its name and internet connection.')} ${error instanceof Error ? error.message : ''}`);
@@ -74,11 +82,13 @@ export default function TextPanel() {
     try{await Promise.all(textFontVariants({...original,...change}).map(style=>ensureFont(style.font,style.weight)));
       const current=useSceneStore.getState().textLayers.find(item=>item.id===original.id);
       if(revision!==sceneRestoreRevision()||!current||selectedRange&&!validTextRange(current,selectedRange))return;
-      patch(original.id,applyInlineStyle(current,{weight:value},selectedRange));setStatus('');
+      if (selectedRange) patchOne(original.id, applyInlineStyle(current, { weight: value }, selectedRange));
+      else editSelectedOverlays(original.id, target => applyInlineStyle(target, { weight: value }, null));
+      setStatus('');
     }catch{setStatus(tx(pt, 'Não foi possível carregar esse peso.', 'Unable to load this weight.'));}
   };
   const numberControl = (key: keyof TextLayer, label: string, min: number, max: number, step = 1) => layer && live && (() => {
-    const row = <ControlRow key={key} def={{ key, label, type: 'slider', min, max, step, default: key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0 }} value={live[key] ?? (key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0)} onChange={(value) => patch(layer.id, keyedPatch(layer, { [key]: value }, seconds))} />;
+    const row = <ControlRow key={key} def={{ key, label, type: 'slider', min, max, step, default: key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0 }} value={live[key] ?? (key === 'fillOpacity' ? 1 : key === 'strokeWidth' ? 3 : 0)} onChange={(value) => patchKey({ [key]: value })} />;
     return isKeyProp(key) ? <KeyedRow key={key} layer={layer} prop={key} pt={pt}>{row}</KeyedRow> : row;
   })();
   return <div className="section-body text-panel">
@@ -86,12 +96,12 @@ export default function TextPanel() {
     <p className="ctl-hint">{tx(pt, 'Duplo clique para editar na tela. Arraste para mover; gire pela área externa das alças.', 'Double-click to edit on canvas. Drag to move; rotate outside the handles.')}</p>
     {textLayers.map((item, index) => <div key={item.id} className="text-layer-row">
       <button className={`btn ${selectedIds.includes(item.id) ? 'solid' : ''}`} aria-pressed={selectedIds.includes(item.id)} onClick={e => {useUIStore.getState().setTextRange(null);selectOverlayForEditing(item.id, e.shiftKey);}}>{index + 1}. {item.text.slice(0, 24) || (tx(pt, 'Texto vazio', 'Empty text'))}</button>
-      <button className="icon-btn" aria-label={tx(pt, 'Alternar visibilidade', 'Toggle visibility')} onClick={() => patch(item.id, { visible: !item.visible })}>{item.visible ? '◉' : '○'}</button>
+      <button className="icon-btn" aria-label={tx(pt, 'Alternar visibilidade', 'Toggle visibility')} onClick={() => patchOne(item.id, { visible: !item.visible })}>{item.visible ? '◉' : '○'}</button>
       <button className="icon-btn" aria-label={tx(pt, 'Remover texto', 'Remove text')} onClick={() => void deleteCompositionLayer(item.id)}>×</button>
     </div>)}
     {selectedIds.length > 1 && <p className="ctl-hint">{tx(pt, 'Seleção múltipla: arraste e transforme o conjunto na tela. Os campos abaixo editam o texto ativo.', 'Multiple selection: drag and transform the group on the canvas. The fields below edit the active text.')}</p>}
     {layer && <>
-      <label className="text-edit-label">{tx(pt, 'Conteúdo', 'Content')}<textarea className="field text-content" rows={4} value={layer.text} onSelect={e=>{const input=e.currentTarget;useUIStore.getState().setTextRange(input.selectionEnd>input.selectionStart?{layerId:layer.id,text:layer.text,start:input.selectionStart,end:input.selectionEnd}:null);}} onChange={(e) => {useUIStore.getState().setTextRange(null);patch(layer.id, { text: e.target.value });}} /></label>
+      <label className="text-edit-label">{tx(pt, 'Conteúdo', 'Content')}<textarea className="field text-content" rows={4} value={layer.text} onSelect={e=>{const input=e.currentTarget;useUIStore.getState().setTextRange(input.selectionEnd>input.selectionStart?{layerId:layer.id,text:layer.text,start:input.selectionStart,end:input.selectionEnd}:null);}} onChange={(e) => {useUIStore.getState().setTextRange(null);patchOne(layer.id, { text: e.target.value });}} /></label>
       <div className="text-range-status"><span>{range?(tx(pt, 'Trecho selecionado', 'Selected text'))+`: “${layer.text.slice(range.start,range.end).slice(0,32)}”`:tx(pt, 'Selecione letras ou palavras no conteúdo ou na tela para formatá-las.', 'Select letters or words in the content or on canvas to style them.')}</span>{range&&<button type="button" onClick={()=>useUIStore.getState().setTextRange(null)}>{tx(pt, 'Texto inteiro', 'Whole text')}</button>}</div>
       <h3 className="text-section-title">{tx(pt, 'Tipografia', 'Typography')}</h3>
       <FontBrowser pt={pt} weight={Number(weight?.value??400)} onChoose={(family) => void loadFont(family, 400)} onImport={(family) => styleText({ font: family })} />
@@ -114,11 +124,11 @@ export default function TextPanel() {
       <button className="btn" onClick={() => patch(layer.id, { x: width / 2, y: height / 2 })}>{tx(pt, 'Centralizar na tela', 'Center on canvas')}</button>
       {numberControl('rotation', tx(pt, 'Rotação', 'Rotation'), -180, 180)}
       <Tilt3DControls layer={layer} pt={pt}/>
-      {(['scaleX','scaleY'] as const).map(key=><KeyedRow key={key} layer={layer} prop={key} pt={pt}><ControlRow def={{key,label:key==='scaleX'?(tx(pt, 'Escala horizontal', 'Horizontal scale')):(tx(pt, 'Escala vertical', 'Vertical scale')),type:'slider',min:5,max:2000,step:1,unit:'%',default:100}} value={(live?.[key]??1)*100} onChange={value=>patch(layer.id,keyedPatch(layer,{[key]:Number(value)/100},seconds))}/></KeyedRow>)}
+      {(['scaleX','scaleY'] as const).map(key=><KeyedRow key={key} layer={layer} prop={key} pt={pt}><ControlRow def={{key,label:key==='scaleX'?(tx(pt, 'Escala horizontal', 'Horizontal scale')):(tx(pt, 'Escala vertical', 'Vertical scale')),type:'slider',min:5,max:2000,step:1,unit:'%',default:100}} value={(live?.[key]??1)*100} onChange={value=>patchKey({ [key]: Number(value) / 100 })}/></KeyedRow>)}
       <div className="text-font-search"><button className="btn" onClick={() => moveCompositionLayer(layer.id, -1)}>{tx(pt, 'Recuar camada', 'Send backward')}</button><button className="btn" onClick={() => moveCompositionLayer(layer.id, 1)}>{tx(pt, 'Avançar camada', 'Bring forward')}</button></div>
       <h3 className="text-section-title">{tx(pt, 'Aparência', 'Appearance')}</h3>
       <ColorField pt={pt} label={tx(pt, 'Cor do texto', 'Text fill')} color={String(fill?.value??layer.color)} opacity={Number(fillAlpha?.value??1)} mixed={fill?.mixed} mixedOpacity={fillAlpha?.mixed} onChange={(color,fillOpacity,changed)=>styleText(changed==='opacity'?{fillOpacity}:{color})}/>
-      <KeyedRow layer={layer} prop="opacity" pt={pt}><ControlRow def={{key:'opacity',label:tx(pt, 'Opacidade da camada', 'Layer opacity'),type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={(live?.opacity??layer.opacity)*100} onChange={(value)=>patch(layer.id,keyedPatch(layer,{opacity:Number(value)/100},seconds))}/></KeyedRow>
+      <KeyedRow layer={layer} prop="opacity" pt={pt}><ControlRow def={{key:'opacity',label:tx(pt, 'Opacidade da camada', 'Layer opacity'),type:'slider',min:0,max:100,step:1,unit:'%',default:100}} value={(live?.opacity??layer.opacity)*100} onChange={(value)=>patchKey({ opacity: Number(value) / 100 })}/></KeyedRow>
       <BlendRow value={layer.blend} onChange={blend=>patch(layer.id,{blend})}/>
       <MaskControl layer={layer} pt={pt}/>
       <p className="ctl-hint">{tx(pt, 'A opacidade da camada afeta o conjunto. A opacidade da cor afeta apenas o preenchimento do texto.', 'Layer opacity affects the whole layer. Fill opacity affects only the text fill.')}</p>

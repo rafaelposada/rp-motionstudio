@@ -9,6 +9,8 @@ import { loadPreviewImage } from '@/lib/textureLoad';
 import type { TextLayer } from '@/lib/textLayers';
 import { ControlRow } from './Controls';
 import { tx } from '@/lib/tx';
+import { editSelectedOverlays } from '@/lib/compositionEditing';
+import VideoStartControl from './VideoStartControl';
 
 const FITS: { mode: MediaFit; pt: string; en: string; hintPt: string; hintEn: string }[] = [
   { mode: 'fill', pt: 'Preencher', en: 'Fill', hintPt: 'Preenche a forma sem deformar; pode recortar as bordas.', hintEn: 'Fills the shape without distortion; edges may be cropped.' },
@@ -30,7 +32,10 @@ async function mediaSize(url: string, kind: ShapeMedia['kind']) {
 export default function ShapeMediaFill({ layer, pt }: { layer: TextLayer; pt: boolean }) {
   const media = layer.shape?.media, [status, setStatus] = useState('');
   const canvas = useRef<HTMLCanvasElement>(null), drag = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null);
-  const patchMedia = (change: Partial<ShapeMedia>) => { const shape = useSceneStore.getState().textLayers.find((l) => l.id === layer.id)?.shape; if (shape?.media) useSceneStore.getState().patchTextLayer(layer.id, { shape: { ...shape, media: { ...shape.media, ...change } } }); };
+  const patchMedia = (change: Partial<ShapeMedia>) => editSelectedOverlays(layer.id, target => {
+    const shape = target.shape;
+    return shape?.media && shape.media.kind === media?.kind ? { shape: { ...shape, media: { ...shape.media, ...change } } } : {};
+  });
   const focus = media?.crop ?? DEFAULT_FOCUS, fit = media?.fit ?? 'fill';
   const w = Math.abs(layer.shape?.width ?? 1), h = Math.abs(layer.shape?.height ?? 1), aspect = w / Math.max(1, h);
 
@@ -62,14 +67,14 @@ export default function ShapeMediaFill({ layer, pt }: { layer: TextLayer; pt: bo
       output.getContext('2d')?.drawImage(source, crop.fx, crop.fy, crop.fw, crop.fh, 0, 0, output.width, output.height);
     };
     if (media.kind === 'video') {
-      const video = shapeVideo(media.url), draw = () => paint(video, video.videoWidth, video.videoHeight);
+      const video = shapeVideo(media.url, layer.id), draw = () => paint(video, video.videoWidth, video.videoHeight);
       if (video.readyState >= 2) draw();
       video.addEventListener('loadeddata', draw); video.addEventListener('seeked', draw);
       return () => { current = false; video.removeEventListener('loadeddata', draw); video.removeEventListener('seeked', draw); };
     }
     void loadPreviewImage(media.url).then((image) => { if (image) paint(image, image.width, image.height); });
     return () => { current = false; };
-  }, [media?.url, media?.kind, fit, aspect, focus]);
+  }, [layer.id, media?.url, media?.kind, fit, aspect, focus]);
 
   return <div className="shape-media-fill">
     <label className="upload">{media ? tx(pt, 'Trocar foto ou vídeo', 'Replace photo or video') : tx(pt, '+ Foto ou vídeo', '+ Photo or video')}
@@ -77,6 +82,7 @@ export default function ShapeMediaFill({ layer, pt }: { layer: TextLayer; pt: bo
     {status && <p role="status" className="ctl-hint">{status}</p>}
     {media && <>
       <p className="ctl-hint shape-media-name">{media.kind === 'video' ? '▶' : '▧'} {media.name ?? tx(pt, 'Mídia', 'Media')}</p>
+      {media.kind === 'video' && <VideoStartControl url={media.url} value={media.videoStart} onChange={videoStart => patchMedia({ videoStart })} />}
       <div className="media-fit-pills" role="group" aria-label={tx(pt, 'Preenchimento da mídia', 'Media fit')}>
         {FITS.map((f) => <button key={f.mode} type="button" className={fit === f.mode ? 'active' : ''} aria-pressed={fit === f.mode} title={tx(pt, f.hintPt, f.hintEn)} onClick={() => patchMedia({ fit: f.mode })}>{tx(pt, f.pt, f.en)}</button>)}
       </div>

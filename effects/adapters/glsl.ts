@@ -88,7 +88,8 @@ function declarations(pass: EffectShader): string {
 }
 
 /** GLSL ES 3.00 fragment for Pixi, where a pixel coordinate must unmap through uInputSize. */
-export function pixiFragment(effect: Effect, pass: EffectShader = effect.shader): string {
+export function pixiFragment(effect: Effect, pass: EffectShader = effect.shader, scoped = false): string {
+  const alphaWeighted = effect.meta.id === 'blur' || effect.meta.id === 'tilt-shift';
   return `#version 300 es
 precision highp float;
 in vec2 vTextureCoord;
@@ -107,18 +108,24 @@ ${declarations(pass)}
 // Pixi v8: xy is the logical texture size; zw is its reciprocal, NOT offset.
 vec2 fx_toPixels(vec2 uv) { return uv * uInputSize.xy; }
 vec2 fx_toUv(vec2 p)      { return p * uInputSize.zw; }
-vec4 fxSample(vec2 p)     { return texture(uTexture, clamp(fx_toUv(p), uInputClamp.xy, uInputClamp.zw)); }
+vec4 fxSample(vec2 p) {
+  vec4 c = texture(uTexture, clamp(fx_toUv(p), uInputClamp.xy, uInputClamp.zw));
+  return ${scoped && !alphaWeighted ? 'vec4(c.a > 0.00001 ? c.rgb / c.a : vec3(0.0), c.a)' : 'c'};
+}
 ${AREA_HELPERS}
 
 ${pass.fragment}
 
 void main(void) {
-  finalColor = fxMain(fx_toPixels(vTextureCoord));
+  vec4 c = fxMain(fx_toPixels(vTextureCoord));
+  ${scoped && !alphaWeighted ? 'c.rgb *= c.a;' : ''}
+  finalColor = c;
 }`;
 }
 
 /** GLSL ES 1.00 fragment for three, where the pass reads a full-screen target. */
-export function threeFragment(effect: Effect, pass: EffectShader = effect.shader): string {
+export function threeFragment(effect: Effect, pass: EffectShader = effect.shader, scoped = false): string {
+  const alphaWeighted = effect.meta.id === 'blur' || effect.meta.id === 'tilt-shift';
   return `
 uniform sampler2D map;
 uniform vec2 uResolution;
@@ -133,7 +140,8 @@ ${SRGB_HELPERS}
 vec4 fxSample(vec2 p) {
   vec2 uv = clamp(p / uResolution, vec2(0.0), vec2(1.0));
   vec4 c = texture2D(map, vec2(uv.x, 1.0 - uv.y));
-  return vec4(fx_toSrgb(c.rgb), c.a);
+  ${scoped ? 'c.rgb = c.a > 0.00001 ? c.rgb / c.a : vec3(0.0);' : ''}
+  return vec4(fx_toSrgb(c.rgb)${scoped && alphaWeighted ? ' * c.a' : ''}, c.a);
 }
 ${AREA_HELPERS}
 
@@ -147,7 +155,8 @@ void main() {
   // divergencia media uniforme em TODOS os efeitos, inclusive nos que so
   // deslocam coordenada — o que era o sinal de que o erro estava no wrapper e
   // nao nos efeitos.
-  gl_FragColor = vec4(fx_toLinear(fx_result.rgb), fx_result.a);
+  ${scoped && alphaWeighted ? 'fx_result.rgb = fx_result.a > 0.00001 ? fx_result.rgb / fx_result.a : vec3(0.0);' : ''}
+  gl_FragColor = vec4(fx_toLinear(fx_result.rgb)${scoped ? ' * fx_result.a' : ''}, fx_result.a);
   #include <colorspace_fragment>
 }`;
 }

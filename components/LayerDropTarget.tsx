@@ -5,6 +5,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { reorderCompositionLayer, moveCompositionLayer, selectedCompositionIds } from '@/lib/compositionActions';
 import { tx } from '@/lib/tx';
+import { openCompositionMenu } from './CompositionContextMenu';
 
 let cancelReorder: (() => void) | null = null;
 let suppressClick: { id: string; until: number } | null = null;
@@ -82,5 +83,7 @@ export function LayerDragHandle({ id, name }: { id: string; name: string }) {
     onKeyDown={e => { if (e.altKey && ['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); moveCompositionLayer(id, e.key === 'ArrowUp' ? 1 : -1); } }}>⠿</button>;
 }
 export default function LayerDropTarget({ id, children }: { id: string; name?: string; children: ReactNode }) {
-  return <div className="layer-drop-target" data-layer-id={id}>{children}</div>;
+  return <div className="layer-drop-target" data-layer-id={id} onContextMenu={e => {
+    if (!(e.target as HTMLElement).closest('input,textarea,[contenteditable]')) openCompositionMenu(e, id, e.currentTarget.closest('.tl-lanes') ? 'timeline' : 'layers');
+  }}>{children}</div>;
 }

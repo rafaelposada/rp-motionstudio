@@ -13,6 +13,21 @@ export function isVideoSource(url: string, kind?: string): boolean {
   return kind === 'video' || VIDEO_EXT.test(url);
 }
 
+// A trim point is measured within the source clip. Repeat wraps back to the
+// trim point, and hold keeps the last decodable frame in place.
+export function videoPlaybackTime(duration: number, elapsed: number, start = 0, mode: 'loop' | 'hold' = 'loop', fps = 30) {
+  if (!Number.isFinite(duration) || duration <= 0) return 0;
+  const last = Math.max(0, duration - 1 / Math.max(1, fps));
+  const offset = Math.max(0, Math.min(last, Number.isFinite(start) ? start : 0));
+  const time = Math.max(0, elapsed);
+  return mode === 'hold' ? Math.min(last, offset + time) : offset + time % (duration - offset);
+}
+
+export function requestFiniteVideoDuration(video: HTMLVideoElement) {
+  // Some browser-recorded WebM files have no duration in their header.
+  if (video.duration === Infinity) video.currentTime = 1e101;
+}
+
 // A muted, looping, inline <video> that can autoplay without a user gesture
 // (muted autoplay is always permitted). Detached from the DOM — both renderers
 // read its frames straight into a GPU texture. Resolves once the first frame is
@@ -165,11 +180,12 @@ export function advanceVideoForExport(
   // The only random-access seek left is the intentional video loop boundary.
   if (target + frameTolerance < previousTarget) {
     sequentialExportTime.set(v, target);
-    return rewindVideoForExport(v);
+    return target <= frameTolerance ? rewindVideoForExport(v) : seekVideoToTime(v, target, mode);
   }
   sequentialExportTime.set(v, target);
   v.loop = false;
-  if (v.currentTime + frameTolerance >= target) return Promise.resolve();
+  if (Math.abs(v.currentTime - target) <= frameTolerance) return Promise.resolve();
+  if (v.currentTime > target + frameTolerance || target - v.currentTime > .35) return seekVideoToTime(v, target, mode);
 
   return new Promise<void>((resolve) => {
     const frameApi = v as HTMLVideoElement & {
@@ -258,6 +274,7 @@ export async function useVideoProxies(
 // Await the first decodable frame (videoWidth/height become valid here).
 export function whenVideoReady(v: HTMLVideoElement): Promise<HTMLVideoElement> {
   return new Promise((resolve, reject) => {
+    if (v.error) return reject(new Error('video load failed'));
     if (v.readyState >= 2 /* HAVE_CURRENT_DATA */ && v.videoWidth) return resolve(v);
     const ok = () => { cleanup(); resolve(v); };
     const bad = () => { cleanup(); reject(new Error('video load failed')); };

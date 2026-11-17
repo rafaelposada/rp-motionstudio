@@ -26,7 +26,7 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const cache = new Map<string, THREE.ShaderMaterial[]>();
 
 /** Um material por PASSE desta instancia, na ordem em que rodam. */
-export function threeMaterialsFor(effect: Effect, instanceId = effect.meta.id): THREE.ShaderMaterial[] {
+export function threeMaterialsFor(effect: Effect, instanceId = effect.meta.id, scoped = false): THREE.ShaderMaterial[] {
   const hit = cache.get(instanceId);
   if (hit) return hit;
 
@@ -49,7 +49,7 @@ export function threeMaterialsFor(effect: Effect, instanceId = effect.meta.id): 
       depthWrite: false,
       uniforms,
       vertexShader: VERTEX,
-      fragmentShader: threeFragment(effect, pass),
+      fragmentShader: threeFragment(effect, pass, scoped),
     });
   });
 

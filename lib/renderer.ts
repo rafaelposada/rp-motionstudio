@@ -16,12 +16,12 @@ import { pixiFiltersFor, applyPixiUniforms, dropPixiFilters } from '@/effects/ad
 import { useSceneStore, type SceneState } from '@/store/useSceneStore';
 import { resolveEasing } from '@/lib/easing';
 import { assetIndexForSlot, clamp } from '@/lib/motion';
-import { resolveTrackTime, trackAssetIndices, type MotionTrack } from '@/lib/tracks';
+import { resolveTrackTime, trackTransition, trackAssetIndices, type MotionTrack } from '@/lib/tracks';
 import { cardAspectFor, coverCrop, cropKey } from '@/lib/crop';
-import { advanceVideoForExport, createCardVideo, isVideoSource, prepareVideoForSequentialExport, whenVideoReady } from '@/lib/videoTexture';
+import { advanceVideoForExport, createCardVideo, isVideoSource, prepareVideoForSequentialExport, requestFiniteVideoDuration, videoPlaybackTime, whenVideoReady } from '@/lib/videoTexture';
 import { placeholderFill, placeholderLabel } from '@/lib/placeholderPalette';
 import { previewResolution } from '@/lib/previewResolution';
-import { reelVideoTime, syncReelVideo } from '@/lib/reelVideoClock';
+import { cardVideoClock, syncReelVideo } from '@/lib/reelVideoClock';
 import { renderableTracks, renderableAssetUrls, exportImageUrls } from '@/lib/renderAssets';
 import { cardOpacity } from '@/lib/cardOpacity';
 import { modelPathOffset } from '@/lib/modelMotionPath';
@@ -88,7 +88,7 @@ export class SceneRenderer {
   private trackRTs = new Map<string, TrackRT>();
   private ready = false;
 
-  private lastFxSig = '';
+  private fxSignatures = new WeakMap<PIXI.Container, string>();
   private readonly fxOwner = `${crypto.randomUUID()}/`;
   private bgImageUrl = '';                        // last-loaded uploaded bg url
   private bgImageTex: PIXI.Texture | null = null;
@@ -180,7 +180,11 @@ export class SceneRenderer {
     if (cached) return cached;
     try {
       if (isVideoSource(url, kind)) {
-        const video = this.videoEls.get(url) ?? createCardVideo(url);
+        let video = this.videoEls.get(url);
+        if (!video) {
+          video = createCardVideo(url);
+          video.addEventListener('loadedmetadata', () => requestFiniteVideoDuration(video!), { once: true });
+        }
         this.videoEls.set(url, video);
         await whenVideoReady(video); // videoWidth/height valid past here
         if (!this.ready) return null;
@@ -391,23 +395,37 @@ export class SceneRenderer {
   }
 
   // ---- effects ----
-  private syncEffects(frame: number) {
-    const s = useSceneStore.getState();
-    const active = s.effects.filter((e) => e.enabled);
-    const sig = active.map((e) => e.instanceId + ':' + e.effectId + ':' + JSON.stringify(e.values)).join('|');
-    const filters: PIXI.Filter[] = [];
+  private syncEffects(s: SceneState, frame: number) {
     const live = new Set<string>();
-    for (const e of active) {
-      const def = getEffect(e.effectId);
-      if (!def) continue;
-      const key = this.fxOwner + e.instanceId; live.add(key);
-      const passes = pixiFiltersFor(def, key);
-      applyPixiUniforms(passes, def, e.values, { width: s.width, height: s.height, time: frame / s.fps });
-      filters.push(...passes);
+    const apply = (node: PIXI.Container, list: SceneState['effects'], scope?: string) => {
+      const filters: PIXI.Filter[] = [], keys: string[] = [];
+      for (const effect of list) {
+        if (!effect.enabled) continue;
+        const def = getEffect(effect.effectId);
+        if (!def) continue;
+        const key = this.fxOwner + (scope ? scope + '/' : '') + effect.instanceId;
+        live.add(key); keys.push(key);
+        const passes = pixiFiltersFor(def, key, !!scope);
+        applyPixiUniforms(passes, def, effect.values, { width: s.width, height: s.height, time: frame / s.fps });
+        filters.push(...passes);
+      }
+      const sig = keys.join('|');
+      if (sig !== (this.fxSignatures.get(node) ?? '')) {
+        node.filters = filters;
+        this.fxSignatures.set(node, sig);
+      }
+      if (filters.length) node.filterArea = new PIXI.Rectangle(0, 0, s.width, s.height);
+    };
+    apply(this.content, s.effects);
+    for (const track of s.tracks) {
+      const node = this.trackRTs.get(track.id)?.container;
+      if (node) apply(node, track.effects ?? [], track.id);
+    }
+    for (const layer of s.textLayers) {
+      const node = this.overlays.get(layer.id)?.sprite;
+      if (node) apply(node, layer.effects ?? [], layer.id);
     }
     dropPixiFilters(live, this.fxOwner);
-    this.content.filterArea = new PIXI.Rectangle(0, 0, s.width, s.height);
-    if (sig !== this.lastFxSig) { this.content.filters = filters; this.lastFxSig = sig; }
   }
 
   // ---- overlays ----
@@ -513,10 +531,13 @@ export class SceneRenderer {
     // live loop/hold behaviour follows the scene setting (non-loop <video>
     // naturally freezes on its last frame when it ends)
     this.videoEls.forEach((v, url) => {
-      v.loop = s.videoEnd !== 'hold';
-      if (!this.exportVideoFrames.size) syncReelVideo(v, reelVideoTime(s, url, frame), s, this.onDirty);
+      const { elapsed, start } = cardVideoClock(s, url, frame);
+      if (!this.exportVideoFrames.size) {
+        v.loop = elapsed === undefined && s.videoEnd !== 'hold';
+        syncReelVideo(v, elapsed, s, this.onDirty, start);
+      }
     });
-    this.syncEffects(frame);
+
     this.drawOverlays(s);
 
     const totalFrames = Math.max(1, Math.round(s.duration * s.fps));
@@ -544,14 +565,15 @@ export class SceneRenderer {
       const time = resolveTrackTime(track, frame, totalFrames);
       if (!time.active) { rt.container.visible = false; return; }
 
+      const transition = trackTransition(track, frame, totalFrames, s.fps);
       rt.container.visible = true;
-      rt.container.alpha = clamp(track.opacity, 0, 1) * time.envelope;
+      rt.container.alpha = clamp(track.opacity, 0, 1) * time.envelope * transition.opacity;
       rt.container.blendMode = pixiBlend(track.blend);
       // Track-level transform, on top of whatever the template poses.
       const path = modelPathOffset(track, frame, s.fps, s.width, s.height);
-      rt.container.position.set(track.transform.x + path.x, track.transform.y + path.y);
-      rt.container.scale.set(track.transform.scale);
-      rt.container.rotation = (track.transform.rotation * Math.PI) / 180;
+      rt.container.position.set(track.transform.x + path.x + transition.x, track.transform.y + path.y + transition.y);
+      rt.container.scale.set(track.transform.scale * transition.scale);
+      rt.container.rotation = ((track.transform.rotation + transition.rotation) * Math.PI) / 180;
 
       const template = getTemplate(track.templateId);
       const count = rt.slots.length;
@@ -678,8 +700,10 @@ export class SceneRenderer {
     if (this.videoEls.size === 0) return;
     const t = frame / Math.max(1, s.fps);
     await Promise.all([...this.videoEls.entries()].map(([url, v]) => {
-      const localTime = reelVideoTime(s, url, frame);
-      return localTime === null ? Promise.resolve() : advanceVideoForExport(v, localTime ?? t, s.fps, s.videoEnd);
+      const { elapsed, start } = cardVideoClock(s, url, frame);
+      if (elapsed === null) return Promise.resolve();
+      const target = videoPlaybackTime(v.duration, elapsed ?? t, start, s.videoEnd, s.fps);
+      return advanceVideoForExport(v, target, s.fps);
     }));
     // Copy decoded pixels before touching the renderer. This isolates export
     // from the live VideoSource callback queue and makes GPU uploads ordered.
@@ -723,7 +747,7 @@ export class SceneRenderer {
     const order = compositionOrder(s.tracks, s.textLayers);
     const maskSources = new Set(s.textLayers.map((l) => l.maskId).filter((id): id is string => !!id));
     const selected = useUIStore.getState().selectedLayerIds;
-    if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing);
+    if (!this.shapeVideoExport) syncShapeVideos(s.textLayers, frame / s.fps, s.playing, s.fps);
     setCodeFps(s.fps); releaseCodeRunners(s.textLayers);
     for (const [id, rt] of this.overlays) if (!s.textLayers.some((l) => l.id === id)) { rt.sprite.destroy(); rt.texture.destroy(true); rt.raster.destroy(); this.overlays.delete(id); }
     for (const item of order) {
@@ -742,6 +766,7 @@ export class SceneRenderer {
       // A layer used as another layer's mask only shapes that layer.
       rt.sprite.visible = !maskSources.has(layer.id) && layer.visible && (this.exportingImages || !isCanvasEditing(layer.id)) && frame / s.fps >= layer.start && frame / s.fps < layer.end;
     }
+    this.syncEffects(s, frame);
     // Alpha export: hide every background layer for this frame only.
     const backdrop = this.transparent ? [this.bg, this.gradientSprite, this.bgSprite].filter((node): node is PIXI.Sprite | PIXI.Graphics => !!node).map((node) => [node, node.visible] as const) : [];
     backdrop.forEach(([node]) => { node.visible = false; });
@@ -769,7 +794,7 @@ export class SceneRenderer {
     const b = rt.container.getLocalBounds();
     if (!(b.width > 0 && b.height > 0)) return null;
     const p = rt.container.toGlobal({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
-    return { cx: p.x, cy: p.y, width: b.width * track.transform.scale, height: b.height * track.transform.scale, rotation: track.transform.rotation };
+    return { cx: p.x, cy: p.y, width: b.width * rt.container.scale.x, height: b.height * rt.container.scale.y, rotation: rt.container.angle };
   }
 
   // Deterministic capture: realize frame, render, read pixels as a JPEG data URL.

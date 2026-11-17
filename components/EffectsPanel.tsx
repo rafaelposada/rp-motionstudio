@@ -13,7 +13,9 @@ import { useI18n } from '@/lib/useI18n';
 import InfoHint from './InfoHint';
 import { uiHelp } from '@/lib/controlHelp';
 import { effectHelp } from '@/lib/effectHelp';
-import { tx } from '@/lib/tx';
+import { tx, txf } from '@/lib/tx';
+import { useUIStore } from '@/store/useUIStore';
+import { activeEffectTargets, editSelectedEffects, selectedEffectLayers } from '@/lib/compositionEditing';
 
 function MobileEffectCard({
   effect,
@@ -54,12 +56,63 @@ function MobileEffectCard({
 export default function EffectsPanel() {
   const { locale, t, label } = useI18n();
   const mobile = useMobileInteractions();
-  const effects = useSceneStore((s) => s.effects);
-  const addEffect = useSceneStore((s) => s.addEffect);
-  const removeEffect = useSceneStore((s) => s.removeEffect);
-  const toggleEffect = useSceneStore((s) => s.toggleEffect);
-  const reorderEffects = useSceneStore((s) => s.reorderEffects);
-  const setEffectValue = useSceneStore((s) => s.setEffectValue);
+  const globalEffects = useSceneStore(s => s.effects);
+  const tracks = useSceneStore(s => s.tracks), textLayers = useSceneStore(s => s.textLayers);
+  const ids = useUIStore(s => s.selectedLayerIds);
+  const primaryId = useUIStore(s => s.selectedMotionId ?? s.selectedTextId);
+  const [globalScope, setGlobalScope] = useState(false);
+  const targets = selectedEffectLayers({ tracks, textLayers }, ids, primaryId);
+  const scoped = ids.length > 0 && !globalScope;
+  const effects = scoped ? targets[0]?.effects ?? [] : globalEffects;
+  const editEffects = (update: (effects: ActiveEffect[]) => ActiveEffect[]) => editSelectedEffects(activeEffectTargets().map(layer => layer.id), update);
+  const addEffect = (effectId: string, values: Record<string, unknown>) => {
+    if (!scoped) { useSceneStore.getState().addEffect(effectId, values); return; }
+    const effect = { instanceId: crypto.randomUUID(), effectId, enabled: true, values };
+    editEffects(list => list.length < 8 ? [...list, effect] : list);
+  };
+  const matchEffect = (list: ActiveEffect[], id: string) => {
+    const direct = list.findIndex(effect => effect.instanceId === id);
+    if (direct >= 0) return direct;
+    const reference = effects.find(effect => effect.instanceId === id);
+    if (!reference) return -1;
+    const siblings = effects.filter(effect => effect.effectId === reference.effectId);
+    const equivalent = list.filter(effect => effect.effectId === reference.effectId)[siblings.indexOf(reference)];
+    return equivalent ? list.indexOf(equivalent) : -1;
+  };
+  const updateEffect = (id: string, update: (effect: ActiveEffect) => ActiveEffect) => {
+    editEffects(list => {
+      const index = matchEffect(list, id);
+      return index < 0 ? list : list.map((effect, i) => i === index ? update(effect) : effect);
+    });
+  };
+  const removeEffect = (id: string) => {
+    if (!scoped) { useSceneStore.getState().removeEffect(id); return; }
+    editEffects(list => {
+      const index = matchEffect(list, id);
+      return index < 0 ? list : list.filter((_, i) => i !== index);
+    });
+  };
+  const toggleEffect = (id: string) => {
+    if (!scoped) { useSceneStore.getState().toggleEffect(id); return; }
+    const enabled = !effects.find(effect => effect.instanceId === id)?.enabled;
+    updateEffect(id, effect => ({ ...effect, enabled }));
+  };
+  const setEffectValue = (id: string, key: string, value: unknown) => {
+    if (!scoped) { useSceneStore.getState().setEffectValue(id, key, value); return; }
+    updateEffect(id, effect => ({ ...effect, values: { ...effect.values, [key]: value } }));
+  };
+  const reorderEffects = (from: number, to: number) => {
+    if (!scoped) { useSceneStore.getState().reorderEffects(from, to); return; }
+    const moving = effects[from]?.instanceId, target = effects[to]?.instanceId;
+    if (!moving || !target || moving === target) return;
+    editEffects(list => {
+      const a = matchEffect(list, moving), b = matchEffect(list, target);
+      if (a < 0 || b < 0 || a === b) return list;
+      const next = [...list], [effect] = next.splice(a, 1);
+      next.splice(b, 0, effect);
+      return next;
+    });
+  };
   const [pick, setPick] = useState(effectList[0]?.meta.id ?? '');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -72,7 +125,7 @@ export default function EffectsPanel() {
   };
 
   return (
-    <>
+    <section className="composition-effects">
       <div className="section-head">
         <span className="section-head-title">
           <span className="eyebrow">{t('effects')}</span>
@@ -80,6 +133,10 @@ export default function EffectsPanel() {
         </span>
       </div>
       <div className="section-body">
+        {ids.length > 0 && <div className="media-fit-pills" role="group" aria-label={tx(locale === 'pt', 'Aplicar efeitos em', 'Apply effects to')}>
+          <button type="button" className={scoped ? 'active' : ''} aria-pressed={scoped} onClick={() => setGlobalScope(false)}>{tx(locale === 'pt', 'Seleção', 'Selection')}</button>
+          <button type="button" className={scoped ? '' : 'active'} aria-pressed={!scoped} onClick={() => setGlobalScope(true)}>{tx(locale === 'pt', 'Composição', 'Composition')}</button>
+        </div>}
         <div className="effect-add">
           <div className="field-with-hint">
             <select className="field" value={pick} onChange={(e) => setPick(e.target.value)}>
@@ -87,9 +144,9 @@ export default function EffectsPanel() {
             </select>
             <InfoHint text={effectHelp(pick, locale)} name={label(getEffect(pick)?.meta.name ?? '')} />
           </div>
-          <button className="btn" disabled={effects.length >= 8} onClick={() => pick && addEffect(pick, effectDefaults(pick))}>{t('add')}</button>
+          <button className="btn" disabled={scoped ? !targets.length || targets.some(layer => (layer.effects?.length ?? 0) >= 8) : effects.length >= 8} onClick={() => pick && addEffect(pick, effectDefaults(pick))}>{t('add')}</button>
         </div>
-        <p className="ctl-hint">{tx(locale === 'pt', 'Aplicados ao quadro composto, de cima para baixo. Desative o olho para comparar. Até 8 efeitos por composição.', 'Applied to the composed frame, top to bottom. Toggle the eye to compare. Up to 8 effects per composition.')}</p>
+        <p className="ctl-hint">{scoped ? txf(locale === 'pt', 'Aplicados a {n} da seleção, do mesmo tipo da camada ativa.', 'Applied to {n} selected layers of the active layer type.', { n: targets.length }) : tx(locale === 'pt', 'Aplicados ao quadro composto, de cima para baixo. Desative o olho para comparar. Até 8 efeitos por composição.', 'Applied to the composed frame, top to bottom. Toggle the eye to compare. Up to 8 effects per composition.')}</p>
 
         {mobile ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={finishMobileDrag}>
@@ -142,6 +199,6 @@ export default function EffectsPanel() {
           );
         })}
       </div>
-    </>
+    </section>
   );
 }

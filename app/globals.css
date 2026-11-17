@@ -2654,3 +2654,79 @@ select.field { padding-right: 26px; }
 .guided-tour-actions .btn { min-height: 32px; padding: 0 12px; font-size: 12px; }
 .guided-tour-skip { background: none; border-color: transparent; color: var(--fg-muted); padding-left: 0 !important; }
 @media (prefers-reduced-motion: reduce) { .guided-tour-spot { transition: none; } }
+
+.composition-context-menu {
+  position: fixed;
+  z-index: 3000;
+  display: grid;
+  min-width: 178px;
+  max-width: calc(100vw - 12px);
+  max-height: calc(100dvh - 12px);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg-body);
+  background: var(--card);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 24%);
+}
+.composition-context-menu [role="menuitem"] {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.composition-context-menu [role="menuitem"]:disabled { opacity: .42; cursor: default; }
+.composition-context-menu [role="menuitem"]:not(:disabled):is(:hover, :focus-visible) { background: var(--card-soft); }
+.composition-context-divider { height: 1px; margin: 3px 4px; background: var(--line); }
+.composition-group-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.composition-name > .composition-group-tag { flex: none; font-size: 10px; padding: 1px 4px; border: 1px solid var(--line); border-radius: 4px; }
+.canvas-marquee {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.stage-media-drop .stage-canvas { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.stage-drop-status {
+  position: absolute;
+  inset: auto 12px 12px;
+  z-index: 5;
+  justify-self: center;
+  max-width: 90%;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--fg-body);
+}
+.composition-context-actions { display: grid; }
+.composition-context-menu.has-controls { width: 304px; }
+.context-text-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.context-text-controls > label { display: grid; gap: 3px; font-size: 11px; color: var(--fg-muted); }
+.context-text-wide { grid-column: 1 / -1; }
+.context-text-controls :is(label > input, label > select, label > textarea) {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background-color: var(--card-inset);
+  color: var(--fg-body);
+  font-size: 12px;
+}
+.context-text-controls label > select { padding-right: 24px; }
+.context-text-controls label > textarea { resize: vertical; }
+.context-model-transitions { padding: 8px; border-bottom: 1px solid var(--line); }
+.transition-phase { display: grid; gap: 5px; }

@@ -2,12 +2,14 @@
 'use client';
 
 import { useSceneStore } from '@/store/useSceneStore';
-import { trackWindow } from '@/lib/tracks';
+import { trackWindow, type MotionTrack } from '@/lib/tracks';
 import { ControlRow } from './Controls';
 import { BlendRow } from './BlendSelect';
 import { useUIStore } from '@/store/useUIStore';
 import { layerDisplayName } from '@/lib/compositionActions';
 import { tx, txf } from '@/lib/tx';
+import { editSelectedModels } from '@/lib/compositionEditing';
+import ModelTransitionControls from './ModelTransitionControls';
 
 // The active track's own properties — everything that is about the LAYER rather
 // than about the motion template inside it. The template's own controls stay in
@@ -17,9 +19,8 @@ export default function TrackInspector() {
   const pt = useUIStore(s => s.locale) === 'pt';
   const tracks = useSceneStore((s) => s.tracks);
   const activeTrackId = useSceneStore((s) => s.activeTrackId);
-  const patchTrack = useSceneStore((s) => s.patchTrack);
+
   const renameTrack = useSceneStore((s) => s.renameTrack);
-  const toggleTrackAsset = useSceneStore((s) => s.toggleTrackAsset);
   const assets = useSceneStore((s) => s.assets);
   const duration = useSceneStore((s) => s.duration);
   const fps = useSceneStore((s) => s.fps);
@@ -30,7 +31,8 @@ export default function TrackInspector() {
 
   const totalFrames = Math.max(1, Math.round(duration * fps));
   const { inFrame, outFrame, length } = trackWindow(track, totalFrames);
-  const patch = (p: Parameters<typeof patchTrack>[1]) => patchTrack(track.id, p);
+  const patch = (p: Partial<MotionTrack>) => editSelectedModels(track.id, () => p);
+  const patchTransform = (p: Partial<typeof track.transform>) => editSelectedModels(track.id, model => ({ transform: { ...model.transform, ...p } }));
   // Which assets this layer draws. An empty list means "all of them".
   const usesAll = track.assetIds.length === 0;
   const realAssets = assets.filter((asset) => asset.origin !== 'demo');
@@ -80,22 +82,27 @@ export default function TrackInspector() {
 
       <div className="hairline" />
 
+      <div className="section-head"><span className="eyebrow">{tx(pt, 'Transições do modelo', 'Model transitions')}</span></div>
+      <div className="section-body"><ModelTransitionControls track={track} pt={pt} /></div>
+
+      <div className="hairline" />
+
       <div className="section-head"><span className="eyebrow">{tx(pt, 'Transformação da camada', 'Layer transform')}</span></div>
       <div className="section-body">
         <ControlRow
           def={{ key: '_xy', label: 'Position', type: 'xypad', max: 400, default: { x: 0, y: 0 } }}
           value={{ x: track.transform.x, y: track.transform.y }}
-          onChange={(v) => patch({ transform: { ...track.transform, x: v.x, y: v.y } })}
+          onChange={(v) => patchTransform({ x: v.x, y: v.y })}
         />
         <ControlRow
           def={{ key: '_sc', label: 'Scale', type: 'slider', min: 0.1, max: 3, step: 0.05, default: 1 }}
           value={track.transform.scale}
-          onChange={(v) => patch({ transform: { ...track.transform, scale: Number(v) } })}
+          onChange={(v) => patchTransform({ scale: Number(v) })}
         />
         <ControlRow
           def={{ key: '_rot', label: 'Rotation', type: 'slider', min: -180, max: 180, step: 1, default: 0 }}
           value={track.transform.rotation}
-          onChange={(v) => patch({ transform: { ...track.transform, rotation: Number(v) } })}
+          onChange={(v) => patchTransform({ rotation: Number(v) })}
         />
       </div>
 
@@ -122,7 +129,7 @@ export default function TrackInspector() {
                   <button
                     key={a.id}
                     className={`trk-asset ${on ? 'on' : ''}`}
-                    onClick={() => toggleTrackAsset(track.id, a.id)}
+                    onClick={() => editSelectedModels(track.id, model => ({ assetIds: on ? (model.assetIds.length ? model.assetIds : realAssets.map(item => item.id)).filter(id => id !== a.id) : model.assetIds.length ? [...new Set([...model.assetIds, a.id])] : [] }))}
                     title={a.name}
                   >
                     {i + 1}

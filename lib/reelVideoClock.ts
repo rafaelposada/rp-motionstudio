@@ -1,9 +1,10 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
-import { resolveTrackTime, type MotionTrack } from './tracks';
+import { resolveTrackTime, trackWindow, type MotionTrack } from './tracks';
+import { videoPlaybackTime } from './videoTexture';
 
 interface VideoScene {
   fps: number; duration: number; playing: boolean; videoEnd: 'loop' | 'hold';
-  assets: { id: string; url: string }[]; tracks: MotionTrack[];
+  assets: { id: string; url: string; videoStart?: number }[]; tracks: MotionTrack[];
   compositeMode: 'single' | 'stack'; activeTrackId: string;
 }
 // null means a timeline-local video is outside all of its scene windows.
@@ -19,16 +20,36 @@ export function reelVideoTime(scene: VideoScene, url: string, frame: number): nu
   }
   return null;
 }
-export function syncReelVideo(video: HTMLVideoElement, seconds: number | null | undefined, scene: VideoScene, onDirty?: () => void) {
-  if (seconds === undefined) return;
-  if (seconds === null) { if (!video.paused) video.pause(); return; }
+export function cardVideoClock(scene: VideoScene, url: string, frame: number) {
+  const asset = scene.assets.find(asset => asset.url === url), start = asset?.videoStart;
+  const local = reelVideoTime(scene, url, frame);
+  if (local !== undefined || start === undefined) return { elapsed: local, start };
+  const total = Math.round(scene.duration * scene.fps);
+  for (const track of scene.tracks.toReversed()) {
+    if (!track.visible || scene.compositeMode === 'single' && track.id !== scene.activeTrackId) continue;
+    if (track.assetIds.length && !track.assetIds.includes(asset!.id)) continue;
+    const window = trackWindow(track, total);
+    if (frame >= window.inFrame && frame < window.outFrame) return { elapsed: (frame - window.inFrame) / scene.fps, start };
+  }
+  return { elapsed: null, start };
+}
+
+const videoClock = new WeakMap<HTMLVideoElement, { target: number; start: number }>();
+
+export function syncReelVideo(video: HTMLVideoElement, seconds: number | null | undefined, scene: Pick<VideoScene, 'fps' | 'playing' | 'videoEnd'>, onDirty?: () => void, start = 0) {
+  if (seconds === undefined) { videoClock.delete(video); return; }
+  if (seconds === null) { videoClock.delete(video); if (!video.paused) video.pause(); return; }
   if (!Number.isFinite(video.duration) || video.duration <= 0 || video.readyState < 2 || video.seeking) return;
-  const target = scene.videoEnd === 'hold' ? Math.min(seconds, Math.max(0, video.duration - 0.034)) : seconds % video.duration;
-  const tolerance = scene.playing ? 0.18 : 0.5 / scene.fps;
+  const target = videoPlaybackTime(video.duration, seconds, start, scene.videoEnd, scene.fps);
+  const previous = videoClock.get(video);
+  const discontinuity = !previous || previous.start !== start || target < previous.target || target - previous.target > .2;
+  const tolerance = scene.playing && !discontinuity ? .18 : .5 / Math.max(1, scene.fps);
+  videoClock.set(video, { target, start });
   if (Math.abs(video.currentTime - target) > tolerance) {
     video.addEventListener('seeked', () => onDirty?.(), { once: true });
     try { video.currentTime = target; } catch { /* decoder unavailable; retry next frame */ }
   }
-  if (scene.playing && video.paused) void video.play().catch(() => {});
-  if (!scene.playing && !video.paused) video.pause();
+  const holding = scene.videoEnd === 'hold' && target >= video.duration - 1 / Math.max(1, scene.fps);
+  if (scene.playing && !holding && video.paused) void video.play().catch(() => {});
+  if ((!scene.playing || holding) && !video.paused) video.pause();
 }

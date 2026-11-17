@@ -63,6 +63,22 @@ assert.equal(arcs.length,10);assert.ok(arcs.every(r=>typeof r==='number'&&r>0),'
 const sharp=[];tracePointed({moveTo(){sharp.push('m');},lineTo(){sharp.push('l');},arcTo(){sharp.push('a');},closePath(){}},hexagon,0);assert.ok(!sharp.includes('a'),'Radius 0 keeps sharp corners');
 // Media inside a shape: fill crops around the focal point, fit letterboxes,
 // stretch covers the box; all draw centred on the layer origin.
+const { videoPlaybackTime } = require('../lib/videoTexture');
+const { trackTransition } = require('../lib/tracks');
+const { cardVideoClock } = require('../lib/reelVideoClock');
+const model = { id: 'trimmed', assetIds: ['video'], visible: true, inFrame: 30, outFrame: 90, entrance: 'rise', exit: 'zoomIn', entranceDuration: .5, exitDuration: .5, offset: 50, timeScale: 2 };
+assert.deepEqual(trackTransition(model, 30, 150, 30), { opacity: 0, x: 0, y: 30, scale: 1, rotation: 0 });
+assert.deepEqual(trackTransition(model, 59, 150, 30), { opacity: 1, x: 0, y: 0, scale: 1, rotation: 0 });
+near(trackTransition(model, 89, 150, 30).opacity, 0);
+near(trackTransition(model, 89, 150, 30).scale, .65);
+near(videoPlaybackTime(5, 0, 2), 2);
+near(videoPlaybackTime(5, 3, 2), 2);
+near(videoPlaybackTime(5, 4, 2), 3);
+near(videoPlaybackTime(5, 4, 2, 'hold'), 5 - 1 / 30);
+const videoScene = { fps: 30, duration: 5, assets: [{ id: 'video', url: 'blob:video', videoStart: 2 }], tracks: [model], compositeMode: 'single', activeTrackId: model.id };
+assert.deepEqual(cardVideoClock(videoScene, 'blob:video', 30), { elapsed: 0, start: 2 });
+assert.deepEqual(cardVideoClock(videoScene, 'blob:video', 45), { elapsed: .5, start: 2 });
+
 const {drawShapeMedia}=require('../lib/shapeFill');
 const draws=[];const mediaCtx={drawImage:(...a)=>draws.push(a)};const photo={width:400,height:200};
 drawShapeMedia(mediaCtx,photo,{kind:'image',fit:'fill',crop:{x:1,y:.5}},100,100);

@@ -11,6 +11,7 @@ import { KeyedRow } from './KeyframeControls';
 import LayerAnimationControls from './LayerAnimationControls';
 import MaskControl from './MaskControl';
 import { tx } from '@/lib/tx';
+import { editSelectedOverlays } from '@/lib/compositionEditing';
 import Tilt3DControls from './Tilt3DControls';
 import ShapeMediaFill from './ShapeMediaFill';
 import { useState } from 'react';
@@ -49,8 +50,10 @@ export default function ShapePanel() {
   const shapeLayer = layers.find((l) => l.id === selected && l.shape);
   const keyFrame = useSceneStore((s) => shapeLayer && hasKeys(shapeLayer) ? s.frame : 0), fps = useSceneStore((s) => s.fps);
   const seconds = (shapeLayer && hasKeys(shapeLayer) ? keyFrame : useSceneStore.getState().frame) / fps;
-  const patch = (change: Partial<TextLayer>) => shapeLayer && useSceneStore.getState().patchTextLayer(shapeLayer.id, change);
-  const patchShape = (change: Partial<ShapeSpec>) => shapeLayer?.shape && patch({ shape: { ...shapeLayer.shape, ...change } });
+  const patch = (change: Partial<TextLayer>) => shapeLayer && editSelectedOverlays(shapeLayer.id, () => change);
+  const patchShape = (change: Partial<ShapeSpec>) => shapeLayer && editSelectedOverlays(shapeLayer.id, target => ({ shape: { ...target.shape!, ...change } }));
+  const reshape = (change: Parameters<typeof reshapePointed>[1]) => shapeLayer && editSelectedOverlays(shapeLayer.id, target => ({ shape: reshapePointed(target.shape!, change) }));
+  const patchKey = (change: Partial<TextLayer>) => shapeLayer && editSelectedOverlays(shapeLayer.id, target => keyedPatch(target, change, seconds));
   const live = shapeLayer ? animatedLayer(shapeLayer, seconds) : undefined;
   // Fill is one of: none, a colour, or a photo/video. Choosing media keeps the
   // colour until a file arrives, so an empty choice never blanks the shape.
@@ -68,10 +71,10 @@ export default function ShapePanel() {
       <ShapeIcon d={k.icon} size={22} /></button>)}</div>
     {shapeLayer?.shape && live && <>
       <div className="shape-selected"><ShapeIcon d={KINDS.find((k) => k.kind === shapeLayer.shape!.kind)?.icon ?? KINDS[0].icon} size={16} /><strong>{shapeLayer.text}</strong></div>
-      {shapeLayer.shape.kind === 'polygon' && <ControlRow def={{ key: 'shapeSides', label: tx(pt, 'Lados', 'Sides'), type: 'slider', min: SIDES.min, max: SIDES.max, step: 1, default: SIDES.polygon }} value={shapeLayer.shape.sides ?? SIDES.polygon} onChange={(v) => patch({ shape: reshapePointed(shapeLayer.shape!, { sides: Number(v) }) })} />}
+      {shapeLayer.shape.kind === 'polygon' && <ControlRow def={{ key: 'shapeSides', label: tx(pt, 'Lados', 'Sides'), type: 'slider', min: SIDES.min, max: SIDES.max, step: 1, default: SIDES.polygon }} value={shapeLayer.shape.sides ?? SIDES.polygon} onChange={(v) => reshape({ sides: Number(v) })} />}
       {shapeLayer.shape.kind === 'star' && <>
-        <ControlRow def={{ key: 'shapePoints', label: tx(pt, 'Pontas', 'Points'), type: 'slider', min: POINTS.min, max: POINTS.max, step: 1, default: POINTS.star }} value={shapeLayer.shape.points ?? POINTS.star} onChange={(v) => patch({ shape: reshapePointed(shapeLayer.shape!, { points: Number(v) }) })} />
-        <ControlRow def={{ key: 'shapeInner', label: tx(pt, 'Raio interno', 'Inner radius'), type: 'slider', min: INNER.min * 100, max: INNER.max * 100, step: 1, unit: '%', default: INNER.star * 100 }} value={Math.round((shapeLayer.shape.innerRadius ?? INNER.star) * 100)} onChange={(v) => patch({ shape: reshapePointed(shapeLayer.shape!, { innerRadius: Number(v) / 100 }) })} />
+        <ControlRow def={{ key: 'shapePoints', label: tx(pt, 'Pontas', 'Points'), type: 'slider', min: POINTS.min, max: POINTS.max, step: 1, default: POINTS.star }} value={shapeLayer.shape.points ?? POINTS.star} onChange={(v) => reshape({ points: Number(v) })} />
+        <ControlRow def={{ key: 'shapeInner', label: tx(pt, 'Raio interno', 'Inner radius'), type: 'slider', min: INNER.min * 100, max: INNER.max * 100, step: 1, unit: '%', default: INNER.star * 100 }} value={Math.round((shapeLayer.shape.innerRadius ?? INNER.star) * 100)} onChange={(v) => reshape({ innerRadius: Number(v) / 100 })} />
       </>}
       <ControlRow def={{ key: 'shapeWidth', label: tx(pt, 'Largura', 'Width'), type: 'slider', min: 1, max: 4000, step: 1, unit: 'px', default: 200 }} value={shapeLayer.shape.width} onChange={(v) => patchShape({ width: Number(v) })} />
       {shapeLayer.shape.kind !== 'line' && <ControlRow def={{ key: 'shapeHeight', label: tx(pt, 'Altura', 'Height'), type: 'slider', min: 1, max: 4000, step: 1, unit: 'px', default: 200 }} value={shapeLayer.shape.height} onChange={(v) => patchShape({ height: Number(v) })} />}
@@ -96,9 +99,9 @@ export default function ShapePanel() {
         <ColorField pt={pt} label={tx(pt, 'Cor do contorno', 'Stroke color')} color={shapeLayer.shape.stroke} opacity={shapeLayer.shape.strokeOpacity ?? 1} onChange={(stroke, strokeOpacity) => patchShape({ stroke, strokeOpacity })} />
         <ControlRow def={{ key: 'shapeStroke', label: tx(pt, 'Espessura do contorno', 'Stroke width'), type: 'slider', min: 0, max: 200, step: .5, unit: 'px', default: 2 }} value={shapeLayer.shape.strokeWidth ?? 2} onChange={(v) => patchShape({ strokeWidth: Number(v) })} />
       </>}
-      {(['x', 'y', 'rotation'] as const).map((key) => <KeyedRow key={key} layer={shapeLayer} prop={key} pt={pt}><ControlRow def={{ key, label: key === 'rotation' ? tx(pt, 'Rotação', 'Rotation') : `${tx(pt, 'Posição', 'Position')} ${key.toUpperCase()}`, type: 'slider', min: -4000, max: 4000, step: 1, default: 0 }} value={live[key]} onChange={(v) => patch(keyedPatch(shapeLayer, { [key]: Number(v) }, seconds))} /></KeyedRow>)}
+      {(['x', 'y', 'rotation'] as const).map((key) => <KeyedRow key={key} layer={shapeLayer} prop={key} pt={pt}><ControlRow def={{ key, label: key === 'rotation' ? tx(pt, 'Rotação', 'Rotation') : `${tx(pt, 'Posição', 'Position')} ${key.toUpperCase()}`, type: 'slider', min: -4000, max: 4000, step: 1, default: 0 }} value={live[key]} onChange={(v) => patchKey({ [key]: Number(v) })} /></KeyedRow>)}
       <Tilt3DControls layer={shapeLayer} pt={pt} />
-      <KeyedRow layer={shapeLayer} prop="opacity" pt={pt}><ControlRow def={{ key: 'opacity', label: tx(pt, 'Opacidade', 'Opacity'), type: 'slider', min: 0, max: 100, step: 1, unit: '%', default: 100 }} value={live.opacity * 100} onChange={(v) => patch(keyedPatch(shapeLayer, { opacity: Number(v) / 100 }, seconds))} /></KeyedRow>
+      <KeyedRow layer={shapeLayer} prop="opacity" pt={pt}><ControlRow def={{ key: 'opacity', label: tx(pt, 'Opacidade', 'Opacity'), type: 'slider', min: 0, max: 100, step: 1, unit: '%', default: 100 }} value={live.opacity * 100} onChange={(v) => patchKey({ opacity: Number(v) / 100 })} /></KeyedRow>
       {shapeLayer.shape.kind !== 'line' && <ControlRow def={{ key: 'shapeBackdropBlur', label: tx(pt, 'BG Blur · desfoque do fundo', 'BG Blur'), type: 'slider', min: 0, max: 40, step: .5, unit: 'px', default: 0 }} value={shapeLayer.backdropBlur ?? 0} onChange={(v) => patch({ backdropBlur: Number(v) })} />}
       <BlendRow value={shapeLayer.blend} onChange={(blend) => patch({ blend })} />
       <MaskControl layer={shapeLayer} pt={pt} />

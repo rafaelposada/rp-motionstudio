@@ -6,6 +6,7 @@ import { use3DStore, defaultModelFor } from '@/store/use3DStore';
 import { findDevice, SLOT_LABELS } from '@/three3d/devices';
 import { ControlRow } from './Controls';
 import type { ControlDef } from '@/lib/types';
+import VideoStartControl from './VideoStartControl';
 
 const zoomDef: ControlDef = { key: 'zoom', label: 'Zoom', type: 'slider', min: 0.2, max: 3, step: 0.01, default: 1 };
 const posXDef: ControlDef = { key: 'px', label: 'Position X', type: 'slider', min: 0, max: 100, step: 1, default: 50 };
@@ -82,7 +83,7 @@ export default function ScreenContent() {
         {media ? (
           <div className="sc-asset">
             {media.kind === 'video'
-              ? <video className="sc-asset-thumb" src={media.url} muted playsInline />
+              ? <video className="sc-asset-thumb" src={media.url} muted playsInline preload="metadata" onLoadedMetadata={e => { e.currentTarget.currentTime = media.videoStart ?? 0; }} />
               : <img className="sc-asset-thumb" src={media.url} alt="" />}
             <span className="sc-asset-name">{SLOT_LABELS[slot]}</span>
             <button className="sc-asset-x" title="Remove" onClick={() => setScreenMedia(slot, null)}>✕</button>
@@ -94,6 +95,10 @@ export default function ScreenContent() {
         {media && (
           <>
             <button className="btn full" onClick={() => fileRef.current?.click()}>Replace {media.kind}…</button>
+            {media.kind === 'video' && <VideoStartControl url={media.url} value={media.videoStart} onChange={videoStart => {
+              const current = use3DStore.getState().screenMedia[slot];
+              if (current?.url === media.url) setScreenMedia(slot, { ...current, videoStart });
+            }} />}
             <div className="ctl-row">
               <label className="ctl-label">Fit</label>
               <div className="pills">

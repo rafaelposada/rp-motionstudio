@@ -20,8 +20,10 @@
 //  behaviour that predates tracks.
 // ============================================================
 
+import type { ActiveEffect } from '@/store/useSceneStore';
 import type { EasingSpec } from './easing';
 import { clamp } from './motion';
+import { layerTransitionMotion, type ModelTransition } from './layerTransitions';
 
 // The full Framer-style set lives in blendModes.ts, shared with text layers.
 import type { BlendMode } from './blendModes';
@@ -36,6 +38,8 @@ export interface TrackTransform {
 
 export interface MotionTrack {
   z?: number;
+  groupId?: string;
+  effects?: ActiveEffect[];
   mediaClock?: 'local'; // generated narrative clips start video at their own in-point
   id: string;
   name: string;
@@ -60,6 +64,10 @@ export interface MotionTrack {
   offset: number;
   timeScale: number;    // 0.25..4 — how fast the track runs inside its window
   fade: number;         // frames of auto in/out fade at the window edges
+  entrance?: ModelTransition;
+  exit?: ModelTransition;
+  entranceDuration?: number; // seconds
+  exitDuration?: number;
 
   transform: TrackTransform;
 }
@@ -128,6 +136,21 @@ export function resolveTrackTime(track: MotionTrack, frame: number, totalFrames:
   }
 
   return { active: true, localFrame, localTotal: length, envelope };
+}
+
+const REST_TRANSITION = { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 };
+
+export function trackTransition(track: MotionTrack, frame: number, totalFrames: number, fps: number) {
+  const entrance = track.entrance ?? 'none', exit = track.exit ?? 'none';
+  if (entrance === 'none' && exit === 'none') return REST_TRANSITION;
+  const { inFrame, outFrame, length } = trackWindow(track, totalFrames);
+  if (length <= 1) return REST_TRANSITION;
+  // Anchor transitions to the timeline window, independent of model speed and phase.
+  const progress = (distance: number, seconds = .35) => {
+    const frames = Math.min((length - 1) / 2, clamp(Number.isFinite(seconds) ? seconds : .35, .05, Infinity) * fps);
+    return clamp(distance / frames, 0, 1);
+  };
+  return layerTransitionMotion(entrance, exit, progress(frame - inFrame, track.entranceDuration), progress(outFrame - 1 - frame, track.exitDuration));
 }
 
 /**

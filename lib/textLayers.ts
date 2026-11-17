@@ -1,4 +1,5 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
+import type { ActiveEffect } from '@/store/useSceneStore';
 import { idbGet, idbPut } from './assetDb';
 import { drawTextShadow, type TextShadowSettings } from './textShadow';
 import { loadPreviewImage, peekPreviewImage, type RenderImage } from './textureLoad';
@@ -14,6 +15,7 @@ import { fontshareFamily, fontshareFileUrl } from './fontshare';
 import { pointedVertices, tracePointed } from './shapeGeometry';
 import { drawShapeMedia, prepareShapeMedia, releaseShapeOriginals, shapeMediaSource, shapeMediaState, type ShapeMedia } from './shapeFill';
 import { codeFrame, codeFrameState, type CodeSpec } from './codeLayer';
+import { layerTransitionMotion, type LayerAnimation } from './layerTransitions';
 
 export type TextAlign = 'left'|'center'|'right'|'justify';
 export interface ShapeSpec { kind: 'rect'|'ellipse'|'polygon'|'star'|'line'; width: number; height: number; sides?: number; points?: number; innerRadius?: number; fill?: string; fillOpacity?: number; stroke?: string; strokeWidth?: number; strokeOpacity?: number; radius?: number; cornerRadii?: CornerRadii; media?: ShapeMedia }
@@ -25,7 +27,7 @@ export const shapeRadii = (shape: ShapeSpec): CornerRadii => normalizedRadii(Mat
 export const hasBackdropBlur = (layer: Pick<TextLayer,'backdrop'|'backdropBlur'|'media'|'shape'>) => (layer.backdropBlur ?? 0) > 0 && !layer.media && (!!layer.backdrop || !!layer.shape && layer.shape.kind !== 'line');
 export const isTextLayer = (layer: Pick<TextLayer,'media'|'shape'|'code'>) => !layer.media && !layer.shape && !layer.code;
 export type TextWrap = 'auto'|'balance'|'pretty';
-export type LayerAnimation = 'none'|'fade'|'rise'|'drop'|'slideLeft'|'slideRight'|'zoomIn'|'zoomOut'|'pop'|'rotate'|'typewriter';
+export type { LayerAnimation } from './layerTransitions';
 
 export interface TextLayer {
   id: string; text: string; font: string; weight: number; size: number;
@@ -44,12 +46,12 @@ export interface TextLayer {
   arc?: number; shadowColor?: string; shadowBlur?: number;
   shadowX?: number; shadowY?: number; shadowOpacity?: number;
   shadowSpread?: number; shadowType?: 'box'|'realistic'; shadowPosition?: 'outside'|'inside';
-  z?: number; blend?: BlendMode; keyframes?: Keyframes;
+  z?: number; groupId?: string; effects?: ActiveEffect[]; blend?: BlendMode; keyframes?: Keyframes;
   shape?: ShapeSpec;
   code?: CodeSpec; // Canvas 2D / WebGL drawing written in code (see codeLayer.ts)
   tiltX?: number; tiltY?: number; fov?: number; // 3D rotation (degrees) with perspective
   maskId?: string; maskInvert?: boolean; // clip to another layer's alpha (shape, text or image)
-  media?: { blobId: string; url: string; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
+  media?: { blobId: string; url: string; kind?: 'image' | 'video'; videoStart?: number; width: number; height: number; fit: 'contain' | 'cover' | 'stretch'; cornerRadii?: CornerRadii };
   animation?: 'none' | 'fade' | 'rise' | 'typewriter';
   animationDuration?: number; backdrop?: boolean;
   entrance?: LayerAnimation;
@@ -65,21 +67,11 @@ export function textMotion(layer: TextLayer, seconds: number) {
   const endDuration = Math.min(length / 2, Math.max(0.05, layer.exitDuration ?? layer.animationDuration ?? 0.35));
   const progress = Math.max(0, Math.min(1, (seconds - layer.start) / duration));
   const fadeOut = Math.max(0, Math.min(1, (layer.end - seconds) / endDuration));
-  const pose=(mode:LayerAnimation,p:number)=>{
-    const remaining=(1-p)**3;
-    return {x:mode==='slideLeft'?64*remaining:mode==='slideRight'?-64*remaining:0,
-      y:mode==='rise'?30*remaining:mode==='drop'?-48*remaining:0,
-      scale:mode==='zoomIn'?.65+.35*(1-remaining):mode==='zoomOut'?1+.35*remaining:mode==='pop'?1+Math.pow(2,-8*p)*Math.cos(p*Math.PI*3)*-.45*(1-p):1,
-      rotation:mode==='rotate'?-18*remaining:0};
-  };
-  const incoming=pose(entrance,progress), outgoing=pose(exit,fadeOut);
   const chars=[...layer.text];
   const typed=entrance==='typewriter'?Math.ceil(chars.length*progress):chars.length;
   const remaining=exit==='typewriter'?Math.ceil(chars.length*fadeOut):chars.length;
   return {
-    opacity: (entrance !== 'none' ? progress : 1) * (exit !== 'none' ? fadeOut : 1),
-    x:incoming.x-outgoing.x, y:incoming.y-outgoing.y,
-    scale:incoming.scale*outgoing.scale, rotation:incoming.rotation-outgoing.rotation,
+    ...layerTransitionMotion(entrance, exit, progress, fadeOut),
     text:chars.slice(0,Math.min(typed,remaining)).join(''),
   };
 }
@@ -148,8 +140,9 @@ export function ensureFont(family: string, weight: number): Promise<void> {
 
 export async function prepareTextFonts(layers: TextLayer[], originals=false) {
   await Promise.all(layers.filter((layer) => layer.visible).map(async (layer) => {
+    if (layer.media?.kind === 'video') { await prepareShapeMedia(layer.media, originals, layer.text, layer.id); return; }
     if (layer.media) { if (!layer.media.url) throw new Error(`Imagem indisponível: ${layer.text}. Reabra o projeto ou importe novamente.`); if(originals)await overlayImage(layer.media.url).decode();else if(!await loadPreviewImage(layer.media.url))throw new Error(`Imagem indisponível: ${layer.text}`);return; }
-    if (layer.shape?.media) { await prepareShapeMedia(layer.shape.media, originals, layer.text); return; }
+    if (layer.shape?.media) { await prepareShapeMedia(layer.shape.media, originals, layer.text, layer.id); return; }
     if (layer.code) return;
     await Promise.all(textFontVariants(layer).map(style=>ensureFont(style.font,style.weight)));
   }));
@@ -195,7 +188,7 @@ export class TextCompositor {
         else if (kind === 'polygon' || kind === 'star') tracePointed(ctx, pointedVertices(layer.shape), layer.shape.radius ?? 0);
         else { const radii = shapeRadii(layer.shape); if (radii.some(r => r > 0)) ctx.roundRect(-w / 2, -h / 2, w, h, radii); else ctx.rect(-w / 2, -h / 2, w, h); }
         if (maskOnly) { if (kind !== 'line') { ctx.fillStyle = '#fff'; ctx.fill(); } ctx.restore(); continue; }
-        const media = kind !== 'line' ? layer.shape.media : undefined, mediaSource = media ? shapeMediaSource(media, originals) : null;
+        const media = kind !== 'line' ? layer.shape.media : undefined, mediaSource = media ? shapeMediaSource(media, originals, layer.id) : null;
         if (media) { if (mediaSource) { ctx.save(); ctx.globalAlpha = alpha * bounded(layer.shape.fillOpacity ?? 1, 0, 1); ctx.clip(); drawShapeMedia(ctx, mediaSource, media, Math.abs(w), Math.abs(h)); ctx.restore(); } }
         else if (kind !== 'line' && layer.shape.fill) { ctx.globalAlpha = alpha * bounded(layer.shape.fillOpacity ?? 1, 0, 1); ctx.fillStyle = layer.shape.fill; ctx.fill(); }
         const sw = kind === 'line' ? Math.max(1, layer.shape.strokeWidth ?? Math.max(2, h)) : layer.shape.strokeWidth ?? 0;
@@ -209,16 +202,19 @@ export class TextCompositor {
       }
       if (layer.media) {
         if (layer.media.url) {
-          const image = originals?overlayImage(layer.media.url):mediaPreview??peekPreviewImage(layer.media.url);
+          const image = layer.media.kind === 'video' ? shapeMediaSource(layer.media, originals, layer.id)
+            : originals ? overlayImage(layer.media.url) : mediaPreview ?? peekPreviewImage(layer.media.url);
+          const sourceW = image && ('videoWidth' in image ? image.videoWidth : 'naturalWidth' in image ? image.naturalWidth : image.width);
+          const sourceH = image && ('videoHeight' in image ? image.videoHeight : 'naturalHeight' in image ? image.naturalHeight : image.height);
           const { width: w, height: h, fit } = layer.media;
-          if (image && image.width && (!('complete' in image)||image.complete)) {
-            const scale = fit === 'cover' ? Math.max(w / image.width, h / image.height) : Math.min(w / image.width, h / image.height);
+          if (image && sourceW && sourceH && (!('complete' in image) || image.complete)) {
+            const scale = fit === 'cover' ? Math.max(w / sourceW, h / sourceH) : Math.min(w / sourceW, h / sourceH);
             ctx.beginPath();
             const radii = normalizedRadii(w, h, layer.media.cornerRadii);
             if (radii.some(r => r > 0)) ctx.roundRect(-w / 2, -h / 2, w, h, radii);
             else ctx.rect(-w / 2, -h / 2, w, h);
             ctx.clip();
-            const iw = fit === 'stretch' ? w : image.width * scale, ih = fit === 'stretch' ? h : image.height * scale;
+            const iw = fit === 'stretch' ? w : sourceW * scale, ih = fit === 'stretch' ? h : sourceH * scale;
             ctx.drawImage(image, -iw / 2, -ih / 2, iw, ih);
           }
         }
@@ -310,19 +306,20 @@ export class OverlayRaster {
       const motion = textMotion(layer, seconds);
       if (motion.opacity < GHOST_OPACITY || (!motion.text && !!layer.text && !layer.shape && !layer.media)) layer = { ...layer, entrance: 'none', exit: 'none', animation: 'none', opacity: layer.opacity * GHOST_OPACITY };
     }
-    const url=layer.media?.url??'';
+    const video = layer.media?.kind === 'video' ? layer.media : undefined;
+    const url = video ? '' : layer.media?.url ?? '';
     if(url!==this.mediaUrl){this.mediaUrl=url;this.mediaPreview=null;this.mediaPending=false;}
     if(url&&!originals&&!this.mediaPreview){this.mediaPreview=peekPreviewImage(url);if(!this.mediaPreview&&!this.mediaPending){this.mediaPending=true;void loadPreviewImage(url).then(image=>{if(this.mediaUrl===url){this.mediaPreview=image;this.mediaPending=false;}});}}
     const image=url?(originals?overlayImage(url):this.mediaPreview):null;
-    const ready = layer.code ? true : layer.media ? !!image&&image.width>0&&(!('complete' in image)||image.complete) : document.fonts.check(`${layer.weight} ${layer.size}px "${layer.font}"`);
+    const ready = video ? shapeMediaState(video, originals, layer.id) : layer.code ? true : layer.media ? !!image&&image.width>0&&(!('complete' in image)||image.complete) : document.fonts.check(`${layer.weight} ${layer.size}px "${layer.font}"`);
     const active=layer.visible&&seconds>=layer.start&&seconds<layer.end;
     const motion=active?textMotion(layer,seconds):null;
     // Cache the actual appearance, not the clock. A settled entrance animation
     // must reuse the raster until its exit starts or its properties change.
     // Keyed properties resolve to the values at this instant, so a still
     // stretch of the curve reuses the raster and a moving one redraws.
-    const maskState = mask ? [animatedLayer(mask, seconds), mask.visible && seconds >= mask.start && seconds < mask.end ? textMotion(mask, seconds) : null, layer.maskInvert, mask.media ? !!peekPreviewImage(mask.media.url) : document.fonts.check(`${mask.weight} ${mask.size}px "${mask.font}"`)] : null;
-    const signature = JSON.stringify([animatedLayer(layer, seconds), width, height, scale, ready, active, motion, originals, fontRevision, maskState, shapeMediaState(layer.shape?.media, originals), active ? codeFrameState(layer) : null]);
+    const maskState = mask ? [animatedLayer(mask, seconds), mask.visible && seconds >= mask.start && seconds < mask.end ? textMotion(mask, seconds) : null, layer.maskInvert, mask.media?.kind === 'video' ? shapeMediaState(mask.media, originals, mask.id) : mask.media ? !!peekPreviewImage(mask.media.url) : document.fonts.check(`${mask.weight} ${mask.size}px "${mask.font}"`)] : null;
+    const signature = JSON.stringify([animatedLayer(layer, seconds), width, height, scale, ready, active, motion, originals, fontRevision, maskState, shapeMediaState(layer.shape?.media, originals, layer.id), active ? codeFrameState(layer) : null]);
     if (signature === this.signature) return false;
     this.signature = signature;
     const rw=Math.max(1,Math.round(width*scale)),rh=Math.max(1,Math.round(height*scale));

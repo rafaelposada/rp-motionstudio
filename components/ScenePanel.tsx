@@ -13,6 +13,7 @@ import { uiHelp } from '@/lib/controlHelp';
 import MotionPathEditor from './MotionPathEditor';
 import { layerDisplayName } from '@/lib/compositionActions';
 import { tx } from '@/lib/tx';
+import { editSelectedModels } from '@/lib/compositionEditing';
 
 // Renders the SCENE + TIMING sections (no card wrapper — the page composes cards).
 export default function ScenePanel() {
@@ -23,7 +24,10 @@ export default function ScenePanel() {
   const [copied, setCopied] = useState<Record<string, unknown> | null>(null);
   const activeTemplateId = useSceneStore((s) => s.activeTemplateId);
   const values = useSceneStore((s) => s.values);
-  const setValue = useSceneStore((s) => s.setValue);
+  const setValue = (key: string, value: unknown) => {
+    const { activeTrackId } = useSceneStore.getState();
+    editSelectedModels(activeTrackId, track => ({ values: { ...track.values, [key]: value } }), true);
+  };
   const setActiveTemplate = useSceneStore((s) => s.setActiveTemplate);
   const duration = useSceneStore((s) => s.duration);
   const setDuration = useSceneStore((s) => s.setDuration);

@@ -12,7 +12,10 @@ async function main(){
   execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',source],{stdio:'inherit'});
   const plist=path.join(source,'Contents/Info.plist');
   const version=execFileSync('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',plist],{encoding:'utf8'}).trim();
-  if(version!=='1.4.17')throw Error('Atualize o guia de instalação para a versão deste aplicativo.');
+  const guide=path.join(root,'docs/INSTALAR-macOS.md');
+  const expectedVersion=require('../package.json').version;
+  const guideText=await fs.readFile(guide,'utf8');
+  if(version!==expectedVersion||!guideText.includes(`RP-MotionStudio-${version}-macOS-Apple-Silicon.dmg`))throw Error('O bundle, o projeto e o guia precisam indicar a mesma versão.');
   const executable=execFileSync('/usr/libexec/PlistBuddy',['-c','Print :CFBundleExecutable',plist],{encoding:'utf8'}).trim();
   const architectures=execFileSync('/usr/bin/lipo',['-archs',path.join(source,'Contents/MacOS',executable)],{encoding:'utf8'}).trim();
   if(architectures!=='arm64')throw Error('Este guia corresponde somente ao pacote Apple Silicon.');
@@ -24,7 +27,7 @@ async function main(){
     const background=path.join(stage,'background.tiff');
     for(const scale of [1,2])await sharp(vector,{density:72*scale}).resize(760*scale,480*scale).withMetadata({density:72*scale}).tiff({compression:'lzw'}).toFile(path.join(stage,`background${scale===2?'@2x':''}.tiff`));
     await fs.mkdir(path.dirname(output),{recursive:true});
-    execFileSync(python,['-m','dmgbuild','-s',path.join(root,'scripts/dmg-settings.py'),'-D',`application=${source}`,'-D',`guide=${path.join(root,'docs/INSTALAR-macOS.md')}`,'-D',`background=${background}`,`RP MotionStudio ${version}`,output],{stdio:'inherit'});
+    execFileSync(python,['-m','dmgbuild','-s',path.join(root,'scripts/dmg-settings.py'),'-D',`application=${source}`,'-D',`guide=${guide}`,'-D',`background=${background}`,`RP MotionStudio ${version}`,output],{stdio:'inherit'});
     execFileSync('/usr/bin/hdiutil',['verify',output],{stdio:'inherit'});
     const hash=crypto.createHash('sha256');
     for await(const chunk of require('node:fs').createReadStream(output))hash.update(chunk);

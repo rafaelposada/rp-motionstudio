@@ -49,7 +49,7 @@ vec4 fxMain(vec2 p) {
     c *= 1.0 + uCurve * r2;
     // Outside the tube there is nothing, so do not clamp — clamping smears the
     // edge pixel into a border streak.
-    if (abs(c.x) > 1.0 || abs(c.y) > 1.0) return vec4(0.0, 0.0, 0.0, 1.0);
+    if (abs(c.x) > 1.0 || abs(c.y) > 1.0) return vec4(0.0, 0.0, 0.0, fxSample(p).a);
     src = (c * 0.5 + 0.5) * uResolution;
   }
 

@@ -1,5 +1,7 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { create } from 'zustand';
+import { useSceneStore } from './useSceneStore';
+import { expandLayerGroups } from '@/lib/composition';
 import { DEFAULT_ACCENT, sanitizeAccent, accentTokens } from '@/lib/accentColor';
 import type { Locale } from '@/lib/i18n';
 import { setCurrentLocale } from '@/lib/localeState';
@@ -151,13 +153,21 @@ export const useUIStore = create<UIState>((set, get) => ({
   setTextRange: textRange=>set({textRange}),
   selectedMotionId: null,
   selectedLayerIds: [], selectionOrigin: 'inspector',
-  selectMotion: (selectedMotionId) => set({ selectedMotionId, selectedTextId: null, selectedLayerIds: selectedMotionId ? [selectedMotionId] : [], selectionOrigin: 'inspector' }),
+  selectMotion: id => id ? get().selectLayer(id, 'motion', false, false, 'inspector') : set({ selectedMotionId: null, selectedTextId: null, selectedLayerIds: [], selectionOrigin: 'inspector' }),
   selectLayer: (id, kind, additive = false, preserve = false, selectionOrigin = 'canvas') => set(state => {
-    const ids = additive ? (state.selectedLayerIds.includes(id) ? state.selectedLayerIds.filter(i => i !== id) : [...state.selectedLayerIds, id]) : preserve && state.selectedLayerIds.includes(id) ? state.selectedLayerIds : [id];
-    // A removed primary is cleared; the remaining group is still selected.
-    return { selectedLayerIds: ids, selectedTextId: ids.includes(id) && kind === 'overlay' ? id : null, selectedMotionId: ids.includes(id) && kind === 'motion' ? id : null, selectionOrigin };
+    const { tracks, textLayers } = useSceneStore.getState();
+    const members = expandLayerGroups([...tracks, ...textLayers], [id]);
+    const ids = additive
+      ? (state.selectedLayerIds.includes(id) ? state.selectedLayerIds.filter(i => !members.includes(i)) : [...new Set([...state.selectedLayerIds, ...members])])
+      : preserve && state.selectedLayerIds.includes(id) ? state.selectedLayerIds : members;
+    const primary = ids.includes(id) ? id : ids.at(-1);
+    const primaryKind = primary === id ? kind : tracks.some(t => t.id === primary) ? 'motion' : 'overlay';
+    return { selectedLayerIds: ids, selectedTextId: primaryKind === 'overlay' ? primary ?? null : null, selectedMotionId: primaryKind === 'motion' ? primary ?? null : null, selectionOrigin };
   }),
-  setLayerSelection: (selectedLayerIds, primaryId, kind = 'overlay') => set({ selectedLayerIds: [...new Set(selectedLayerIds)], selectedTextId: primaryId && kind === 'overlay' ? primaryId : null, selectedMotionId: primaryId && kind === 'motion' ? primaryId : null }),
+  setLayerSelection: (ids, primaryId, kind = 'overlay') => {
+    const { tracks, textLayers } = useSceneStore.getState();
+    set({ selectedLayerIds: expandLayerGroups([...tracks, ...textLayers], ids), selectedTextId: primaryId && kind === 'overlay' ? primaryId : null, selectedMotionId: primaryId && kind === 'motion' ? primaryId : null });
+  },
   showSelectionBox: true,
   showRulers: false, smartGuides: true, snapEnabled: true, showCanvasTools: true, showArrangeTools: true,
   timelineZoom: { zoom: 1, start: 0 },
@@ -169,7 +179,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   }),
   panTimeline: (delta) => set((state) => ({ timelineZoom: { ...state.timelineZoom, start: Math.max(0, Math.min(1 - 1 / state.timelineZoom.zoom, state.timelineZoom.start + delta)) } })),
   setAlignmentOption: (key,value) => set((state)=>{savePreferences({...state,[key]:value});return {[key]:value};}),
-  selectText: (selectedTextId) => set({ selectedTextId, selectedMotionId: null, selectedLayerIds: selectedTextId ? [selectedTextId] : [], selectionOrigin: 'inspector' }),
+  selectText: id => id ? get().selectLayer(id, 'overlay', false, false, 'inspector') : set({ selectedTextId: null, selectedMotionId: null, selectedLayerIds: [], selectionOrigin: 'inspector' }),
   setShowSelectionBox: (showSelectionBox) => set(state => { savePreferences({ ...state, showSelectionBox }); return { showSelectionBox }; }),
   timelineExpanded: false,
   showStageGrid: true,

@@ -44,7 +44,7 @@ export interface ThreeDState {
   // Keyed by screen SLOT ('phone' | 'laptop' | 'tablet' | 'display'), not by
   // device: one phone screenshot then serves every phone, and switching device
   // keeps the right artwork on screen instead of clearing it.
-  screenMedia: Record<string, { url: string; kind: 'image' | 'video' } | null>;
+  screenMedia: Record<string, { url: string; kind: 'image' | 'video'; videoStart?: number } | null>;
   // How that media is laid into the device's screen. `width` is the one a site
   // screenshot needs — fit the full width and let the tall page overflow, then
   // scroll it with screenOffsetY — which a plain centre-crop `cover` can't do.
@@ -73,7 +73,7 @@ export interface ThreeDState {
   setMockupSpeed: (v: number) => void;
   setMockupEasing: (v: 'preset' | 'smooth' | 'linear') => void;
   setMockupMotionStrength: (v: number) => void;
-  setScreenMedia: (slot: string, media: { url: string; kind: 'image' | 'video' } | null) => void;
+  setScreenMedia: (slot: string, media: { url: string; kind: 'image' | 'video'; videoStart?: number } | null) => void;
   clearScreenMedia: () => void;
   setScreenFit: (fit: 'cover' | 'width' | 'contain') => void;
   setScreenZoom: (v: number) => void;

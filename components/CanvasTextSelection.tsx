@@ -5,10 +5,10 @@ import { useSceneStore, type SceneState } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { captionFontSize, textMotion, textFontRevision, type TextLayer } from '@/lib/textLayers';
-import type { MotionTrack } from '@/lib/tracks';
+import { trackTransition, type MotionTrack } from '@/lib/tracks';
 import { getRendererInstance } from '@/lib/rendererInstance';
 import { compositionOrder } from '@/lib/composition';
-import { arrangeCompositionLayers, deleteCompositionLayers, duplicateCompositionLayers, layerDisplayName } from '@/lib/compositionActions';
+import { arrangeCompositionLayers, deleteCompositionLayers, duplicateCompositionLayers, groupCompositionLayers, layerDisplayName, selectedCompositionIds } from '@/lib/compositionActions';
 import { compositionArrangeShortcut } from '@/lib/compositionShortcuts';
 import { groupFrame, transformGroupMember } from '@/lib/groupTransform';
 import { snapAlignment, type AlignBox } from '@/lib/alignment';
@@ -20,6 +20,7 @@ import {addCompositionText,textToolShortcut} from '@/lib/textActions';
 import {layoutText,boxLeft,anchorAlign} from '@/lib/textLayout';
 import { tx } from '@/lib/tx';
 import EditorRulers from './EditorRulers';
+import { openCompositionMenu } from './CompositionContextMenu';
 import { animatedLayer, keyedPatch } from '@/lib/keyframes';
 import { isTextLayer, shapeRadii } from '@/lib/textLayers';
 import { layerBounds as bounds, layerFrame } from '@/lib/layerBounds';
@@ -30,16 +31,22 @@ function modelFrame(id: string): TransformFrame | null {
   const b = renderer?.selectionBounds?.(id);
   return b ? { cx: b.x + b.width / 2, cy: b.y + b.height / 2, width: b.width, height: b.height, rotation: 0 } : null;
 }
+type Marquee = { start: TransformPoint; end: TransformPoint; ids: string[]; pointerId: number };
+const marqueeBox = ({ start, end }: Marquee) => ({
+  x: Math.min(start.x, end.x), y: Math.min(start.y, end.y),
+  width: Math.abs(start.x - end.x), height: Math.abs(start.y - end.y),
+});
 const CORNERS: ResizeAnchor[] = ['nw', 'ne', 'se', 'sw'];
 type Operation = 'move' | 'resize' | 'rotate' | 'radius';
 interface Gesture {
   id: string; kind: Operation; frame: TransformFrame; start: TransformPoint;
-  overlay?: TextLayer; track?: MotionTrack; anchor?: ResizeAnchor; corner?: number; pointerId?: number;
+  overlay?: TextLayer; sourceOverlay?: TextLayer; track?: MotionTrack; anchor?: ResizeAnchor; corner?: number; pointerId?: number;
   duplicatePending?: boolean;
   duplicateBaseline?: Pick<SceneState, 'tracks' | 'textLayers' | 'activeTrackId' | 'activeTemplateId' | 'values' | 'easing' | 'compositeMode'>;
   originalId?: string;
   originalSelection?: string[];
   members?: Gesture[];
+  unframed?: (TextLayer | MotionTrack)[];
   viewport?: { left: number; top: number; width: number; height: number; canvasWidth: number; canvasHeight: number };
 }
 const sameFrame = (a: TransformFrame, b: TransformFrame) => (Object.keys(a) as (keyof TransformFrame)[]).every(key => Math.abs(a[key] - b[key]) < .01);
@@ -101,6 +108,8 @@ function arrangeSelection(kind: ArrangeKind) {
 }
 export default function CanvasTextSelection() {
   const root = useRef<HTMLDivElement>(null), drag = useRef<Gesture | null>(null);
+  const marquee = useRef<Marquee | null>(null);
+  const [marqueePreview, setMarqueePreview] = useState<Marquee | null>(null);
   const layers = useSceneStore(s => s.textLayers), tracks = useSceneStore(s => s.tracks);
   const width = useSceneStore(s => s.width), height = useSceneStore(s => s.height), frame = useSceneStore(s => s.frame), fps = useSceneStore(s => s.fps);
   const selected = useUIStore(s => s.selectedTextId), selectedMotion = useUIStore(s => s.selectedMotionId), show = useUIStore(s => s.showSelectionBox);
@@ -150,9 +159,15 @@ export default function CanvasTextSelection() {
       if (d.duplicateBaseline) {
         useSceneStore.setState(d.duplicateBaseline);
         useUIStore.getState().setLayerSelection(d.originalSelection ?? [d.originalId!], d.originalId, d.overlay ? 'overlay' : 'motion');
-      } else for (const member of d.members ?? [d]) {
-        if (member.overlay) s.patchTextLayer(member.id, member.overlay);
-        else if (member.track) s.patchTrack(member.id, { transform: member.track.transform, values: member.track.values });
+      } else {
+        for (const member of d.members ?? [d]) {
+          if (member.sourceOverlay) s.patchTextLayer(member.id, member.sourceOverlay);
+          else if (member.track) s.patchTrack(member.id, { transform: member.track.transform, values: member.track.values });
+        }
+        for (const layer of d.unframed ?? []) {
+          if ('templateId' in layer) s.patchTrack(layer.id, { transform: layer.transform });
+          else s.patchTextLayer(layer.id, layer);
+        }
       }
     }
     if (d.pointerId !== undefined && root.current?.hasPointerCapture(d.pointerId)) root.current.releasePointerCapture(d.pointerId);
@@ -161,23 +176,31 @@ export default function CanvasTextSelection() {
   const finishRef = useRef(finish); finishRef.current = finish;
   useEffect(() => {
     const key = (e: globalThis.KeyboardEvent) => {
+      if (marquee.current && e.key === 'Escape') {
+        e.preventDefault(); e.stopImmediatePropagation();
+        marquee.current = null; setMarqueePreview(null); return;
+      }
       if (drag.current && (e.key === 'Escape' || (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z')) { e.preventDefault(); e.stopImmediatePropagation(); finishRef.current(true); return; }
       if (e.defaultPrevented || useUIStore.getState().settingsOpen || document.querySelector('dialog[open]')) return;
-      if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true]')) return;
+      if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true],.composition-context-menu')) return;
       if(drag.current)return;
       if(textToolShortcut(e)){e.preventDefault();e.stopImmediatePropagation();textToolRef.current=true;setTextTool(true);window.dispatchEvent(new Event('motion-text-tool'));return;}
       if(e.key==='Escape'&&textToolRef.current){e.preventDefault();e.stopImmediatePropagation();textToolRef.current=false;setTextTool(false);return;}
-      const ui = useUIStore.getState(), ids = ui.selectedLayerIds;
+      const ui = useUIStore.getState(), ids = selectedCompositionIds();
       const arrange=compositionArrangeShortcut(e);
       if(arrange&&ids.length){e.preventDefault();e.stopImmediatePropagation();arrangeCompositionLayers(ids,arrange);}
+      else if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'g' && ids.length) {
+        e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) groupCompositionLayers(ids, e.shiftKey);
+      }
       else if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'd' && ids.length) { e.preventDefault(); e.stopImmediatePropagation(); duplicateCompositionLayers(ids); }
       else if (['Backspace', 'Delete'].includes(e.key) && ids.length) { e.preventDefault(); if (!e.repeat) void deleteCompositionLayers(ids); }
       else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a' && (e.target as HTMLElement).closest('.canvas-selection,.tl-lanes,.layers-panel')) {
         e.preventDefault(); const s = useSceneStore.getState(); ui.setLayerSelection(compositionOrder(s.tracks, s.textLayers).map(l => l.id));
       }
     };
-    const blur = () => finishRef.current();
-    const navigation = () => finishRef.current(true);
+    const clearMarquee = () => { marquee.current = null; setMarqueePreview(null); };
+    const blur = () => { clearMarquee(); finishRef.current(); };
+    const navigation = () => { clearMarquee(); finishRef.current(true); };
     const selectionTool=()=>{textToolRef.current=false;setTextTool(false);};
     window.addEventListener('motion-selection-tool',selectionTool);
     window.addEventListener('motion-preview-navigation', navigation);
@@ -191,13 +214,13 @@ export default function CanvasTextSelection() {
   }).filter((f): f is TransformFrame => !!f);
   const selection = groupTransform ?? (selectedFrames.length > 1 ? groupFrame(selectedFrames) : selectedFrames[0] ?? null);
   const viewport = () => { const r = root.current!.getBoundingClientRect(); return { left: r.x + rect.x, top: r.y + rect.y, width: rect.width, height: rect.height, canvasWidth: width, canvasHeight: height }; };
-  const point = (e: PointerEvent) => { const r = drag.current?.viewport ?? viewport(); return { x: (e.clientX - r.left) * r.canvasWidth / r.width, y: (e.clientY - r.top) * r.canvasHeight / r.height }; };
+  const point = (e: { clientX: number; clientY: number }) => { const r = drag.current?.viewport ?? viewport(); return { x: (e.clientX - r.left) * r.canvasWidth / r.width, y: (e.clientY - r.top) * r.canvasHeight / r.height }; };
   const singleSnapshot = (kind: Operation, start: TransformPoint, id?: string): Gesture | null => {
     const s = useSceneStore.getState(), ui = useUIStore.getState();
     const overlay = s.textLayers.find(l => l.id === (id ?? ui.selectedTextId)), model = s.tracks.find(t => t.id === (id ?? ui.selectedMotionId));
     if (overlay?.locked) return null;
     const box = overlay ? layerFrame(overlay, s.width, s.frame / s.fps) : model ? modelFrame(model.id) : null;
-    return box && box.width > 0 && box.height > 0 ? { id: overlay?.id ?? model!.id, kind, start, frame: box, overlay: overlay && animatedLayer(overlay, s.frame / s.fps), track: overlay ? undefined : model } : null;
+    return box && box.width > 0 && box.height > 0 ? { id: overlay?.id ?? model!.id, kind, start, frame: box, overlay: overlay && animatedLayer(overlay, s.frame / s.fps), sourceOverlay: overlay, track: overlay ? undefined : model } : null;
   };
   const snapshot = (kind: Operation, start: TransformPoint, id?: string): Gesture | null => {
     const ids = useUIStore.getState().selectedLayerIds;
@@ -206,12 +229,38 @@ export default function CanvasTextSelection() {
     const members = ids.filter(id => s.textLayers.some(l => l.id === id && l.visible && seconds >= l.start && seconds < l.end) || s.tracks.some(t => t.id === id && t.visible))
       .map(id => singleSnapshot(kind, start, id)).filter((d): d is Gesture => !!d);
     const box = groupFrame(members.map(d => d.frame));
-    return box && members.length ? { ...members[0], kind, start, frame: box, members } : null;
+    if (!box) return null;
+    const framed = new Set(members.map(member => member.id));
+    const unframed = [...s.tracks, ...s.textLayers].filter(layer => layer.groupId && ids.includes(layer.id)
+      && !framed.has(layer.id) && !('locked' in layer && layer.locked));
+    return { ...members[0], kind, start, frame: box, members, unframed };
   };
   const patchFrame = (d: Gesture, next: TransformFrame, grouped = false) => {
-    if (d.members) { setGroupTransform(next); for (const member of d.members) patchFrame(member, transformGroupMember(member.frame, d.frame, next), true); return; }
-    const s = useSceneStore.getState(), motion = d.overlay ? textMotion(d.overlay, s.frame / s.fps) : {x:0,y:0,rotation:0,scale:1}, motionY=motion.y;
+    const s = useSceneStore.getState();
+    if (d.members) {
+      setGroupTransform(next);
+      for (const member of d.members) patchFrame(member, transformGroupMember(member.frame, d.frame, next), true);
+      const scale = next.width / d.frame.width, rotation = next.rotation - d.frame.rotation;
+      const center = { x: width / 2, y: height / 2 };
+      for (const layer of d.unframed ?? []) {
+        if ('templateId' in layer) {
+          const from = layer.transform, point = mapFramePoint({ x: center.x + from.x, y: center.y + from.y }, d.frame, next);
+          s.patchTrack(layer.id, { transform: { x: point.x - center.x, y: point.y - center.y, scale: from.scale * scale, rotation: normalizedAngle(from.rotation + rotation) } });
+        } else {
+          const point = mapFramePoint(layer, d.frame, next);
+          const change = { ...point, scaleX: (layer.scaleX ?? 1) * scale, scaleY: (layer.scaleY ?? 1) * scale, rotation: normalizedAngle(layer.rotation + rotation) };
+          const stored = s.textLayers.find(item => item.id === layer.id);
+          if (stored) s.patchTextLayer(layer.id, keyedPatch(stored, change, s.frame / s.fps));
+        }
+      }
+      return;
+    }
+    const motion = d.overlay ? textMotion(d.overlay, s.frame / s.fps) : {x:0,y:0,rotation:0,scale:1}, motionY=motion.y;
     const path = d.track ? modelPathOffset(d.track, s.frame, s.fps, width, height) : { x: 0, y: 0 };
+    if (d.track) {
+      const transition = trackTransition(d.track, s.frame, Math.round(s.duration * s.fps), s.fps);
+      path.x += transition.x; path.y += transition.y;
+    }
     const origin = d.overlay ? { x: d.overlay.x+motion.x, y: d.overlay.y + motionY } : { x: width / 2 + d.track!.transform.x + path.x, y: height / 2 + d.track!.transform.y + path.y };
     const p = mapFramePoint(origin, d.frame, next);
     if (d.overlay) {
@@ -313,15 +362,45 @@ export default function CanvasTextSelection() {
   const cornerValue = (i: number) => active ? active.media ? normalizedRadii(active.media.width, active.media.height, active.media.cornerRadii)[i] : active.shape ? shapeRadii(active.shape)[i] : active.backdropRadius ?? 12 : Number(track?.values.cornerRadius ?? 0);
   const editingLayer = layers.find(l => l.id === editingId && isTextLayer(l));
   const editFrame = editingLayer ? layerFrame(editingLayer,width,seconds) : null;
-  return <div ref={root} className={`canvas-selection${textTool?' canvas-text-tool':''}${rulers?' rulers-on':''}`} tabIndex={-1} onPointerDown={e => {
-    if (e.button !== 0 || !rect.width || drag.current || (e.target as HTMLElement).closest('.canvas-inline-text')) return;
-    const p = point(e), s = useSceneStore.getState(), order = compositionOrder(tracks, layers);
+  const hitAt = (p: TransformPoint) => {
+    const order = compositionOrder(tracks, layers);
     const hit = [...order].reverse().filter(l => l.kind === 'overlay').map(item => layers.find(l => l.id === item.id)!).find(l => {
       if (!l.visible || l.opacity < .02 || seconds < l.start || seconds >= l.end) return false;
       const f = layerFrame(l, width, seconds), local = rotatePoint({ x: p.x - f.cx, y: p.y - f.cy }, -f.rotation);
       return Math.abs(local.x) <= f.width / 2 + 6 / Math.max(.01, ratio) && Math.abs(local.y) <= f.height / 2 + 6 / Math.max(.01, ratio);
     });
     const modelId = getRendererInstance()?.hitTest?.(p.x, p.y), id = modelId && (!hit || order.findIndex(l => l.id === modelId) > order.findIndex(l => l.id === hit.id)) ? modelId : hit?.id;
+    return { id, hit, modelId };
+  };
+  const finishMarquee = (e: PointerEvent, cancel = false) => {
+    const selection = marquee.current;
+    if (!selection || selection.pointerId !== e.pointerId) return;
+    marquee.current = null; setMarqueePreview(null);
+    if (cancel) return;
+    const box = marqueeBox(selection), scene = useSceneStore.getState();
+    const ordered = compositionOrder(scene.tracks, scene.textLayers);
+    const hit = ordered.filter(item => {
+      if (Math.hypot(box.width, box.height) * ratio < 4) return false;
+      const layer = scene.textLayers.find(layer => layer.id === item.id);
+      if (layer && (!layer.visible || layer.locked || seconds < layer.start || seconds >= layer.end)) return false;
+      const frame = layer ? layerFrame(layer, width, seconds) : modelFrame(item.id);
+      if (!frame) return false;
+      const bounds = frameAABB(frame);
+      return box.x <= bounds.x + bounds.width && box.x + box.width >= bounds.x
+        && box.y <= bounds.y + bounds.height && box.y + box.height >= bounds.y;
+    });
+    const primary = hit.at(-1) ?? ordered.find(item => item.id === selection.ids.at(-1));
+    useUIStore.getState().setLayerSelection([...selection.ids, ...hit.map(item => item.id)], primary?.id, primary?.kind);
+  };
+  return <div ref={root} className={`canvas-selection${textTool?' canvas-text-tool':''}${rulers?' rulers-on':''}`} tabIndex={-1}
+    onContextMenu={e => {
+      if (!rect.width || (e.target as HTMLElement).closest('.canvas-inline-text')) return;
+      openCompositionMenu(e, e.clientX || e.clientY ? hitAt(point(e)).id : undefined);
+    }}
+    onPointerDown={e => {
+    if (e.button !== 0 || !rect.width || drag.current || marquee.current || (e.target as HTMLElement).closest('.canvas-inline-text')) return;
+    const p = point(e), s = useSceneStore.getState();
+    const { id, hit, modelId } = hitAt(p);
     if(textToolRef.current){
       e.preventDefault();e.stopPropagation();
       const existing=hit&&hit.id===id&&isTextLayer(hit)&&!hit.locked?hit:null;
@@ -332,7 +411,15 @@ export default function CanvasTextSelection() {
     if (id) {
       ui.selectLayer(id, id === modelId ? 'motion' : 'overlay', e.shiftKey, !e.shiftKey, 'canvas');
       if (id === modelId) { const t = s.tracks.find(t => t.id === id); if (t) useSceneStore.setState({ activeTrackId: id, activeTemplateId: t.templateId, values: t.values, easing: t.easing }); }
-    } else if (!e.shiftKey) ui.setLayerSelection([]);
+    } else {
+      if (p.x >= 0 && p.y >= 0 && p.x <= width && p.y <= height) {
+        marquee.current = { start: p, end: p, ids: e.shiftKey ? ui.selectedLayerIds : [], pointerId: e.pointerId };
+        e.currentTarget.focus({ preventScroll: true });
+        e.currentTarget.setPointerCapture(e.pointerId);
+        s.setPlaying(false); e.preventDefault();
+      } else if (!e.shiftKey) ui.setLayerSelection([]);
+      return;
+    }
     if (e.shiftKey) { e.preventDefault(); return; }
     if (!id || hit?.id === id && hit.locked) return;
     const d = snapshot('move', p, id); if (!d) return;
@@ -352,30 +439,45 @@ export default function CanvasTextSelection() {
     if(!hit || !isTextLayer(hit) || hit.locked || model && order.findIndex(l=>l.id===model)>order.findIndex(l=>l.id===hit.id))return;
     e.preventDefault(); finish(); useSceneStore.getState().setPlaying(false); useUIStore.getState().selectText(hit.id); setEditingId(hit.id);
   }} onPointerMove={e => {
+    if (marquee.current?.pointerId === e.pointerId) {
+      const p = point(e);
+      const next = { ...marquee.current, end: { x: bounded(p.x, 0, width), y: bounded(p.y, 0, height) } };
+      marquee.current = next; setMarqueePreview(next); return;
+    }
     let d = drag.current; if (!d) return;
     const p = point(e);
     if (d.duplicatePending) {
       if (Math.hypot(p.x - d.start.x, p.y - d.start.y) * ratio < 3) return;
       const s = useSceneStore.getState();
       const baseline = { tracks: s.tracks, textLayers: s.textLayers, activeTrackId: s.activeTrackId, activeTemplateId: s.activeTemplateId, values: s.values, easing: s.easing, compositeMode: s.compositeMode };
-      const members = d.members ?? [d], originals = members.map(m => m.id);
+      const members = d.members ?? [d], originals = [...members.map(m => m.id), ...(d.unframed ?? []).map(layer => layer.id)];
       const ordered = compositionOrder(s.tracks, s.textLayers).filter(l => originals.includes(l.id));
-      const copies = duplicateCompositionLayers(originals, 0, false); if (copies.length !== members.length) return;
+      const copies = duplicateCompositionLayers(originals, 0, false); if (copies.length !== originals.length) return;
       const copyMap = new Map(ordered.map((l, i) => [l.id, copies[i]]));
       const copyId = copyMap.get(d.id)!;
       const next = useSceneStore.getState();
-      const copyMember = (m: Gesture): Gesture => ({ ...m, id: copyMap.get(m.id)!, overlay: m.overlay ? next.textLayers.find(l => l.id === copyMap.get(m.id)) : undefined, track: m.track ? next.tracks.find(t => t.id === copyMap.get(m.id)) : undefined });
-      d = { ...copyMember(d), originalId: d.id, originalSelection: originals, duplicatePending: false, duplicateBaseline: baseline, members: d.members?.map(copyMember) };
+      const copyMember = (m: Gesture): Gesture => {
+        const id = copyMap.get(m.id)!;
+        const overlay = next.textLayers.find(layer => layer.id === id);
+        return { ...m, id, overlay: overlay && animatedLayer(overlay, next.frame / next.fps), sourceOverlay: overlay, track: next.tracks.find(track => track.id === id) };
+      };
+      const copiedLayers = [...next.tracks, ...next.textLayers];
+      d = { ...copyMember(d), originalId: d.id, originalSelection: originals, duplicatePending: false, duplicateBaseline: baseline, members: d.members?.map(copyMember),
+        unframed: d.unframed?.map(layer => copiedLayers.find(copy => copy.id === copyMap.get(layer.id))!) };
       drag.current = d;
     }
     apply(d, p, e.shiftKey, e.altKey);
-  }} onPointerUp={() => finish()} onPointerCancel={() => finish(true)} onLostPointerCapture={() => finish()}>
+  }} onPointerUp={e => { finishMarquee(e); finish(); }} onPointerCancel={e => { finishMarquee(e, true); finish(true); }} onLostPointerCapture={e => { finishMarquee(e, true); finish(); }}>
+    {marqueePreview && (() => {
+      const box = marqueeBox(marqueePreview);
+      return <div className="canvas-marquee" style={{ left: rect.x + box.x / width * rect.width, top: rect.y + box.y / height * rect.height, width: box.width / width * rect.width, height: box.height / height * rect.height }} />;
+    })()}
     {canvasTools&&<div className="alignment-toolbar" onPointerDown={e=>e.stopPropagation()}>{([['showRulers',tx(pt, 'Réguas', 'Rulers'),tx(pt, 'Exibe réguas em pixels nas bordas da composição.', 'Show pixel rulers at the edges of the composition.')],['smartGuides',tx(pt, 'Guias', 'Guides'),tx(pt, 'Mostra linhas de alinhamento ao mover ou redimensionar elementos.', 'Show alignment guides while moving or resizing elements.')],['snapEnabled',tx(pt, 'Encaixar', 'Snap'),tx(pt, 'Encaixa elementos nas bordas e centros próximos. Alt suspende o encaixe durante o arraste.', 'Snap elements to nearby edges and centers. Alt temporarily disables snapping.')]] as const).map(([key,label,help])=><button key={key} title={help} aria-label={`${label}: ${help}`} aria-pressed={key==='showRulers'?rulers:key==='smartGuides'?guides:snap} onClick={()=>useUIStore.getState().setAlignmentOption(key,!(key==='showRulers'?rulers:key==='smartGuides'?guides:snap))}>{label}</button>)}<button title={tx(pt, 'Mostra ou oculta a caixa delimitadora e as alças de transformação da seleção.', 'Show or hide the selection bounding box and transform handles.')} aria-label="BBox" aria-pressed={show} onClick={()=>useUIStore.getState().setShowSelectionBox(!show)}>BBox</button></div>}
     {arrangeTools&&selectedIds.length>0&&<div className={`arrange-toolbar ${canvasTools?'':'solo'}`} role="toolbar" aria-label={tx(pt,'Alinhar e distribuir','Align and distribute')} onPointerDown={e=>e.stopPropagation()}>{ARRANGE.map((item,index)=><span key={item.kind} className="arrange-slot">{index===6&&<span className="alignment-sep" aria-hidden="true"/>}<button className="arrange-btn" disabled={item.kind.startsWith('distribute')&&selectedIds.length<3} title={tx(pt,item.pt,item.en)} aria-label={tx(pt,item.pt,item.en)} onClick={()=>arrangeSelection(item.kind)}><ArrangeIcon kind={item.kind}/></button></span>)}</div>}
     <EditorRulers root={root} rect={rect} width={width} height={height} rulers={rulers} pt={pt} targets={alignTargets} snap={snap} hit={guide}/>
     {(guide.x!==null||guide.y!==null)&&<svg className="editor-guides">{guide.x!==null&&<line x1={rect.x+guide.x/width*rect.width} x2={rect.x+guide.x/width*rect.width} y1={rect.y} y2={rect.y+rect.height}/>} {guide.y!==null&&<line y1={rect.y+guide.y/height*rect.height} y2={rect.y+guide.y/height*rect.height} x1={rect.x} x2={rect.x+rect.width}/>}</svg>}
 
-    {show && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={tx(pt, 'Transformar camada selecionada', 'Transform selected layer')} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
+    {show && !marqueePreview && !textTool && !editingLayer && selection && ratio > 0 && <div className="canvas-selection-box transform-selection" role="group" aria-label={tx(pt, 'Transformar camada selecionada', 'Transform selected layer')} style={{ left: rect.x + selection.cx / width * rect.width, top: rect.y + selection.cy / height * rect.height, width: selection.width * ratio, height: selection.height * ratio, transform: `translate(-50%, -50%) rotate(${selection.rotation}deg)` }}>
       <span className="canvas-selection-label">{selectedIds.length > 1 ? `${selectedIds.length} ${tx(pt, 'camadas', 'layers')}` : active?.text.slice(0, 30) || layerDisplayName(track?.name ?? '', pt)}{active?.locked ? ' 🔒' : ''}</span>
       {(!active?.locked || selectedIds.length > 1) && <>
         {RESIZE_ANCHORS.filter(anchor => !(fixedText && (anchor === 'n' || anchor === 's'))).map(anchor => { const [x, y] = ANCHOR_AXES[anchor]; const label = `${tx(pt, 'Redimensionar', 'Resize')}: ${names[anchor]}`; return <button key={anchor} type="button" className="transform-handle" aria-label={label} title={label + (tx(pt, '. Shift mantém proporção; Alt redimensiona pelo centro.', '. Shift preserves aspect; Alt scales from the center.'))} style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, cursor: resizeCursor(anchor, selection.rotation) }} onPointerDown={e => begin(e, 'resize', anchor)} onKeyDown={e => handleKey(e, 'resize', anchor)} />; })}

@@ -62,7 +62,7 @@ const programas = new Map<string, GlProgram>();
 const cache = new Map<string, Filter[]>();
 
 /** Um filtro por PASSE desta instancia, na ordem em que rodam. */
-export function pixiFiltersFor(effect: Effect, instanceId = effect.meta.id): Filter[] {
+export function pixiFiltersFor(effect: Effect, instanceId = effect.meta.id, scoped = false): Filter[] {
   const hit = cache.get(instanceId);
   if (hit) return hit;
 
@@ -80,10 +80,10 @@ export function pixiFiltersFor(effect: Effect, instanceId = effect.meta.id): Fil
         type: type === 'float' ? 'f32' : `${type}<f32>`,
       };
     }
-    const chave = `${effect.meta.id}#${i}`;
+    const chave = `${effect.meta.id}#${i}/${scoped}`;
     let programa = programas.get(chave);
     if (!programa) {
-      programa = GlProgram.from({ vertex: VERTEX, fragment: pixiFragment(effect, pass), name: `fx-${chave}` });
+      programa = GlProgram.from({ vertex: VERTEX, fragment: pixiFragment(effect, pass, scoped), name: `fx-${chave}` });
       programas.set(chave, programa);
     }
     return new Filter({ glProgram: programa, resources: { fxUniforms: uniforms } });

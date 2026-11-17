@@ -45,7 +45,7 @@ export interface AsciiOptions {
   // effect hands out a camera handle (null on teardown) — drives the view gizmo
   onCamera?: (rig: CameraRig | null) => void;
   // Mockup mode — image/video composited onto the device's "Screen" mesh.
-  getScreenMedia?: () => { kind: 'image' | 'video'; url: string } | null;
+  getScreenMedia?: () => { kind: 'image' | 'video'; url: string; videoStart?: number } | null;
   // How that media is laid into the screen (fit mode, zoom, 0..100 anchor).
   getScreenTransform?: () => { fit: 'cover' | 'width' | 'contain'; zoom: number; offsetX: number; offsetY: number };
   getScreenStatus?: () => {
@@ -60,6 +60,9 @@ export interface AsciiOptions {
     renderFrame: (frame: number) => void;
     captureFrame: (frame: number) => string;
     setCaptureScale: (k: number) => void;
+    beginVideoExport?: () => Promise<void>;
+    seekVideos?: (frame: number) => Promise<void>;
+    endVideoExport?: () => void;
   } | null) => void;
 }
 

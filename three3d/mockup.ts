@@ -12,6 +12,8 @@ import { findDevice } from './devices';
 import { use3DStore } from '../store/use3DStore';
 import { useSceneStore } from '../store/useSceneStore';
 import { apply3DAnimation } from './animations';
+import { advanceVideoForExport, createCardVideo, prepareVideoForSequentialExport, requestFiniteVideoDuration, videoPlaybackTime, whenVideoReady } from '@/lib/videoTexture';
+import { syncReelVideo } from '@/lib/reelVideoClock';
 
 // ── Device Mockup 3D effect ─────────────────────────────────────────────────
 // Realistic PBR render — the GLB's own materials (colour, metalness, roughness,
@@ -322,6 +324,7 @@ export function initMockup(
   let screenMesh: THREE.Mesh | null = null;
   let screenKey = '';
   let screenVideoEl: HTMLVideoElement | null = null;
+  let exportingVideo = false;
   let screenImageEl: HTMLImageElement | null = null;
   let screenXformKey = '';
   // Composite at the panel's real native pixels (1206 x 2622 on an iPhone 17
@@ -936,10 +939,12 @@ export function initMockup(
           screenXformKey = '';
           drawEmptyScreenFrame();
         } else if (media.kind === 'video') {
-          const vid = document.createElement('video');
-          vid.src = media.url; vid.crossOrigin = 'anonymous'; vid.loop = true; vid.muted = true; vid.playsInline = true;
-          vid.play().catch(() => {});
-          screenVideoEl = vid;
+          const video = createCardVideo(media.url);
+          video.autoplay = false;
+          video.loop = false;
+          video.addEventListener('loadedmetadata', () => requestFiniteVideoDuration(video), { once: true });
+          screenImageEl = null;
+          screenVideoEl = video;
         } else {
           const img = new Image();
           img.crossOrigin = 'anonymous';
@@ -958,6 +963,8 @@ export function initMockup(
     // A video's frame changes every tick, so it always redraws. A still image
     // only needs redrawing when a fit/zoom/anchor slider actually moves.
     if (screenVideoEl && screenVideoEl.readyState >= 2) {
+      const state = useSceneStore.getState();
+      if (!exportingVideo) syncReelVideo(screenVideoEl, state.frame / state.fps, state, undefined, media?.videoStart);
       drawScreenFrame(screenVideoEl, DEV?.screenAspect ?? 16 / 9, DEV?.screenCornerFrac ?? 0);
     } else if (screenImageEl) {
       const t = opts.getScreenTransform?.() ?? { fit: 'cover', zoom: 1, offsetX: 50, offsetY: 50 };
@@ -1073,6 +1080,7 @@ export function initMockup(
   }
 
   const renderFrameAt = (frame: number) => {
+    if (screenVideoEl && screenVideoEl.readyState >= 2) drawScreenFrame(screenVideoEl, DEV?.screenAspect ?? 16 / 9, DEV?.screenCornerFrac ?? 0);
     if (disposed) return;
     const p = P();
     const sceneState = useSceneStore.getState();
@@ -1142,7 +1150,21 @@ export function initMockup(
   opts.onRenderer?.({
     renderFrame: renderFrameAt,
     captureFrame: captureFrameAt,
-    setCaptureScale: setCaptureScale,
+    setCaptureScale,
+    beginVideoExport: async () => {
+      exportingVideo = true;
+      if (!screenVideoEl) return;
+      const video = await whenVideoReady(screenVideoEl);
+      await prepareVideoForSequentialExport(video);
+    },
+    seekVideos: async (frame) => {
+      const video = screenVideoEl;
+      if (!video) return;
+      const state = useSceneStore.getState();
+      const target = videoPlaybackTime(video.duration, frame / state.fps, opts.getScreenMedia?.()?.videoStart, state.videoEnd, state.fps);
+      await advanceVideoForExport(video, target, state.fps);
+    },
+    endVideoExport: () => { exportingVideo = false; },
   });
 
   loop();

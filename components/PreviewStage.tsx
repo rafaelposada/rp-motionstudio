@@ -10,17 +10,21 @@ import { useUIStore } from '@/store/useUIStore';
 import { getTemplate } from '@/templates';
 import { previewResolution, setPreviewPlaying } from '@/lib/previewResolution';
 import { hasBackdropBlur, prepareTextFonts } from '@/lib/textLayers';
-import { MEDIA_READY_EVENT } from '@/lib/shapeFill';
+import { MEDIA_READY_EVENT, releaseShapeVideos } from '@/lib/shapeFill';
 import { useAudioPreview } from '@/lib/useAudioPreview';
 import CanvasTextSelection from './CanvasTextSelection';
+import CompositionContextMenu from './CompositionContextMenu';
 import ModelVisibilityNotice from './ModelVisibilityNotice';
 import PreviewNavigation from './PreviewNavigation';
 import { tx } from '@/lib/tx';
+import { absoluteMediaDropPoint, addAbsoluteMedia } from '@/lib/absoluteMedia';
 
 export default function PreviewStage() {
   useAudioPreview();
   const [initializationError,setInitializationError]=useState(false);
   const [attempt,setAttempt]=useState(0);
+  const [fileDrop, setFileDrop] = useState(false);
+  const [dropStatus, setDropStatus] = useState('');
   const pt=useUIStore(state=>state.locale)==='pt';
   const stageRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<IRenderer | null>(null);
@@ -195,6 +199,7 @@ export default function PreviewStage() {
       setRendererInstance(null);
       rendererRef.current = null;
       renderer?.destroy();
+      releaseShapeVideos();
       if (canvas.parentNode) canvas.remove();
     };
   }, [engine, sceneGeneration, attempt]);
@@ -214,6 +219,28 @@ export default function PreviewStage() {
   }, [width, height]);
 
   return (
-    <div ref={stageRef} className="stage-wrap"><CanvasTextSelection /><ModelVisibilityNotice /><PreviewNavigation stage={stageRef}/>{initializationError&&<div className="preview-init-error" role="alert"><span>{tx(pt, 'Não foi possível iniciar a prévia. A edição permanece nesta janela; salve um rascunho antes de sair.', 'The preview could not start. Your editing data remains in this window; save a draft before leaving.')}</span><button type="button" className="btn" onClick={()=>setAttempt(value=>value+1)}>{tx(pt, 'Tentar novamente', 'Try again')}</button></div>}</div>
+    <div ref={stageRef} className={`stage-wrap${fileDrop ? ' stage-media-drop' : ''}`}
+      onDragOver={event => {
+        if (!event.dataTransfer.types.includes('Files')) return;
+        event.preventDefault();
+        const point = absoluteMediaDropPoint(event.clientX, event.clientY);
+        setFileDrop(!!point);
+        event.dataTransfer.dropEffect = point ? 'copy' : 'none';
+      }}
+      onDragLeave={event => {
+        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setFileDrop(false);
+      }}
+      onDrop={event => {
+        if (!event.dataTransfer.types.includes('Files')) return;
+        event.preventDefault();
+        setFileDrop(false);
+        const point = absoluteMediaDropPoint(event.clientX, event.clientY);
+        if (!point) return;
+        const files = [...event.dataTransfer.files];
+        if (!files.length) return;
+        setDropStatus(tx(pt, 'Carregando mídia…', 'Loading media…'));
+        void addAbsoluteMedia(files, point).then(() => setDropStatus(''), error => setDropStatus(error.message));
+      }}
+    ><CanvasTextSelection />{dropStatus && <button type="button" className="stage-drop-status" aria-live="polite" onClick={() => setDropStatus('')}>{dropStatus}</button>}<CompositionContextMenu /><ModelVisibilityNotice /><PreviewNavigation stage={stageRef}/>{initializationError&&<div className="preview-init-error" role="alert"><span>{tx(pt, 'Não foi possível iniciar a prévia. A edição permanece nesta janela; salve um rascunho antes de sair.', 'The preview could not start. Your editing data remains in this window; save a draft before leaving.')}</span><button type="button" className="btn" onClick={()=>setAttempt(value=>value+1)}>{tx(pt, 'Tentar novamente', 'Try again')}</button></div>}</div>
   );
 }

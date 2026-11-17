@@ -35,6 +35,7 @@ export interface AssetItem {
   url: string;
   visible: boolean;
   kind?: 'image' | 'video'; // media type; undefined = image (backward compatible)
+  videoStart?: number; // seconds into the source clip
   origin?: 'demo' | 'remote' | 'upload'; // demos preview empty slots; upload bytes live in IndexedDB
   crop?: CropFocus; // cover-fit focal point 0..1 per axis; undefined = centre
   fit?: MediaFit; // undefined = fill (backward compatible)
@@ -93,7 +94,7 @@ export interface SceneState {
   setGuides: (guides: { x: number[]; y: number[] }) => void;
   setCompositeMode: (mode: 'single' | 'stack') => void;
   textLayers: TextLayer[];
-  addTextLayer: () => void;
+  addTextLayer: (patch?: Partial<Omit<TextLayer, 'id'>>) => string;
   patchTextLayer: (id: string, patch: Partial<TextLayer>) => void;
   removeTextLayer: (id: string) => void;
   // ---- motion tracks: stacked motion layers, drawn in array order ----
@@ -180,6 +181,7 @@ export interface SceneState {
   reorderAssets: (from: number, to: number) => void;
   clearAssets: () => void;
   setAssetCrop: (id: string, crop: CropFocus) => void;
+  setAssetVideoStart: (id: string, start: number) => void;
   setAllAssetCrops: (crop: CropFocus) => void;
   setAssetFit: (id: string, fit: MediaFit) => void;
   setCardShape: (shape: string) => void;
@@ -322,12 +324,17 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   setMarkers: (markers) => set((s) => ({ markers: markers.filter((m) => Number.isFinite(m.t)).map((m) => ({ ...m, t: Math.max(0, Math.min(s.duration, m.t)) })).sort((a, b) => a.t - b.t).slice(0, 200) })),
   setGuides: (guides) => set(() => ({ guides: { x: guides.x.filter(Number.isFinite).slice(0, 64), y: guides.y.filter(Number.isFinite).slice(0, 64) } })),
   setCompositeMode: (compositeMode) => set(s => ({ compositeMode, ...(compositeMode === 'single' ? projectActive(s.tracks.map(t => t.id === s.activeTrackId ? { ...t, visible: true } : t), s.activeTrackId) : {}) })),
-  addTextLayer: () => set((s) => ({ textLayers: [...s.textLayers, {
+  addTextLayer: (patch) => {
+    const id = nid('text');
+    set((s) => ({ textLayers: [...s.textLayers, {
     z: Math.max(-1, ...s.tracks.map((l, i) => l.z ?? i * 2), ...s.textLayers.map((l, i) => l.z ?? s.tracks.length * 2 + i)) + 1,
-    id: nid('text'), text: 'Seu texto', font: 'Arial', weight: 700, size: 72,
+    id, text: 'Seu texto', font: 'Arial', weight: 700, size: 72,
     color: '#ffffff', x: s.width / 2, y: s.height / 2, rotation: 0,
     opacity: 1, fillOpacity: 1, arc: 0, letterSpacing: 0, align: 'center', lineHeight: 1.2, visible: true, start: 0, end: s.duration,
-  }] })),
+      ...patch,
+    }] }));
+    return id;
+  },
   patchTextLayer: (id, patch) => set((s) => ({ textLayers: s.textLayers.map((layer) => layer.id === id ? { ...layer, ...(typeof patch.text==='string'&&!('runs' in patch)?{runs:remapTextRuns(layer,patch.text)}:{}), ...patch, id: layer.id } : layer) })),
   removeTextLayer: (id) => set((s) => ({ textLayers: s.textLayers.filter((layer) => layer.id !== id) })),
 
@@ -507,7 +514,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       const prev = next[index];
       const id = nid('asset');
       if (blob) idbPut(id, blob).catch(() => {});
-      next[index] = { ...prev, id, name: it.name, url: it.url, kind: it.kind, origin, visible: true, crop: undefined };
+      next[index] = { ...prev, id, name: it.name, url: it.url, kind: it.kind, origin, visible: true, crop: undefined, videoStart: it.videoStart };
       const tracks = s.tracks.map((track) => ({ ...track, assetIds: track.assetIds.map((assetId) => assetId === prev.id ? id : assetId) }));
       return { assets: next, ...projectActive(tracks, s.activeTrackId) };
     });
@@ -541,6 +548,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         origin: 'demo' as const,
       })),
     }));
+  },
+  setAssetVideoStart: (id, start) => {
+    if (Number.isFinite(start)) set(s => ({ assets: s.assets.map(asset => asset.id === id ? { ...asset, videoStart: Math.max(0, start) } : asset) }));
   },
   setAssetCrop: (id, crop) =>
     set((s) => ({ assets: s.assets.map((a) => (a.id === id ? { ...a, crop } : a)) })),

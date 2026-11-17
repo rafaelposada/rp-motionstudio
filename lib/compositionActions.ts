@@ -1,12 +1,14 @@
 // RP MotionStudio edition: modifications by Rafael Posada (2026). See NOTICE.
 import { useSceneStore, sceneRestoreRevision } from '@/store/useSceneStore';
 import { useUIStore } from '@/store/useUIStore';
-import { compositionOrder } from './composition';
+import { compositionOrder, expandLayerGroups } from './composition';
 import { confirmLayer } from './confirmLayer';
 import { useHistoryStore } from '@/store/useHistoryStore';
 import { defaultsFor } from '@/templates';
 import { DEFAULT_TRACK_TRANSFORM, trackWindow } from './tracks';
 import { tx, txf } from '@/lib/tx';
+import type { MotionTrack } from './tracks';
+import type { ActiveEffect } from '@/store/useSceneStore';
 
 export function selectModelForEditing(id: string, additive = false, preserve = false, origin: 'canvas' | 'layers' | 'timeline' | 'inspector' = 'inspector') {
   const s = useSceneStore.getState(), track = s.tracks.find(t => t.id === id); if (!track) return;
@@ -17,21 +19,38 @@ export function selectModelForEditing(id: string, additive = false, preserve = f
   if (s.frame < window.inFrame || s.frame >= window.outFrame) s.setFrame(window.inFrame + Math.min(1, window.length - 1));
 }
 
+export function groupCompositionLayers(ids: string[], ungroup = false) {
+  const { tracks, textLayers } = useSceneStore.getState();
+  const layers = [...tracks, ...textLayers];
+  const selected = new Set(expandLayerGroups(layers, ids));
+  const members = layers.filter(layer => selected.has(layer.id));
+  if (ungroup ? !members.some(layer => layer.groupId) : members.length < 2 || members.every(layer => layer.groupId && layer.groupId === members[0].groupId)) return;
+  const groupId = ungroup ? undefined : crypto.randomUUID();
+  const update = <T extends { id: string; groupId?: string }>(layer: T): T => selected.has(layer.id) ? { ...layer, groupId } : layer;
+  const history = useHistoryStore.getState();
+  history.beginGesture();
+  useSceneStore.setState({ tracks: tracks.map(update), textLayers: textLayers.map(update) });
+  history.endGesture();
+}
+
 export function reorderCompositionLayer(id: string, overId: string, ids?: string[]) {
   const s = useSceneStore.getState(), order = compositionOrder(s.tracks, s.textLayers);
   const selection = ids ?? selectedCompositionIds(id);
+  if (expandLayerGroups([...s.tracks, ...s.textLayers], [overId]).some(target => selection.includes(target))) return;
+  const targets = expandLayerGroups([...s.tracks, ...s.textLayers], [overId]);
+  const forward = order.findIndex(l => l.id === id) < order.findIndex(l => l.id === overId);
+  const boundary = (forward ? order.findLast(l => targets.includes(l.id)) : order.find(l => targets.includes(l.id)))?.id ?? overId;
   if (selection.length > 1) {
     if (selection.includes(overId)) return;
     const moved = order.filter(l => selection.includes(l.id)), rest = order.filter(l => !selection.includes(l.id));
-    const target = rest.findIndex(l => l.id === overId); if (target < 0 || !moved.length) return;
-    const forward = order.findIndex(l => l.id === id) < order.findIndex(l => l.id === overId);
+    const target = rest.findIndex(l => l.id === boundary); if (target < 0 || !moved.length) return;
     rest.splice(target + (forward ? 1 : 0), 0, ...moved);
     const z = new Map(rest.map((l, i) => [l.id, i]));
     useHistoryStore.getState().beginGesture();
     useSceneStore.setState({ tracks: s.tracks.map(l => ({ ...l, z: z.get(l.id) })), textLayers: s.textLayers.map(l => ({ ...l, z: z.get(l.id) })) });
     useHistoryStore.getState().endGesture(); return;
   }
-  const from = order.findIndex(l => l.id === id), to = order.findIndex(l => l.id === overId);
+  const from = order.findIndex(l => l.id === id), to = order.findIndex(l => l.id === boundary);
   if (from < 0 || to < 0 || from === to) return;
   const [moved] = order.splice(from, 1); order.splice(to, 0, moved);
   const z = new Map(order.map((l, i) => [l.id, i]));
@@ -41,25 +60,7 @@ export function reorderCompositionLayer(id: string, overId: string, ids?: string
 }
 
 export function duplicateCompositionLayer(id: string, offset = 24, record = true): string | null {
-  const s = useSceneStore.getState(), overlay = s.textLayers.find(l => l.id === id), track = s.tracks.find(l => l.id === id);
-  if (!overlay && !track || overlay?.locked) return null;
-  const copyId = `copy_${crypto.randomUUID()}`, pt = useUIStore.getState().locale === 'pt';
-  const order = compositionOrder(s.tracks, s.textLayers), index = order.findIndex(l => l.id === id);
-  order.splice(index + 1, 0, { id: copyId, kind: overlay ? 'overlay' : 'motion', z: 0 });
-  const z = new Map(order.map((l, i) => [l.id, i]));
-  if (record) useHistoryStore.getState().beginGesture();
-  if (overlay) {
-    const copy = { ...structuredClone(overlay), id: copyId, x: overlay.x + offset, y: overlay.y + offset, z: z.get(copyId) };
-    useSceneStore.setState({ tracks: s.tracks.map(l => ({ ...l, z: z.get(l.id) })), textLayers: [...s.textLayers.map(l => ({ ...l, z: z.get(l.id) })), copy] });
-    useUIStore.getState().selectText(copyId);
-  } else {
-    const copy = { ...structuredClone(track!), id: copyId, name: `${track!.name} ${tx(pt, 'cópia', 'copy')}`, visible: true, transform: { ...track!.transform, x: track!.transform.x + offset, y: track!.transform.y + offset }, z: z.get(copyId) };
-    useSceneStore.setState({ tracks: [...s.tracks.map(l => ({ ...l, z: z.get(l.id) })), copy], activeTrackId: copyId, activeTemplateId: copy.templateId, values: copy.values, easing: copy.easing, compositeMode: 'stack' });
-    useUIStore.getState().selectMotion(copyId);
-  }
-  s.setPlaying(false);
-  if (record) useHistoryStore.getState().endGesture();
-  return copyId;
+  return duplicateCompositionLayers([id], offset, record).at(-1) ?? null;
 }
 
 export function recoverModel(id: string) {
@@ -77,14 +78,19 @@ export function selectOverlayForEditing(id: string, additive = false, preserve =
 }
 export function moveCompositionLayer(id: string, delta: number) {
   const s = useSceneStore.getState(), order = compositionOrder(s.tracks, s.textLayers);
-  const index = order.findIndex((l) => l.id === id), target = index + delta;
-  if (index < 0 || target < 0 || target >= order.length) return;
-  reorderCompositionLayer(id, order[target].id);
+  const selection = selectedCompositionIds(id);
+  const index = order.findIndex(layer => layer.id === id);
+  if (index < 0 || !delta) return;
+  for (let target = index + delta; target >= 0 && target < order.length; target += delta) {
+    if (selection.includes(order[target].id)) continue;
+    reorderCompositionLayer(id, order[target].id, selection);
+    return;
+  }
 }
 export function arrangeCompositionLayers(ids: string[], destination: 'front' | 'back') {
   const s=useSceneStore.getState(), order=compositionOrder(s.tracks,s.textLayers);
   const locked=new Set(s.textLayers.filter(layer=>layer.locked).map(layer=>layer.id));
-  const selected=new Set(ids.filter(id=>!locked.has(id)));
+  const selected=new Set(expandLayerGroups([...s.tracks, ...s.textLayers], ids).filter(id=>!locked.has(id)));
   const moved=order.filter(layer=>selected.has(layer.id)),rest=order.filter(layer=>!selected.has(layer.id));
   if(!moved.length)return;
   const next=destination==='front'?[...rest,...moved]:[...moved,...rest];
@@ -100,24 +106,77 @@ export async function deleteCompositionLayer(id: string) {
 
 export function selectedCompositionIds(id?: string): string[] {
   const ui = useUIStore.getState();
-  return id && !ui.selectedLayerIds.includes(id) ? [id] : ui.selectedLayerIds.length ? ui.selectedLayerIds : id ? [id] : [];
+  const { tracks, textLayers } = useSceneStore.getState();
+  return expandLayerGroups([...tracks, ...textLayers], id && !ui.selectedLayerIds.includes(id) ? [id] : ui.selectedLayerIds);
 }
 
 export function duplicateCompositionLayers(ids: string[], offset = 24, record = true): string[] {
-  const s = useSceneStore.getState(), ordered = compositionOrder(s.tracks, s.textLayers).filter(l => ids.includes(l.id));
-  if (record) useHistoryStore.getState().beginGesture();
-  const copies = ordered.map(l => duplicateCompositionLayer(l.id, offset, false)).filter((id): id is string => !!id);
-  if (copies.length) {
-    const last = copies.at(-1)!;
-    useUIStore.getState().setLayerSelection(copies, last, useSceneStore.getState().tracks.some(t => t.id === last) ? 'motion' : 'overlay');
+  const scene = useSceneStore.getState(), layers = [...scene.tracks, ...scene.textLayers];
+  const ui = useUIStore.getState();
+  const selected = new Set(record ? expandLayerGroups(layers, ids) : ids);
+  const order = compositionOrder(scene.tracks, scene.textLayers);
+  const byId = new Map(layers.map(layer => [layer.id, layer]));
+  const originals = order.flatMap(item => {
+    const layer = byId.get(item.id)!;
+    return selected.has(layer.id) && (!('locked' in layer && layer.locked) || layer.groupId) ? [layer] : [];
+  });
+  if (!originals.length) return [];
+
+  const newIds = new Map(originals.map(layer => [layer.id, `copy_${crypto.randomUUID()}`]));
+  const groupIds = new Map<string, string>(), effectIds = new Map<string, string>();
+  const newGroup = (id: string | undefined) => {
+    if (!id) return undefined;
+    if (!groupIds.has(id)) groupIds.set(id, crypto.randomUUID());
+    return groupIds.get(id);
+  };
+  const newEffects = (effects: ActiveEffect[] | undefined) => effects?.map(effect => {
+    if (!effectIds.has(effect.instanceId)) effectIds.set(effect.instanceId, crypto.randomUUID());
+    return { ...effect, instanceId: effectIds.get(effect.instanceId)! };
+  });
+  const copyIds = [...newIds.values()], orderedIds = order.map(item => item.id);
+  const top = orderedIds.lastIndexOf(originals.at(-1)!.id);
+  orderedIds.splice(top + 1, 0, ...copyIds);
+  const stacking = new Map(orderedIds.map((id, z) => [id, z]));
+  const tracks: MotionTrack[] = scene.tracks.map(track => ({ ...track, z: stacking.get(track.id) }));
+  const textLayers = scene.textLayers.map(layer => ({ ...layer, z: stacking.get(layer.id) }));
+  let model: MotionTrack | undefined;
+  for (const original of originals) {
+    const id = newIds.get(original.id)!;
+    const layer = structuredClone(original);
+    const groupId = newGroup(layer.groupId), effects = newEffects(layer.effects);
+    const z = stacking.get(id);
+    if ('templateId' in layer) {
+      const transform = { ...layer.transform, x: layer.transform.x + offset, y: layer.transform.y + offset };
+      const name = `${layer.name} ${tx(ui.locale === 'pt', 'cópia', 'copy')}`;
+      model = { ...layer, id, z, name, groupId, effects, transform, visible: layer.groupId ? layer.visible : true };
+      tracks.push(model);
+    } else {
+      const keyframes = layer.keyframes;
+      if (keyframes && offset) {
+        for (const axis of ['x', 'y'] as const) {
+          const keys = keyframes[axis];
+          if (keys) keyframes[axis] = keys.map(key => ({ ...key, v: key.v + offset }));
+        }
+      }
+      const maskId = layer.maskId ? newIds.get(layer.maskId) ?? layer.maskId : undefined;
+      textLayers.push({ ...layer, id, z, groupId, effects, maskId, x: layer.x + offset, y: layer.y + offset });
+    }
   }
-  if (record) useHistoryStore.getState().endGesture();
-  return copies;
+  const history = useHistoryStore.getState();
+  if (record) history.beginGesture();
+  useSceneStore.setState({
+    tracks, textLayers, playing: false,
+    ...(model ? { activeTrackId: model.id, activeTemplateId: model.templateId, values: model.values, easing: model.easing, compositeMode: 'stack' as const } : {}),
+  });
+  const primary = copyIds.at(-1)!;
+  ui.setLayerSelection(copyIds, primary, tracks.some(track => track.id === primary) ? 'motion' : 'overlay');
+  if (record) history.endGesture();
+  return copyIds;
 }
 
 export async function deleteCompositionLayers(ids: string[]) {
   const revision = sceneRestoreRevision(), s = useSceneStore.getState(), pt = useUIStore.getState().locale === 'pt';
-  const removable = ids.filter(id => s.tracks.some(l => l.id === id) || s.textLayers.some(l => l.id === id && !l.locked));
+  const removable = expandLayerGroups([...s.tracks, ...s.textLayers], ids).filter(id => s.tracks.some(l => l.id === id) || s.textLayers.some(l => l.id === id && !l.locked));
   if (!removable.length) return;
   const removesLastModel = s.tracks.length > 0 && s.tracks.every(t => removable.includes(t.id));
   const message = removable.length === 1 && removesLastModel
@@ -127,7 +186,7 @@ export async function deleteCompositionLayers(ids: string[]) {
   if (!await confirmLayer(message, pt) || revision !== sceneRestoreRevision()) return;
   const current = useSceneStore.getState();
   let tracks = current.tracks.filter(l => !removable.includes(l.id));
-  if (!tracks.length && current.tracks.length) tracks = [{ ...current.tracks[0], visible: false }];
+  if (!tracks.length && current.tracks.length) tracks = [{ ...current.tracks[0], visible: false, groupId: undefined }];
   const active = tracks.find(t => t.id === current.activeTrackId) ?? tracks[0];
   useHistoryStore.getState().beginGesture();
   useSceneStore.setState({ tracks, textLayers: current.textLayers.filter(l => !removable.includes(l.id)), ...(active ? { activeTrackId: active.id, activeTemplateId: active.templateId, values: active.values, easing: active.easing } : {}) });

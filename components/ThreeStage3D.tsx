@@ -10,6 +10,7 @@ import { findDevice } from '@/three3d/devices';
 import type { CameraRig } from '@/three3d/cameraRig';
 import { setRendererInstance } from '@/lib/rendererInstance';
 import type { IRenderer } from '@/lib/rendererTypes';
+import type { AsciiOptions } from '@/three3d/ascii';
 import ViewGizmo from './ViewGizmo';
 
 // 3D preview stage. Renders the active 3D effect into a canvas, then layers CSS
@@ -19,11 +20,7 @@ import ViewGizmo from './ViewGizmo';
 export default function ThreeStage3D({ effectId: forcedEffectId }: { effectId?: string } = {}) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const threeEngineRef = useRef<{
-    renderFrame: (frame: number) => void;
-    setCaptureScale: (k: number) => void;
-    captureFrame: (frame: number) => string;
-  } | null>(null);
+  const threeEngineRef = useRef<Parameters<NonNullable<AsciiOptions['onRenderer']>>[0]>(null);
   const storeEffectId = use3DStore((s) => s.effectId);
   // Mockup mode forces 'mockup' regardless of the 3D-effects picker's own
   // choice, so switching between the "3D" and "Mockup" nav tabs never fights
@@ -108,6 +105,9 @@ export default function ThreeStage3D({ effectId: forcedEffectId }: { effectId?: 
           threeEngineRef.current.setCaptureScale(k);
         }
       },
+      beginVideoExport: async () => { await threeEngineRef.current?.beginVideoExport?.(); },
+      seekVideos: async (frame) => { await threeEngineRef.current?.seekVideos?.(frame); },
+      endVideoExport: () => { threeEngineRef.current?.endVideoExport?.(); },
       extractCanvas: () => canvasRef.current!,
       syncAssets: () => {},
       destroy: () => {},

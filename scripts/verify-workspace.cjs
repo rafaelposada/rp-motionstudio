@@ -7,7 +7,8 @@ const { useUIStore } = require('../store/useUIStore');
 const { useSceneStore } = require('../store/useSceneStore');
 const { useHistoryStore } = require('../store/useHistoryStore');
 const { compositionOrder } = require('../lib/composition');
-const { arrangeCompositionLayers, duplicateCompositionLayers, reorderCompositionLayer, selectModelForEditing, deleteCompositionLayers } = require('../lib/compositionActions');
+const { editSelectedOverlays, selectedEffectLayers } = require('../lib/compositionEditing');
+const { arrangeCompositionLayers, duplicateCompositionLayers, reorderCompositionLayer, selectModelForEditing, deleteCompositionLayers, groupCompositionLayers } = require('../lib/compositionActions');
 const {compositionArrangeShortcut}=require('../lib/compositionShortcuts');
 const { groupFrame, transformGroupMember } = require('../lib/groupTransform');
 const { FIT_VIEW, zoomPreview, panPreview } = require('../lib/previewNavigation');
@@ -16,7 +17,7 @@ const { placeholderFill } = require('../lib/placeholderPalette');
 const { confirmLayer } = require('../lib/confirmLayer');
 const { captureTimelineSelection, moveTimelineSelection, restoreTimelineSelection } = require('../lib/timelineSelection');
 const { createProject, readProjectScene } = require('../lib/projects');
-const { startSceneAutosave, setAutosaveTarget, getSaveState, flushScene } = require('../lib/scenePersist');
+const { startSceneAutosave, setAutosaveTarget, getSaveState, flushScene, buildScenePartial } = require('../lib/scenePersist');
 
 const data = new Map(), win = new EventTarget(), doc = new EventTarget();
 let systemDark = true, focused = null;
@@ -102,6 +103,28 @@ async function main() {
   const confirm = confirmLayer('Fixture', true); assert.equal(focused.textContent, 'Confirmar'); focused.onclick(); assert.equal(await confirm, true);
   const staleDelete = deleteCompositionLayers([a.id]); scene.resetScene(); focused.onclick(); await staleDelete; assert.equal(useSceneStore.getState().textLayers.length, 0, 'Confirmation from an old project cannot remove a new scene layer');
   stop(); history.reset();
+
+  scene.resetScene();
+  const first = scene.addTextLayer({ text: 'First' });
+  const second = scene.addTextLayer({ text: 'Second', maskId: first });
+  const shape = scene.addTextLayer({ shape: { kind: 'rect', width: 80, height: 40 } });
+  groupCompositionLayers([first, second, shape]);
+  assert.ok(useSceneStore.getState().textLayers[0].groupId);
+  ui.selectLayer(second, 'overlay');
+  assert.deepEqual(new Set(useUIStore.getState().selectedLayerIds), new Set([first, second, shape]));
+  editSelectedOverlays(second, () => ({ size: 84 }));
+  assert.deepEqual(useSceneStore.getState().textLayers.map(layer => layer.size), [84, 84, 72]);
+  assert.deepEqual(selectedEffectLayers(useSceneStore.getState(), [first, second, shape], second).map(l => l.id), [second, first]);
+  const groupCopies = duplicateCompositionLayers([second]);
+  assert.equal(groupCopies.length, 3);
+  const saved = buildScenePartial(useSceneStore.getState());
+  scene.hydrate(saved);
+  const [copyA, copyB, copyShape] = useSceneStore.getState().textLayers.filter(l => groupCopies.includes(l.id));
+  assert.notEqual(copyA.groupId, saved.textLayers[0].groupId);
+  assert.equal(copyShape.groupId, copyA.groupId);
+  assert.equal(copyB.maskId, copyA.id);
+  groupCompositionLayers([copyShape.id], true);
+  assert.ok(useSceneStore.getState().textLayers.filter(l => groupCopies.includes(l.id)).every(l => !l.groupId));
 
   scene.resetScene(); scene.addTextLayer(); const timed = useSceneStore.getState();
   const text = timed.textLayers[0], motion = timed.tracks[0];
